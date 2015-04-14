@@ -1,0 +1,363 @@
+#!/usr/bin/env python
+#
+#
+# Copyright (c) 2009-2011 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com)
+#
+#
+# Verifier executable.
+#
+
+import sys, compiler, crn_parser, dom_parser, random, os, Enumerator, crn_bisimulation_equivalence, crn_pathway_equivalence, string, copy
+
+def find(l, key):
+    for i in range(len(l)):
+        if l[i] == key:
+            return i
+    return None
+
+def rotate(complex):
+    def hardcopyList(l):
+        if type(l) != list:
+            return l
+        return map(hardcopyList, l)
+
+    complex = hardcopyList(complex)
+
+    if "+" not in complex[0]:
+        return complex        
+    else:
+        p = find(complex[0], "+")
+        dom = complex[0][p + 1:] + ["+"] + complex[0][:p]
+
+        # change parentheses appropriately
+        dpr = complex[1]
+        stack = []
+        for i in range(p):
+            if dpr[i] == "(": stack.append(i)
+            elif dpr[i] == ")": stack.pop()
+        for i in stack:
+            dpr[i] = ")"
+        stack = []
+        for i in reversed(range(p + 1, len(dpr))):
+            if dpr[i] == ")": stack.append(i)
+            elif dpr[i] == "(": stack.pop()
+        for i in stack:
+            dpr[i] = "("
+        
+        dpr = dpr[p + 1:] + ["+"] + dpr[:p]
+        return [dom, dpr]
+
+def patternMatch(x, y):
+    if "+" in x[0]:
+        if "+" not in y[0]:
+            return False
+        px = find(x[0], "+")
+        py = find(y[0], "+")
+        return patternMatch([x[0][:px], x[1][:px]],
+                            [y[0][:py], y[1][:py]]) and \
+               patternMatch([x[0][px + 1:], x[1][px + 1:]],
+                            [y[0][py + 1:], y[1][py + 1:]])
+
+    if len(x[0]) == 0:
+        if len(y[0]) > 0:
+            return False
+        else:
+            return True
+
+    if x[0][0] != "?":
+        if len(y[0]) == 0 or x[0][0] != y[0][0] or x[1][0] != y[1][0]:
+            return False
+        else:
+            return patternMatch([x[0][1:], x[1][1:]],
+                                [y[0][1:], y[1][1:]])
+    else:
+        for i in range(len(y) + 1):
+            if patternMatch([x[0][1:], x[1][1:]],
+                            [y[0][i:], y[1][i:]]):
+                return True
+        return False
+
+def removeFuels(crn, fuel):
+    crn = [[filter(lambda s: s not in fuel, rxn[0]),
+            filter(lambda s: s not in fuel, rxn[1])]
+           for rxn in crn]
+    return crn
+
+def remove_duplicates(l):
+    r = []
+    if len(l) == 0: return []
+    l.sort()
+    while len(l) > 1:
+        if l[0] != l[1]:
+            r.append(l[0])
+        l = l[1:]
+    r.append(l[0])
+    return r
+
+def test(crnfile, domfile, method, verbose = True, condense = True):
+    # Parse the crn
+    (old_crn, fs, cs_waste) = crn_parser.parse_file(crnfile)       # fs is the set of formal species
+    t = old_crn
+    old_crn = []
+    for [x, r, p] in t:
+        old_crn.append([r,p])
+        if x == "reversible":
+            old_crn.append([p,r])
+
+    # Parse the dom
+    tfile = "".join(random.sample(string.letters + string.digits, 8)) + "._tmp"
+    dom = dom_parser.parse(domfile)
+
+    # Generate an input file for state enumerator
+    F = open(tfile, "w")
+    if len(dom) == 2:   # there is sequence information
+        complexes = dom[1]
+        for i in dom[0]:
+            print >> F, "sequence", i[0], ":", i[1]
+    else:
+        complexes = dom[0]
+
+    # constant species
+    cs = map(lambda x: x[0], complexes)
+    cs = filter(lambda x: x not in fs, cs)
+
+    for i in complexes:
+        print >> F, i[0], ":"
+        for j in i[1]:
+            if j == "?": continue
+            if type(j) == list:
+                if len(j) == 2:
+                    j = j[0] + j[1]
+                else:
+                    j = j[0]
+            print >> F, j,
+        print >> F
+        for j in i[2]:
+            if j == "?": continue
+            print >> F, j,
+        print >> F
+    F.close()
+
+    #
+    # call state enumerator
+    #
+    enumerator = Enumerator.Enumerator()
+    enumerator.MAX_COMPLEX_COUNT = 10000
+    enumerator.MAX_REACTION_COUNT = 10000
+    enumerator.parse_input_file(tfile)
+    (slow_complexes, fast_complexes, reactions) = enumerator.find_reactions()
+    # delete the temporary file
+    filelist = [ f for f in os.listdir(".") if f.endswith("._tmp") ]
+    for f in filelist:
+        os.remove(f)
+
+    # convert the output from state enumerator to cmpdna format
+    for k in range(len(slow_complexes)):
+        y = slow_complexes[k]
+        def conv_domain(x):
+            if x == 0:
+                return "+"
+            else:
+                if x < 0:
+                    return [enumerator.domain_list[-x].name, "*"]
+                else:
+                    return [enumerator.domain_list[x].name]
+        y = [y.name, y.domains, y.structure]
+        y[1] = map(conv_domain, y[1])
+        for i in range(0,len(y[2])):
+            if y[2][i] == -1:
+                y[2][i] = "."
+            elif y[2][i] == -2:
+                y[2][i] = "+"
+            elif y[2][i] < i:
+                y[2][i] = ")"
+            elif y[2][i] > i:
+                y[2][i] = "("
+            else:
+                raise Exception("verify: Error in structure, bad domain pair")
+        slow_complexes[k] = y
+
+    #
+    # perform wildcard pattern matching
+    #
+
+    wildcardMatch = {}
+
+    collapsed = set()
+    for x in complexes:
+        for y in slow_complexes:
+            if x[0] == y[0]: continue
+            original = x[1:]
+            target = y[1:]
+            pos = 0
+            startpos = 0
+            while startpos < len(target[0]):
+                if pos - startpos == len(original[0]):
+                    for i in range(startpos, pos):
+                        if original[0][i-startpos] == "?":
+                            del target[0][i]
+                            del target[1][i]
+                            collapsed.add(y[0])
+                    while startpos < len(target[0]) and "+" != target[0][startpos]:
+                        startpos += 1
+                    startpos += 1
+                    pos = startpos
+                elif pos == len(target[0]):
+                    while startpos < len(target[0]) and "+" != target[0][startpos]:
+                        startpos += 1
+                    startpos += 1
+                    pos = startpos
+                elif target[0][pos] == original[0][pos - startpos] or (original[0][pos-startpos] == "?" and target[1][pos] == "."):
+                    pos += 1
+                else:
+                    while startpos < len(target[0]) and "+" != target[0][startpos]:
+                        startpos += 1
+                    startpos += 1
+                    pos = startpos
+    for i in range(len(slow_complexes)):
+        for j in range(len(slow_complexes)):
+            if i == j: continue
+            x = slow_complexes[i][1:]
+            y = slow_complexes[j][1:]
+            p = rotate(x)
+            while True:
+                if p == y:
+                    if slow_complexes[i][0] in collapsed and slow_complexes[j][0] not in collapsed:
+                        wildcardMatch[slow_complexes[i][0]] = slow_complexes[j][0]
+                        #print slow_complexes[i], "to", slow_complexes[j]
+                if p == x:
+                    break
+                p = rotate(p)
+
+    new_crn = []
+    # the following routine renames species that are pattern-matched.
+    # OK. this is very ad-hoc and hopefully will be
+    # re-written at one point.
+    inter = {} # initial interpretation for bisimulation
+    for x in fs: inter[x] = [x]
+    fsp = fs[:] # formal species list for pathway decomposition
+    for (reactants, products, rxntype) in reactions:
+        def get_name(x):
+            x = x.name
+            if x in wildcardMatch.keys() and wildcardMatch[x] in fs:
+                y = wildcardMatch[x]
+                wildcardMatch[y+"_"+x] = y # this update is for later
+                x = y + "_" + x
+                if x not in fsp:
+                    fsp.append(x)
+                if x not in inter.keys():
+                    inter[x] = [y]
+            return x
+        reactants = map(get_name, reactants)
+        products = map(get_name, products)
+        new_crn.append([reactants, products])
+
+    slow_complexes = [s[0] for s in slow_complexes]
+    fast_complexes = [s.name for s in fast_complexes]
+
+    # don't know why, maybe a bug in brian's enumerator
+    # but sometimes slow_comp and fast_comp are not disjoint
+    fast_complexes = filter(lambda x: x not in slow_complexes, fast_complexes)
+
+    if condense:
+        # reduction to resting states semantics
+        for x in fast_complexes:
+            visitedStates = []
+            endStates = []
+            def cartesian_product(l):
+                if len(l) == 0:
+                    return []
+                if len(l) == 1:
+                    return l[0]
+                r = []
+                for i in l[0]:
+                    for j in l[1]:
+                        r.append(i+j)
+                return cartesian_product([r]+l[2:])
+            def getEndStates(S):
+                if S in visitedStates:
+                    return
+                visitedStates.append(S)
+                for x in fast_complexes:
+                    if x in S:
+                        T = S[:]
+                        T.remove(x)
+                        for rxn in new_crn:
+                            if rxn[0] == [x]:
+                                getEndStates(T + rxn[1])
+                        return
+                endStates.append(S)
+            getEndStates([x])
+            t = map(sorted, endStates)
+            # remove the reactions triggered by x
+            # since x is a fast species, it is not involved in bimolecular reactions
+            # so this step is justified.
+            new_crn = filter(lambda rxn: x not in rxn[0], new_crn)
+            relevant_reactions = filter(lambda rxn: x in rxn[1], new_crn)
+            # remove the reactions that produce x
+            new_crn = filter(lambda rxn: x not in rxn[1], new_crn)
+            for rxn in relevant_reactions:
+                z = []
+                while x in rxn[1]:
+                    rxn[1].remove(x)
+                    z.append(t)
+                z = map(lambda y: rxn[1] + list(y), list(cartesian_product(z)))
+                for p in z:
+                    new_rxn = [rxn[0][:], p]
+                    new_rxn = map(sorted, new_rxn)
+                    if new_rxn[0]!=new_rxn[1] and new_rxn not in new_crn:
+                        new_crn.append(new_rxn)
+
+    # preprocess fuel
+    new_crn = removeFuels(new_crn, cs)
+    new_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], new_crn))
+    new_crn = remove_duplicates(new_crn)
+
+    # fs = formal species; cs = fuels or constant species
+    if method == "--bisimulation":
+        return crn_bisimulation_equivalence.test((old_crn, fs), (new_crn, fs), verbose)#, inter)
+    elif method == "--pathway":
+        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), verbose, inter)
+
+
+if __name__ == "__main__":
+    # The name of the program
+    program_name = "verify"
+
+    # Help message
+    if "--help" in sys.argv:
+        print "Usage: " + program_name + " TSFILE CRNFILE [OPTION]"
+        print "Compile CRNFILE to DNA molecules using the translation scheme",
+        print "from TSFILE and verify the result."
+        print
+        print "  --pathway      Use the pathway equivalence notion [default]."
+        print "  --bisimulation Use the bisimulation equivalence notion."
+        print "  --help         Output this help."
+        print
+        print "Report bugs to <seungwoo.theory@gmail.com>."
+        exit()
+
+    # Did I get a sufficient number of arguments?
+    if len(sys.argv) < 3: # expects at least two arguments
+        print program_name + ": missing operand after `" + program_name + "'"
+        print program_name + ": try `" + program_name + " --help' for more information."
+        exit()
+
+    # Get the arguments.
+    ts_file = sys.argv[1]
+    crn_file = sys.argv[2]
+    if len(sys.argv) < 4: method = "--pathway" 
+    else: method = sys.argv[3]
+
+    # Add the correct extensions if necessary.
+    if len(ts_file) < 3 or ts_file[-3:] != ".ts": ts_file += ".ts"
+    if len(crn_file) < 4 or crn_file[-4:] != ".crn": crn_file += ".crn"
+
+    compiler.compile(ts_file, crn_file)
+    v = test(crn_file, crn_file[:-4] + ".dom", method)
+
+    if v:
+        print "verify: compilation was correct."
+    else:
+        print "verify: compilation was incorrect."

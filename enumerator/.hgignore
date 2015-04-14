@@ -1,0 +1,19 @@
+syntax: glob
+
+.DS_Store
+.project
+.pydevproject
+.coverage
+./cover/
+./notes/
+cprofile
+./test_files/test_output/
+./test_files/expected_output/
+docs/_build/
+./tmp-run.pil
+./tmp-run-enum.pil
+*.pyc
+*.pyo
+*.sublime-project
+*.sublime-workspace
+*~

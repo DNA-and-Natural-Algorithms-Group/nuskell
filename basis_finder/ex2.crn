@@ -1,0 +1,12 @@
+#
+# A + B -> C + D
+# Using David's scheme
+#   Non-confluent version
+#
+
+A -> i
+i + B -> j
+j -> C + k
+k -> D
+
+formal = {A, B, C, D}

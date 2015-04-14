@@ -1,0 +1,12 @@
+#
+# A + B -> C + D
+# Using Lulu's scheme
+#   Irreversible version
+#
+
+A <=> i
+i + B <=> j
+j <=> C + k
+k -> D
+
+formal = {A, B, C, D}

@@ -1,0 +1,10 @@
+#
+# A + B + C -> D
+#
+
+A <=> i
+i + B <=> j
+j + C -> k
+k -> D
+
+formal = {A, B, C, D}

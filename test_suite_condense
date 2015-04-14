@@ -1,0 +1,69 @@
+#!/bin/bash
+# test_suite <timeout>
+#
+# Runs ./verify on all pairs of CRNs in ./crn/ and translation schemes in ./ts/, allowing up to <timeout> seconds, 
+# using both pathway decomposition equivalence and bisimulation equivalence criteria.
+# The results are output as a list of tuples (scheme crn time result qualifier)
+# where result = timeout | correct | incorrect
+# and qualifier = delimiting-missing | delimiting-extra | permissive-failed | permissive-limited | not-regular | not-confluent | extra-reaction | missing-reaction | different-reactions
+
+echo -n "" > test_suite_output
+
+for schemefile in ts/*.ts
+do
+  #if [ "${schemefile}" == "ts/qian_bug.ts" ]
+  if [ "${schemefile}" != "ts/test.ts" ]
+  then
+    for crnfile in crn/*.crn
+    do
+      for method in pathway bisimulation
+      do
+	 # compute!
+         echo /usr/bin/time ./timeout $1 ./verify_condense $schemefile $crnfile --$method
+         # (/usr/bin/time timeout $1 ./verify $schemefile $crnfile --$method 2>&1) | tee test_suite_tmpfile
+         (/usr/bin/time ./timeout $1 ./verify_condense $schemefile $crnfile --$method 2>&1) > test_suite_tmpfile
+
+	 # get the time it took
+         tail -1 test_suite_tmpfile > test_suite_scratch
+	 timeinfo=$(<test_suite_scratch); times=( $timeinfo ); time=${times[2]}
+         #echo THE TIME INFO IS [ $timeinfo ] AND THE USER TIME IS [ $time ]
+
+	 # get result
+         if grep timeout test_suite_tmpfile; then result="timeout"
+         else if grep incorrect test_suite_tmpfile; then result="incorrect"
+         else if grep correct test_suite_tmpfile; then result="correct"
+         else result="resultless"
+         fi; fi; fi
+         #echo RESULT IS [ $result ] 
+
+         # get qualifier
+         qualifier="unqualified"
+         if grep "not regular" test_suite_tmpfile; then qualifier="not-regular"
+         else if grep "not tidy" test_suite_tmpfile; then qualifier="not-tidy"
+         else
+           if grep "is in the input CRN but not in the compiled CRN" test_suite_tmpfile; then
+              if grep "is in the compiled CRN but not in the input CRN" test_suite_tmpfile; then qualifier="different-reactions"
+              else qualifier="missing-reaction"; fi
+           else if grep "is in the compiled CRN but not in the input CRN" test_suite_tmpfile; then qualifier="extra-reactions"; fi
+         fi; fi; fi
+
+         if grep "Delimiting condition cannot be satisfied" test_suite_tmpfile; then
+            if grep "implementation reaction not in formal" test_suite_tmpfile; then qualifier="delimiting-extra"; fi
+            if grep "formal reaction not implemented" test_suite_tmpfile; then qualifier="delimiting-missing"; fi
+         fi
+         if grep "Fail in permissive test" test_suite_tmpfile; then 
+            if grep "max trivial reaction chain length" test_suite_tmpfile; then qualifier="permissive-limited"
+            else qualifier="permissive-failed"; fi
+         fi
+         if grep "Invalid history" test_suite_tmpfile; then qualifier="history-domain"; fi
+         #echo AND QUALIFIER IS [ $qualifier ]
+
+         echo Verified $schemefile on $crnfile by $method equivalence in $time seconds: $result $qualifier
+         echo Verified $schemefile on $crnfile by $method equivalence in $time seconds: $result $qualifier >> test_suite_output
+      done
+    done
+  fi
+done
+
+rm test_suite_scratch
+rm test_suite_tmpfile

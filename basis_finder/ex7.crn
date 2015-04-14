@@ -1,0 +1,7 @@
+i -> j + k
+k + l -> i
+A -> i
+j ->
+k ->
+
+formal = {A}

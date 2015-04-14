@@ -1,0 +1,20 @@
+#
+# Oscillator
+#
+
+X <=> x1
+x1 + Y -> x2
+x2 -> x3 + Y
+x3 -> Y
+
+Y <=> y1
+y1 + Z -> y2
+y2 -> y3 + Z
+y3 -> Z
+
+Z <=> z1
+z1 + X -> z2
+z2 -> z3 + X
+z3 -> X
+
+formal = {X, Y, Z}

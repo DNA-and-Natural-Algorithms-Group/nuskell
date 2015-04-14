@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+#
+#
+# Copyright (c) 2009-2011 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com)
+#
+#
+# The Nuskell executable.
+#
+
+import sys, compiler
+
+# The name of the program
+program_name = "nuskell"
+
+# Help message
+if "--help" in sys.argv:
+    print "Usage: nuskell TSFILE CRNFILE [OPTION]"
+    print "Compile CRNFILE to DNA molecules using the translation scheme",
+    print "from TSFILE."
+    print
+    print "  --help  Output this help."
+    print
+    print "Report bugs to <lagnared@gmail.com>."
+    exit()
+
+# Did I get a sufficient number of arguments?
+if len(sys.argv) < 3: # expects at least two arguments
+    print program_name + ": missing operand after `nuskell'"
+    print program_name + ": try `nuskell --help' for more information."
+    exit()
+
+# Get the arguments.
+ts_file = sys.argv[1]
+crn_file = sys.argv[2]
+
+# Add the correct extensions if necessary.
+if len(ts_file) < 3 or ts_file[-3:] != ".ts": ts_file += ".ts"
+if len(crn_file) < 4 or crn_file[-4:] != ".crn": crn_file += ".crn"
+
+compiler.compile(ts_file, crn_file)

@@ -1,0 +1,18 @@
+
+[pathway/bisimulation]  crn1  crn10  crn11  crn12  crn13  crn14  crn15  crn16  crn17  crn18   crn2   crn3   crn4   crn5   crn6   crn7   crn8   crn9 
+cardelli_2domain        C/T    R/R    R/R    R/R    T/T    C/T    R/R    R/R    C/T    T/T    C/T    T/T    C/T    R/R    T/T    R/R    R/R    R/R  
+cardelli_2domain_noGC   R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R    R/R  
+cardelli_SA             C/T    R/R    R/R    R/R    R/R    C/C    R/R    R/R    R/R    R/R    C/T    R/R    R/R    R/R    R/R    R/R    R/R    R/R  
+cardelli_SA_noGC        C/T    R/R    R/R    R/R    R/R    C/C    R/R    R/R    R/R    R/R    C/T    R/R    R/R    R/R    R/R    R/R    R/R    R/R  
+cardelli_fj             C/T    C/T    C/T    C/T    C/T    C/C    C/T    R/R    C/T    T/T    C/T    C/T    C/T    R/R    C/T    C/T    C/T    R/R  
+qian                    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/C  
+qian_bug                C/T    C/T    C/T    C/T    R/R    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/C  
+qian_fixedrev           C/T    C/T    C/T    C/T    C/T    C/C    C/T    C/T    C/T    C/T    C/T    T/T    C/T    T/T    T/T    C/T    C/T    C/C  
+qian_mastersthesis      C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    T/T    C/T    T/T    T/T    C/T    C/T    C/C  
+qian_rev                C/T    C/T    C/T    C/T    C/T    C/C    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/T    C/C  
+soloveichik             C/T    R/R    R/R    R/R    R/R    C/C    R/R    R/R    R/R    R/R    C/T    R/R    R/R    R/R    R/R    R/R    R/R    R/R  
+soloveichik_general     C/T    T/T    R/R    R/R    R/R    C/C    R/R    R/R    R/R    R/R    C/T    R/T    R/R    R/R    R/T    R/R    R/R    R/R  
+soloveichik_opt         C/T    T/T    R/R    R/R    R/R    C/C    R/R    R/R    R/R    T/T    C/T    R/R    R/R    R/R    R/R    R/R    R/R    R/R  
+
+C=correct, I=incorrect, T=timeout, R=resultless due to compiler crash, e.g. 0 args.  * indicates significant difference.
+

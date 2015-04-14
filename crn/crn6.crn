@@ -1,0 +1,6 @@
+A + B -> A + C
+B + A -> X + B + A
+X -> X + Y + X
+Y + B -> Y + X + A
+X ->
+X + A -> C

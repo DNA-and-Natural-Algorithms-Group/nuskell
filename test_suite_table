@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+#
+# load and display test_suite_output as a table
+
+# import string
+
+f = open('test_suite_output')
+data=f.readlines()
+
+schemes = []
+crns = []
+results = {}
+
+for entry in data:
+    words = entry.split()
+    scheme = words[1][3:-3]
+    crn = words[3][4:-4]
+    method = words[5]
+    cputime = float(words[8])
+    result = words[10]
+    qualifier = words[11]
+    schemes.append(scheme)
+    crns.append(crn)
+    results[scheme+':'+crn+':'+method] = result+'/'+qualifier
+
+f.close()
+
+schemeset = set(schemes)
+crnset = set(crns)
+
+schemelen = max(map(len,list(schemeset)))
+crnlen = max(map(len,list(crnset)))
+
+print
+print '[pathway/bisimulation]'.ljust(schemelen+1),
+for crn in sorted(list(crnset)):
+    print crn.rjust(crnlen)+' ',
+print
+
+for scheme in sorted(list(schemeset)):
+    print scheme.ljust(schemelen+1),
+    for crn in sorted(list(crnset)):
+        rp=results[scheme+':'+crn+':'+'pathway'] 
+        rb=results[scheme+':'+crn+':'+'bisimulation'] 
+        if sorted([rp[0],rb[0]])==['c','i']:
+            taggit = '*'
+        else:
+            taggit = ' '
+        print (' '+rp[0].capitalize()+'/'+rb[0].capitalize()+taggit).ljust(crnlen+1),
+    print
+print
+print 'C=correct, I=incorrect, T=timeout, R=resultless due to compiler crash, e.g. 0 args.  * indicates significant difference.'
+print
+

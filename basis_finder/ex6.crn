@@ -1,0 +1,8 @@
+#
+# Irregular scheme
+#
+
+A <=> i + B
+i -> C
+
+formal = {A, B, C}

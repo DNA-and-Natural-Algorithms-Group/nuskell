@@ -1,0 +1,6 @@
+A -> i + B
+i + B -> k
+k -> C
+i -> D
+
+formal = {A,B,C,D}

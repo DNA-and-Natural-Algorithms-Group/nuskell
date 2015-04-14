@@ -1,0 +1,155 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Karthik Sarma, Casey Grun, and Erik Winfree." />
+  <title>Domain-level Reaction Enumerator</title>
+  <style type="text/css">code{white-space: pre;}</style>
+</head>
+<body>
+<div id="header">
+<h1 class="title">Domain-level Reaction Enumerator</h1>
+<h2 class="author">Karthik Sarma, Casey Grun, and Erik Winfree.</h2>
+</div>
+<h2 id="overview">Overview</h2>
+<p>This package predicts the set of possible reactions between a set of initial nucleic acid complexes. Complexes are comprised of strands, which are subdivided into &quot;domains&quot;---contiguous regions of nucleotide bases which participate in Watson-Crick hybridization. The enumerator only considers reactions between complexes with complementary domains. At this point, only unpseudoknotted intermediate complexes are considered.</p>
+<p>This document describes basic usage of the software, automatic generation of API documentation, and running of unit tests. API documentation is found in the <code>docs</code> subdirectory.</p>
+<p>This package is written for Python 2.7; Python must be installed and in the user's <code>path</code> in order to run the program.</p>
+<h2 id="usage">Usage</h2>
+<pre><code>positional arguments:
+  input_filename        Path to the input file (same as --infile)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --infile INFILE       Path to the input file (same as listing the input
+                        filename after all arguments)
+  --outfile OUTPUT_FILENAME
+                        Path to the output file (default: use the input
+                        filename, + &#39;-enum&#39;, then add an extension based on
+                        the
+  -i INPUT_FORMAT       Parse the input file using this format; one of: enum,
+                        pil, json. (default: guess from the extension of
+                        --infile)
+  -o OUTPUT_FORMAT      Write the output file using this format; one or more
+                        (comma-separated) of :pil, crn, enjs, json, legacy,
+                        test, sbml, graph. (default: guess from the extension
+                        of --outfile)
+  -c                    Condense reactions into only resting complexes
+                        (default: False)
+  -r                    Compute reaction rates (default: True)
+  -d                    Dry run---read input, write output; do not enumerate
+                        any reactions. (default: False)
+  --max-complex-size MAX_COMPLEX_SIZE
+                        Maximum number of strands allowed in a complex (used
+                        to prevent polymerization) (default: 6)
+  --max-complex-count MAX_COMPLEX_COUNT
+                        Maximum number of complexes that may be enumerated
+                        before the enumerator halts. (default: 200)
+  --max-reaction-count MAX_REACTION_COUNT
+                        Maximum number of reactions that may be enumerated
+                        before the enumerator halts. (default: 1000)
+  --release-cutoff RELEASE_CUTOFF
+                        Maximum number of bases that will be released
+                        spontaneously in an `open` reaction. (default: 6)
+  --bfs-ish             When searching for bimolecular reactions, look to the
+                        oldest complexes first. (default: False)
+  --profile             Enable statistical profiling</code></pre>
+<h2 id="usage-examples">Usage Examples</h2>
+<p>Load the file <code>system.pil</code>, write results to <code>system-enum.pil</code>:</p>
+<pre><code>enumerator.py system.pil</code></pre>
+<p>Load the file <code>system.pil</code>, then generate <code>system-enum.crn</code>, <code>system-enum.pil</code>, and <code>system-enum.sbml</code>:</p>
+<pre><code>enumerator.py -o crn,pil,sbml system.pil</code></pre>
+<p>Load the file <code>system.pil</code>, then write the results to <code>output.sbml</code>:</p>
+<pre><code>enumerator.py system.pil --outfile output.sbml</code></pre>
+<h2 id="input-formats">Input formats</h2>
+<p>There are 2 input formats available, which may be specified using the <code>-i</code> option:</p>
+<ul>
+<li><em>Standard input format</em> (<code>.enum</code>) – This is a simple format that is specific to the enumerator. A simple example of the format is included below. The format has three types of statements:
+<ul>
+<li><code>domain</code> statements declare individual domains, as follows: <code>domain name : specification</code>, where:
+<ul>
+<li><code>name</code> is the name of the domain (e.g. <code>a</code>, <code>1</code>, <code>th</code>, etc.)</li>
+<li><code>specification</code> is either the length of the domain (e.g. a number of bases, or just <code>long</code> or <code>short</code>) or a sequence (e.g. <code>NNNNNNN</code> or <code>ATTACG</code> or even a mixture of specific and degenerate bases <code>AANATCY</code>)</li>
+</ul></li>
+<li><code>strand</code> statements group domains into strands, as follows: <code>strand name : domains</code>, where:
+<ul>
+<li><code>name</code> is the name of the strand</li>
+<li><code>domains</code> is a space-separated list of domains</li>
+</ul></li>
+<li><p><code>complex</code> statements group strands into complexes and assign them a secondary structure, as follows:</p>
+<pre><code>complex name :
+strands
+structure</code></pre>
+where:
+<ul>
+<li><code>name</code> is the name of the complex</li>
+<li><code>strands</code> is a space-separated list of strands</li>
+<li><code>structure</code> is a domain-wise description of the structure in dot-parenthesis notation</li>
+</ul></li>
+</ul></li>
+<li><em>Pepper Intermediate Language</em> (<code>.pil</code>) – PIL is a general-purpose format for describing domain-level secondary structures. The Pepper Intermediate Language (PIL) follows the basic constructions of the <a href="pepper">Pepper</a> language, but disallows some features (sequence constraints, components, etc.). Each PIL line should consist of a directive of one of the following forms:
+<ul>
+<li><code>sequence &lt;name&gt; = &lt;sequence&gt;</code> -- declare a new domain</li>
+<li><code>strand &lt;name&gt; = &lt;list of sequences and explicit constraints&gt;</code> -- declare a strand comprised of domains</li>
+<li><code>structure &lt;name&gt; = &lt;list of strands&gt; : &lt;secondary structure&gt;</code> -- declare a complex comprised of several strands</li>
+<li><code>kinetic &lt;input structures&gt; -&gt; &lt;output structures&gt;</code> -- declare a reaction between several structures</li>
+</ul></li>
+</ul>
+<p>Here is a simple example of the standard input format:</p>
+<pre><code># This file describes the catalytically generated 3 arm junction
+# described in Yin et. al. 2008
+
+domain a : 6
+domain b : 6
+domain c : 6
+domain x : 6
+domain y : 6
+domain z : 6
+
+strand I : y* b* x* a*
+strand A : a x b y z* c* y* b* x*
+strand B : b y c z x* a* z* c* y*
+strand C : c z a x y* b* x* a* z*
+
+complex I :
+I
+....
+
+complex A :
+A
+.(((..)))
+
+complex B :
+B
+.(((..)))
+
+complex C :
+C
+.(((..)))
+
+complex ABC :
+A B C
+((((((((. + ))))((((. + )))))))).</code></pre>
+<h2 id="output-formats">Output formats</h2>
+<p>There are 6 output formats available, which may be specified using the <code>-o</code> option:</p>
+<ul>
+<li>Graphical results (<code>json</code>/<code>enjs</code>) – produces a file which can be rendered into a graphical, interactive network by the DyNAMiC Workbench package and exported to SVG. This file is also a valid <a href="http://www.json.org/">JSON</a> file and may be suitable for consumption by other tools.</li>
+<li>Pepper Intermediate Language (<code>pil</code>) – produces a representation of the network, including reactions, in the <a href="pil">Pepper Intermediate Language</a></li>
+<li>Chemical Reaction Network (<code>crn</code>) – produces a list of simple reactions between chemical species</li>
+<li>Systems Biology Markup Language (<code>sbml</code>) – produces a representation using the Systems Biology Markup Language, an industry standard format for modeling biological and chemical networks. SBML can be consumed by a reaction simulator, such as <a href="http://www.copasi.org/">COPASI</a></li>
+<li>Legacy (<code>legacy</code>) – produces output in the format of Brian Wolfe's old enumerator</li>
+<li>Graph (<code>graph</code>) – produces an EPS file showing the reaction network, laid out using <a href="http://www.graphviz.org/">Graphviz</a></li>
+</ul>
+<h2 id="building-documentation">Building documentation</h2>
+<p>API Documentation is built from comments in the source using <a href="http://sphinx-doc.org/">Sphinx</a>; Sphinx must be installed. Then you can run:</p>
+<pre><code>make docs</code></pre>
+<p>from within the main directory to build HTML documentation; you can find this documentation at <code>docs/_build/html/index.html</code>. Additional output formats are available, and can be generated by moving to the <code>docs/</code> subdirectory and using <code>make</code>. Type <code>make</code> within the <code>docs/</code> subdirectory to show a list of available output formats. Once you've generated the documentation, it will be available in the folder <code>docs/_build/{format}</code>.</p>
+<p>This document, and the architecture documentation, are generated from <a href="http://daringfireball.net/projects/markdown/">Markdown</a> with <a href="http://johnmacfarlane.net/pandoc/">Pandoc</a> in PDF or HTML format; Pandoc must be installed; then you can use <code>make README.pdf</code> or <code>make README.html</code>, or similarly <code>make architecture.pdf</code> or <code>make architecture.html</code>.</p>
+<h2 id="running-unit-tests">Running unit tests</h2>
+<p>Unit tests for the project are written using <a href="https://nose.readthedocs.org/en/latest/">Nosetests</a>. Nosetests must be installed. Then you can run:</p>
+<pre><code>make tests</code></pre>
+<p>from within the main directory to run unit tests.</p>
+</body>
+</html>
