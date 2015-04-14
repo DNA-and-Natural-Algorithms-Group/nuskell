@@ -1,0 +1,32 @@
+sequence d1 : 15
+sequence d2 : 15
+sequence d3 : 15
+sequence a : 15
+sequence b : 15
+sequence c : 15
+sequence t : 15
+# Formal species
+G :
+d2 d3 + d3* a* + a* b* c b a d2* t*
+ (  ( + )   (  + .  (  . ) ) )   .
+T :
+t d2 d3
+. . .
+A :
+d2 d3 + d3* a*
+.  (  + )   .
+B :
+a* b* c b a d2* t* + t d2 d3
+(  (  . ) ) (   (  + ) )  .
+C :
+d2 d3
+. .
+D :
+a* b* c b a d2* t* + t d2 d3 + d3* a*
+(  (  . ) ) (   (  + ) )  (  + )   .
+X :
+t*
+.
+W :
+t d2 d3 + t*
+( .  .  + )
