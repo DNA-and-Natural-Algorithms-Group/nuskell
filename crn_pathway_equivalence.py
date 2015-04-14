@@ -1,10 +1,13 @@
 import time, basis_finder, string, crn_bisimulation_equivalence
 
-def printRxn(rxn):
+def printRxn(rxn, inter = {}):
     first = True
     for x in rxn[0]:
         if x[0] not in string.letters:
-            x = "i" + x
+            if x in inter.keys() and inter[x]==[]:
+                x = "w" + x
+            else:
+                x = "i" + x
         if not first:
             print "+",
         else:
@@ -14,7 +17,10 @@ def printRxn(rxn):
     first = True
     for x in rxn[1]:
         if x[0] not in string.letters:
-            x = "i" + x
+            if x in inter.keys() and inter[x]==[]:
+                x = "w" + x
+            else:
+                x = "i" + x
         if not first:
             print "+",
         else:
@@ -87,7 +93,7 @@ def test(c1, c2, verbose = True, inter = [[],[]]):
     print "formal species = ", fs2
     for rxn in crn2:
         print "   ",
-        printRxn(rxn)
+        printRxn(rxn, inter)
     print
 
     basis = basis_finder.find_basis(crn2, fs2, inter)
