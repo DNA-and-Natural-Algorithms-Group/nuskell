@@ -176,7 +176,7 @@ def width(p):
     return w
 
 def enumerate(p, w_max, i_max, crn, fs):
-    global ret, ccheck, ebasis, done, inter
+    global ret, ccheck, ebasis, done
     if done: return
     w_p = width(p)
     if w_p > w_max: return
@@ -241,10 +241,9 @@ def tidy(S, crn, fs):
                     queue.append(nS)
     return False
 
-def find_basis(crn, fs, inter2 = {}):
-    global ret, ccheck, ebasis, done, inter
+def find_basis(crn, fs):
+    global ret, ccheck, ebasis, done
     done = 0
-    inter = inter2
 
     # fuel preprocessing: anything that can be produced by a reaction that
     # consumes only fuel species is also considered a fuel species.
@@ -320,60 +319,12 @@ def find_basis(crn, fs, inter2 = {}):
     if done: return None
 
     fbasis = []
-    fbasis2 = []
-    fbasis_raw = []
     for p in ebasis:
-        ### following is test for history domain/waste handling
-        def collapse(l):
-            l2 = []
-            for x in l:
-                if x in inter.keys():
-                    y = inter[x]
-                else:
-                    y = [x]
-                l2 += y
-            return l2
         initial = minimal_initial_state(p)
         final = final_state(p, initial)
         r = [sorted(initial), sorted(final)]
-        fbasis_raw.append(r)
-        r = [sorted(initial), sorted(collapse(final))]
-        fbasis2.append(r)
-        r = [sorted(collapse(initial)), sorted(collapse(final))]
         fbasis.append(r)
-    fbasis = remove_duplicates(fbasis)
-    # permissive test
-    interrev = {}
-    for x in inter.keys():
-        for y in inter[x]:
-            if y not in interrev.keys():
-                interrev[y] = [[x]]
-            else:
-                interrev[y].append([x])
-    for rxn in fbasis:
-        def cartesian_product(l):
-            if len(l) == 0:
-                return []
-            if len(l) == 1:
-                return l[0]
-            r = []
-            for i in l[0]:
-                for j in l[1]:
-                    r.append(i+j)
-            return cartesian_product([r]+l[2:])
-        initial_states = cartesian_product(map(lambda x: interrev[x], rxn[0]))
-        for initial in initial_states:
-            initial = sorted(initial)
-            flag = False
-            for r in fbasis2:
-                if r[0] == initial and r[1] == rxn[1]:
-                    flag = True
-                    break
-            if not flag:
-                print "Invalid history domain:"
-                print "  Cannot get from ",initial," to",rxn[1]
-                return None
-    # permissive test end
+    fbasis = remove_duplicates(sorted(fbasis))
     return fbasis
 
 if __name__ == "__main__":

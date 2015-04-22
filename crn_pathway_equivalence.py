@@ -51,7 +51,18 @@ def findWastes(crn, formal):
 
     return species - nonwastes
 
-def test(c1, c2, verbose = True, inter = [[],[]]):
+def remove_duplicates(l):
+    r = []
+    if len(l) == 0: return []
+    l.sort()
+    while len(l) > 1:
+        if l[0] != l[1]:
+            r.append(l[0])
+        l = l[1:]
+    r.append(l[0])
+    return r
+
+def test(c1, c2, inter, verbose = True, optimize = True):
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     #for rxn in crn2:
@@ -96,9 +107,62 @@ def test(c1, c2, verbose = True, inter = [[],[]]):
         printRxn(rxn, inter)
     print
 
-    basis = basis_finder.find_basis(crn2, fs2, inter)
+    basis = basis_finder.find_basis(crn2, fs2)
     if basis == None: # irregular or nontidy
         return False
+
+    # bisimulation test
+    fbasis_raw = basis
+    fbasis2 = []
+    fbasis = []
+    for [initial, final] in fbasis_raw:
+        def collapse(l):
+            l2 = []
+            for x in l:
+                if x in inter.keys():
+                    y = inter[x]
+                else:
+                    y = [x]
+                l2 += y
+            return l2
+        r = [sorted(initial), sorted(collapse(final))]
+        fbasis2.append(r)
+        r = [sorted(collapse(initial)), sorted(collapse(final))]
+        fbasis.append(r)
+    fbasis = remove_duplicates(fbasis)
+    # permissive test
+    interrev = {}
+    for x in inter.keys():
+        for y in inter[x]:
+            if y not in interrev.keys():
+                interrev[y] = [[x]]
+            else:
+                interrev[y].append([x])
+    for rxn in fbasis:
+        def cartesian_product(l):
+            if len(l) == 0:
+                return []
+            if len(l) == 1:
+                return l[0]
+            r = []
+            for i in l[0]:
+                for j in l[1]:
+                    r.append(i+j)
+            return cartesian_product([r]+l[2:])
+        initial_states = cartesian_product(map(lambda x: interrev[x], rxn[0]))
+        for initial in initial_states:
+            initial = sorted(initial)
+            flag = False
+            for r in fbasis2:
+                if r[0] == initial and r[1] == rxn[1]:
+                    flag = True
+                    break
+            if not flag:
+                print "Permissive test failed:"
+                print "  Cannot get from ",initial," to",rxn[1]
+                return None
+    # permissive test end
+    basis = fbasis
 
     for i in range(len(basis)):
         basis[i][0].sort()
@@ -110,10 +174,7 @@ def test(c1, c2, verbose = True, inter = [[],[]]):
         printRxn(rxn)
     print
 
-    #print "Proposed interpretation:"
-    #for x in inter.keys():
-    #    print x,"=>",inter[x]
-
+    # delimiting test
     flag = True
     for rxn in crn1:
         if rxn not in basis:

@@ -293,7 +293,7 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     if method == "--bisimulation":
         return crn_bisimulation_equivalence.test((old_crn, fs), (new_crn, fs), verbose)#, inter)
     elif method == "--pathway":
-        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), verbose, inter)
+        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose)
 
 
 if __name__ == "__main__":

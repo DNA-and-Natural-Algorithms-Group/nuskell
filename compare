@@ -8,7 +8,7 @@
 # CRN compare executable.
 #
 
-import sys, crn_parser, random, os, crn_pathway_equivalence, string, copy
+import sys, crn_parser, random, os, crn_pathway_equivalence, string, copy, time, basis_finder
 
 def removeFuels(crn, fuel):
     crn = [[filter(lambda s: s not in fuel, rxn[0]),
@@ -27,8 +27,126 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
+def printRxn(rxn, inter = {}):
+    first = True
+    for x in rxn[0]:
+        if x[0] not in string.letters:
+            if x in inter.keys() and inter[x]==[]:
+                x = "w" + x
+            else:
+                x = "i" + x
+        if not first:
+            print "+",
+        else:
+            first = False
+        print x,
+    print "->",
+    first = True
+    for x in rxn[1]:
+        if x[0] not in string.letters:
+            if x in inter.keys() and inter[x]==[]:
+                x = "w" + x
+            else:
+                x = "i" + x
+        if not first:
+            print "+",
+        else:
+            first = False
+        print x,
+    print
+
 def compare(crn1, crn2, fs):
-    pass
+    crn1.sort()
+    crn2.sort()
+
+    crn1size = len(crn1)
+    crn2size = len(crn2)
+    t1 = time.time()
+    print "CRN 1 size :", crn1size
+    print "CRN 2 size :", crn2size
+    
+    print "formal species = ", fs
+    print "CRN 1:"
+    for rxn in crn1:
+        print "   ",
+        printRxn(rxn)
+    print
+    print "CRN 2:"
+    for rxn in crn2:
+        print "   ",
+        printRxn(rxn)
+    print
+
+    basis1 = basis_finder.find_basis(crn1, fs)
+    basis2 = basis_finder.find_basis(crn2, fs)
+    if basis1 == None: # irregular or nontidy
+        return False
+    if basis2 == None: # irregular or nontidy
+        return False
+
+    for i in range(len(basis1)):
+        basis1[i][0].sort()
+        basis1[i][1].sort()
+    for i in range(len(basis2)):
+        basis2[i][0].sort()
+        basis2[i][1].sort()
+
+    print "Basis of CRN 1:"
+    for rxn in basis1:
+        print "   ",
+        printRxn(rxn)
+    print
+    print "Basis of CRN 2:"
+    for rxn in basis2:
+        print "   ",
+        printRxn(rxn)
+    print
+
+    flag = True
+    for rxn in basis1:
+        if rxn not in basis2:
+            reactants = {}
+            for x in rxn[0]:
+                if x in reactants.keys():
+                    reactants[x] += 1
+                else:
+                    reactants[x] = 1
+            products = {}
+            for x in rxn[1]:
+                if x in products.keys():
+                    products[x] += 1
+                else:
+                    products[x] = 1
+            if reactants != products:
+                print "Error : The formal pathway"
+                print "    ",
+                printRxn(rxn)
+                print " is in CRN 1 but not in CRN 2."
+                flag = False
+    for rxn in basis2:
+        if rxn not in basis1:
+            reactants = {}
+            for x in rxn[0]:
+                if x in reactants.keys():
+                    reactants[x] += 1
+                else:
+                    reactants[x] = 1
+            products = {}
+            for x in rxn[1]:
+                if x in products.keys():
+                    products[x] += 1
+                else:
+                    products[x] = 1
+            if reactants != products:
+                print "Error : The formal pathway"
+                print "    ",
+                printRxn(rxn)
+                print " is in CRN 2 but not in CRN 1."
+                flag = False
+
+    t2 = time.time()
+    print "Elapsed time :", t2-t1
+    return flag
 
 if __name__ == "__main__":
     # The name of the program
@@ -60,15 +178,30 @@ if __name__ == "__main__":
 
     (crn1, fs1, cs1) = crn_parser.parse_file(crn_file1)
     (crn2, fs2, cs2) = crn_parser.parse_file(crn_file2)
+    t = crn1
+    crn1 = []
+    for [x, r, p] in t:
+        crn1.append([r,p])
+        if x == "reversible":
+            crn1.append([p,r])
+    t = crn2
+    crn2 = []
+    for [x, r, p] in t:
+        crn2.append([r,p])
+        if x == "reversible":
+            crn2.append([p,r])
     crn1 = removeFuels(crn1, cs1)
     crn2 = removeFuels(crn2, cs2)
+    crn1 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn1]
+    crn2 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn2]
     crn1 = remove_duplicates(sorted(crn1))
     crn2 = remove_duplicates(sorted(crn2))
     if sorted(fs1) != sorted(fs2):
         print program_name + ": input CRNs do not have the same set of formal species."
+        exit()
     v = compare(crn1, crn2, fs1)
 
     if v:
-        print "compare: compilation was correct."
+        print "compare: input CRNs are equivalent."
     else:
-        print "compare: compilation was incorrect."
+        print "compare: input CRNs are not equivalent."
