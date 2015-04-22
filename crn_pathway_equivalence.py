@@ -107,9 +107,58 @@ def test(c1, c2, inter, verbose = True, optimize = True):
         printRxn(rxn, inter)
     print
 
-    basis = basis_finder.find_basis(crn2, fs2)
-    if basis == None: # irregular or nontidy
-        return False
+    if optimize:
+        print "Identifying modules in the implementation CRN..."
+        intermediates = set()
+        for rxn in crn2:
+            for x in rxn[0] + rxn[1]:
+                if x not in fs2: intermediates.add(x)
+        parent = {}
+        division = {}
+        for x in intermediates:
+            parent[x] = x
+            division[x] = []
+        def ancestor(x):
+            if parent[x] != x:
+                parent[x] = ancestor(parent[x])
+            return parent[x]
+        for rxn in crn2:
+            t = filter(lambda x: x in intermediates, rxn[0] + rxn[1])
+            if len(t)>1:
+                z = ancestor(t[0])
+                for x in t[1:]:
+                    y = ancestor(x)
+                    if z != y:
+                        parent[y] = z
+        i = 0
+        for rxn in crn2:
+            t = filter(lambda x: x in intermediates, rxn[0] + rxn[1])
+            if len(t)>0:
+                z = ancestor(t[0])
+                division[z].append(rxn)
+            else:
+                division[i] = [rxn]
+                i += 1
+        basis = []
+        n = 0
+        for crn in division.values():
+            if len(crn)>0: n += 1
+        print "Divided the implementation CRN into",n,"modules."
+        print
+        for crn in division.values():
+            b = basis_finder.find_basis(crn, fs2)
+            if b == None: # irregular or nontidy
+                return False
+            basis += b
+    else:
+        basis = basis_finder.find_basis(crn2, fs2)
+        if basis == None: # irregular or nontidy
+            return False
+
+    for i in range(len(basis)):
+        basis[i][0].sort()
+        basis[i][1].sort()
+    basis = remove_duplicates(basis)
 
     # bisimulation test
     fbasis_raw = basis
@@ -163,10 +212,6 @@ def test(c1, c2, inter, verbose = True, optimize = True):
                 return None
     # permissive test end
     basis = fbasis
-
-    for i in range(len(basis)):
-        basis[i][0].sort()
-        basis[i][1].sort()
 
     print "Basis of the compiled CRN:"
     for rxn in basis:
