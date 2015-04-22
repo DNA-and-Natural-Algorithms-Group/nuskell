@@ -66,6 +66,7 @@ def _post_process(crn):
             formal_species = x[1:]
         elif x[0] == "constant":
             constant_species = x[1:]
+            formal_species = formal_species - constant_species
     for i in range(len(crn)):
         if crn[i][0] != "reversible" and crn[i][0] != "irreversible":
             crn = crn[:i]

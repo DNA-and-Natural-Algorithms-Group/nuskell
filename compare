@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+#
+#
+# Copyright (c) 2009-2015 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com)
+#
+#
+# CRN compare executable.
+#
+
+import sys, crn_parser, random, os, crn_pathway_equivalence, string, copy
+
+def removeFuels(crn, fuel):
+    crn = [[filter(lambda s: s not in fuel, rxn[0]),
+            filter(lambda s: s not in fuel, rxn[1])]
+           for rxn in crn]
+    return crn
+
+def remove_duplicates(l):
+    r = []
+    if len(l) == 0: return []
+    l.sort()
+    while len(l) > 1:
+        if l[0] != l[1]:
+            r.append(l[0])
+        l = l[1:]
+    r.append(l[0])
+    return r
+
+def compare(crn1, crn2, fs):
+    pass
+
+if __name__ == "__main__":
+    # The name of the program
+    program_name = "compare"
+
+    # Help message
+    if "--help" in sys.argv:
+        print "Usage: " + program_name + " CRNFILE1 CRNFILE2 [OPTION]"
+        print "Compares CRNFILE1 to CRNFILE2 using pathway decomposition."
+        print
+        print "  --help         Output this help."
+        print
+        print "Report bugs to <seungwoo.theory@gmail.com>."
+        exit()
+
+    # Did I get a sufficient number of arguments?
+    if len(sys.argv) < 3: # expects at least two arguments
+        print program_name + ": missing operand after `" + program_name + "'"
+        print program_name + ": try `" + program_name + " --help' for more information."
+        exit()
+
+    # Get the arguments.
+    crn_file1 = sys.argv[1]
+    crn_file2 = sys.argv[2]
+
+    # Add the correct extensions if necessary.
+    if len(crn_file1) < 4 or crn_file1[-4:] != ".crn": crn_file1 += ".crn"
+    if len(crn_file2) < 4 or crn_file2[-4:] != ".crn": crn_file2 += ".crn"
+
+    (crn1, fs1, cs1) = crn_parser.parse_file(crn_file1)
+    (crn2, fs2, cs2) = crn_parser.parse_file(crn_file2)
+    crn1 = removeFuels(crn1, cs1)
+    crn2 = removeFuels(crn2, cs2)
+    crn1 = remove_duplicates(sorted(crn1))
+    crn2 = remove_duplicates(sorted(crn2))
+    if sorted(fs1) != sorted(fs2):
+        print program_name + ": input CRNs do not have the same set of formal species."
+    v = compare(crn1, crn2, fs1)
+
+    if v:
+        print "compare: compilation was correct."
+    else:
+        print "compare: compilation was incorrect."
