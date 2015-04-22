@@ -146,6 +146,7 @@ def test(c1, c2, inter, verbose = True, optimize = True):
         print "Divided the implementation CRN into",n,"modules."
         print
         for crn in division.values():
+            if crn == []: continue
             b = basis_finder.find_basis(crn, fs2)
             if b == None: # irregular or nontidy
                 return False

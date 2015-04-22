@@ -73,7 +73,7 @@ module reaction(r) =
     if len(r.reactants) == 1 then
         sum(map(infty,oneinput(r.reactants, r.products)))
     elseif len(r.reactants) == 2 then
-        sum(map(infty,twoinput(r.reactants, r.products)));
+        sum(map(infty,twoinput(r.reactants, r.products)))
     else r[0];
 
 module main(crn) = sum(map(reaction, crn))

@@ -14,7 +14,7 @@ do
   #if [ "${schemefile}" == "ts/qian_bug.ts" ]
   if [ "${schemefile}" != "ts/test.ts" ]
   then
-    for crnfile in crn/*.crn
+    for crnfile in crn/crn*.crn
     do
       for method in pathway bisimulation
       do

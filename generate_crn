@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+#
+#
+# Copyright (c) 2009-2015 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com)
+#
+#
+# Generates a random CRN
+#
+
+import random
+
+n = 10 # number of species
+m = 20 # number of reactions
+
+def rndSpecies():
+    global n, m
+    s = "X"
+    #if random.choice([0,1])==0:
+    #    s = s + "X"
+    #else:
+    #    s = s + "I"
+    s = s + str(random.choice(range(1,n + 1)))
+    return s
+
+for i in range(0,m):
+    print rndSpecies(),
+    if random.choice([1,2])==2:
+        print "+", rndSpecies(),
+    print "->",
+    print rndSpecies(),
+    for j in range(random.choice(range(0,3))):
+        print "+", rndSpecies(),
+    print
