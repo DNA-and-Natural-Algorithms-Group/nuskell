@@ -241,7 +241,7 @@ def tidy(S, crn, fs):
                     queue.append(nS)
     return False
 
-def find_basis(crn, fs):
+def enumerate_basis(crn, fs):
     global ret, ccheck, ebasis, done
     done = 0
 
@@ -326,6 +326,77 @@ def find_basis(crn, fs):
         fbasis.append(r)
     fbasis = remove_duplicates(sorted(fbasis))
     return fbasis
+
+def find_basis(crn, fs, optimize = True):
+    if optimize:
+        print "Identifying modules in the implementation CRN..."
+        intermediates = set()
+        for rxn in crn:
+            for x in rxn[0] + rxn[1]:
+                if x not in fs: intermediates.add(x)
+        parent = {}
+        division = {}
+        for x in intermediates:
+            parent[x] = x
+            division[x] = []
+        def ancestor(x):
+            if parent[x] != x:
+                parent[x] = ancestor(parent[x])
+            return parent[x]
+        for rxn in crn:
+            t = filter(lambda x: x in intermediates, rxn[0] + rxn[1])
+            if len(t)>1:
+                z = ancestor(t[0])
+                for x in t[1:]:
+                    y = ancestor(x)
+                    if z != y:
+                        parent[y] = z
+        i = 0
+        for rxn in crn:
+            t = filter(lambda x: x in intermediates, rxn[0] + rxn[1])
+            if len(t)>0:
+                z = ancestor(t[0])
+                division[z].append(rxn)
+            else:
+                division[i] = [rxn]
+                i += 1
+        basis = []
+        n = 0
+        for c in division.values():
+            if len(c)>0: n += 1
+        print "Divided the implementation CRN into",n,"modules."
+        print
+        n = 0
+        for c in division.values():
+            if c == []: continue
+            n += 1
+            print "Verifying module", n,":"
+            ## identify pseudoformal species
+            for r in c:
+                r[0].sort()
+                r[1].sort()
+            x = None
+            for [r,p] in c:
+                if len(r)==1 and len(p)==1 and r[0] in fs and \
+                   p[0] in intermediates and [p,r] in c:
+                    x = p[0]
+                    y = r[0]
+                    break
+            if x:
+                print "Found that "+x+" is equivalent to "+y+"."
+                b = enumerate_basis(c, fs.union(set([x])))
+                b2 = enumerate_basis(b, fs)
+                if b == None or b2 == None: return None
+                basis += b2
+                continue
+            ##
+            b = enumerate_basis(c, fs)
+            if b == None: # irregular or nontidy
+                return None
+            basis += b
+    else:
+        basis = enumerate_basis(crn, fs)
+    return basis
 
 if __name__ == "__main__":
     crn_file = sys.argv[1]

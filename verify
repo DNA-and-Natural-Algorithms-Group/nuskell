@@ -170,7 +170,7 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     #
     enumerator = enumerator_in.input_enum(tfile)
     enumerator.MAX_COMPLEX_COUNT = 10000
-    enumerator.MAX_REACTION_COUNT = 10000
+    enumerator.MAX_REACTION_COUNT = 50000
     enumerator.MAX_COMPLEX_SIZE = 100
     enumerator.REJECT_REMOTE = True
     enumerator.enumerate()
