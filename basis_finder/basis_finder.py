@@ -375,6 +375,8 @@ def find_basis(crn, fs, optimize = True):
             for r in c:
                 r[0].sort()
                 r[1].sort()
+            # TODO : the following code is not strictly correct because
+            #        x may be equivalent to more than one formal species.
             x = None
             for [r,p] in c:
                 if len(r)==1 and len(p)==1 and r[0] in fs and \

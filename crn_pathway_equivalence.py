@@ -135,6 +135,8 @@ def test(c1, c2, inter, verbose = True):
         r = [sorted(collapse(initial)), sorted(collapse(final))]
         fbasis.append(r)
     fbasis = remove_duplicates(fbasis)
+    # TODO : the following is not strictly correct because it tests for
+    #        strong bisimulation instead of weak bisimulation.
     # permissive test
     interrev = {}
     for x in inter.keys():
