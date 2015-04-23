@@ -385,8 +385,14 @@ def find_basis(crn, fs, optimize = True):
             if x:
                 print "Found that "+x+" is equivalent to "+y+"."
                 b = enumerate_basis(c, fs.union(set([x])))
-                b2 = enumerate_basis(b, fs)
-                if b == None or b2 == None: return None
+                if b == None: return None
+                b2 = []
+                for [r, p] in b:
+                    r1 = [z if z != x else y for z in r]
+                    p1 = [z if z != x else y for z in p]
+                    b2.append([r1,p1])
+                #b2 = enumerate_basis(b, fs)
+                #if b2 == None: return None
                 basis += b2
                 continue
             ##
