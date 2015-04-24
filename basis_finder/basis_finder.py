@@ -85,6 +85,21 @@ def final_state(p, S):
             c.append(x)
     return sorted(c)
 
+def linearcheck(p, S, fs):
+    global wastes
+    c = S[:]
+    for rxn in p:
+        c1 = filter(lambda x: x not in fs and x not in wastes, c)
+        if len(c1)>1: return False
+        for x in rxn[0]:
+            if x not in c: return None
+            c.remove(x)
+        for x in rxn[1]:
+            c.append(x)
+    c1 = filter(lambda x: x not in fs and x not in wastes, c)
+    if len(c1)>1: return False
+    return True
+
 def setminus(a, b):
     a = a[:]
     b = b[:]
@@ -177,6 +192,7 @@ def width(p):
 
 def enumerate(p, w_max, i_max, crn, fs):
     global ret, ccheck, ebasis, done
+    global linear
     if done: return
     w_p = width(p)
     if w_p > w_max: return
@@ -184,6 +200,9 @@ def enumerate(p, w_max, i_max, crn, fs):
     if not formal_state(initial, fs): return
     if len(initial) > i_max: return
     final = final_state(p, initial)
+    ## optimization
+    if 'linear' in globals() and linear and not linearcheck(p, initial, fs): return
+    ##
     DFS = decompose(p, fs)
     # strong decomposability
     for [p1, p2] in DFS:
@@ -398,6 +417,19 @@ def find_basis(crn, fs, optimize = True):
 #                    basis += b2
 #                    continue
 #            ##
+            ## new optimization using linear structure
+            global linear, wastes
+            wastes = set(intermediates)
+            for [r,p] in c:
+                for x in r:
+                    if x in wastes: wastes.remove(x)
+            linear = True
+            for [r,p] in c:
+                r1 = filter(lambda x: x in intermediates and x not in wastes, r)
+                p1 = filter(lambda x: x in intermediates and x not in wastes, p)
+                if len(r1)>1 or len(p1)>1: linear = False
+            if linear: print "linear structure detected"
+            ##
             b = enumerate_basis(c, fs)
             if b == None: # irregular or nontidy
                 return None
