@@ -428,7 +428,7 @@ def find_basis(crn, fs, optimize = True):
                 r1 = filter(lambda x: x in intermediates and x not in wastes, r)
                 p1 = filter(lambda x: x in intermediates and x not in wastes, p)
                 if len(r1)>1 or len(p1)>1: linear = False
-            if linear: print "linear structure detected"
+            if linear: print "1D structure detected"
             ##
             b = enumerate_basis(c, fs)
             if b == None: # irregular or nontidy
