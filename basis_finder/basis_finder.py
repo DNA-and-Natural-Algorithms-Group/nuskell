@@ -192,7 +192,7 @@ def width(p):
 
 def enumerate(p, w_max, i_max, crn, fs):
     global ret, ccheck, ebasis, done
-    global linear
+    global linear, inter
     if done: return
     w_p = width(p)
     if w_p > w_max: return
@@ -232,15 +232,40 @@ def enumerate(p, w_max, i_max, crn, fs):
                 done = 1
                 return
         if len(p) > 0 and formal_state(final, fs):
-            ebasis.append(p)
-            if final not in RFS:
-                print "The given system is not regular:"
-                print "from initial state ", initial
-                for rxn in p:
-                    print_reaction(rxn)
-                print
-                done = 1
-                return
+            if inter: # integrated hybrid theory
+                def collapse(l):
+                    l2 = []
+                    for x in l:
+                        if x in inter.keys():
+                            y = inter[x]
+                        else:
+                            y = [x]
+                        l2 += y
+                    return l2
+                p1 = map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p)
+                fsp = collapse(fs)
+                initial1 = minimal_initial_state(p1)
+                final1 = final_state(p1, initial1)
+                RFS1 = regular_final_state(p1, fsp)
+                ebasis.append(p)
+                if final1 not in RFS1:
+                    print "The given system is not regular:"
+                    print "from initial state ", initial
+                    for rxn in p:
+                        print_reaction(rxn)
+                    print
+                    done = 1
+                    return
+            else: # compositional hybrid theory
+                ebasis.append(p)
+                if final not in RFS:
+                    print "The given system is not regular:"
+                    print "from initial state ", initial
+                    for rxn in p:
+                        print_reaction(rxn)
+                    print
+                    done = 1
+                    return
     for r in crn:
         enumerate(p + [r], w_max, i_max, crn, fs)
     
@@ -346,7 +371,9 @@ def enumerate_basis(crn, fs):
     fbasis = remove_duplicates(sorted(fbasis))
     return fbasis
 
-def find_basis(crn, fs, optimize = True):
+def find_basis(crn, fs, optimize = True, inter2 = None):
+    global inter
+    inter = inter2
     if optimize:
         print "Identifying modules in the implementation CRN..."
         intermediates = set()

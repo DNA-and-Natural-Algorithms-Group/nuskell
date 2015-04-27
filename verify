@@ -266,6 +266,7 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     # OK. this is very ad-hoc and hopefully will be
     # re-written at one point.
     inter = {} # initial interpretation for bisimulation
+    rm = set()
     for x in fs: inter[x] = [x]
     fsp = fs[:] # formal species list for pathway decomposition
     for i in range(len(new_crn)):
@@ -273,6 +274,7 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
         def get_name(x):
             if x in wildcardMatch.keys() and wildcardMatch[x] in fs:
                 y = wildcardMatch[x]
+                if y in fs: rm.add(y)
                 wildcardMatch[y+"_"+x] = y # this update is for later
                 x = y + "_" + x
                 if x not in fsp:
@@ -288,6 +290,22 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     new_crn = removeFuels(new_crn, cs)
     new_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], new_crn))
     new_crn = remove_duplicates(new_crn)
+
+    # removing initial signals that are unnecessary
+    fsp = set(fsp)
+    for x in rm:
+        if x in inter.keys(): del inter[x]
+        if x in fsp: fsp.remove(x)
+    species = set()
+    for [r,p] in new_crn: species = species.union(set(r)).union(set(p))
+    flag = None
+    while flag != rm:
+        new_crn = filter(lambda x: len(set(x[0]).intersection(rm)) == 0, new_crn)
+        norm = set(fsp)-rm
+        for [r,p] in new_crn:
+            norm = norm.union(set(p))
+        flag = rm
+        rm = species - norm
 
     # fs = formal species; cs = fuels or constant species
     if method == "--bisimulation":
@@ -329,6 +347,8 @@ if __name__ == "__main__":
     if len(ts_file) < 3 or ts_file[-3:] != ".ts": ts_file += ".ts"
     if len(crn_file) < 4 or crn_file[-4:] != ".crn": crn_file += ".crn"
 
+    if method == "--bisimulation":
+        exit()
     compiler.compile(ts_file, crn_file)
     v = test(crn_file, crn_file[:-4] + ".dom", method)
 

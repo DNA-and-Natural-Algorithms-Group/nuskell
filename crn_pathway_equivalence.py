@@ -107,7 +107,7 @@ def test(c1, c2, inter, verbose = True):
         printRxn(rxn, inter)
     print
 
-    basis = basis_finder.find_basis(crn2, fs2)
+    basis = basis_finder.find_basis(crn2, fs2, True, inter)
     if basis == None: # irregular or nontidy
         return False
 
