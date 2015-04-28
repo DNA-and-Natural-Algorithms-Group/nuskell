@@ -345,8 +345,6 @@ if __name__ == "__main__":
     if len(ts_file) < 3 or ts_file[-3:] != ".ts": ts_file += ".ts"
     if len(crn_file) < 4 or crn_file[-4:] != ".crn": crn_file += ".crn"
 
-    if method == "--bisimulation":
-        exit()
     compiler.compile(ts_file, crn_file)
     v = test(crn_file, crn_file[:-4] + ".dom", method)
 

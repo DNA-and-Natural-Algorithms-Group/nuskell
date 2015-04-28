@@ -62,7 +62,7 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def test(c1, c2, inter, verbose = True):
+def test(c1, c2, inter, verbose = True, integrated = False):
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     #for rxn in crn2:
@@ -107,34 +107,61 @@ def test(c1, c2, inter, verbose = True):
         printRxn(rxn, inter)
     print
 
-    basis = basis_finder.find_basis(crn2, fs2, True, inter)
+    basis = basis_finder.find_basis(crn2, fs2, True, inter if integrated else None)
     if basis == None: # irregular or nontidy
         return False
+    if integrated: # integrated hybrid
+        (fbasis_raw, fbasis) = basis 
 
-    for i in range(len(basis)):
-        basis[i][0].sort()
-        basis[i][1].sort()
-    basis = remove_duplicates(basis)
+        for i in range(len(fbasis_raw)):
+            fbasis_raw[i][0].sort()
+            fbasis_raw[i][1].sort()
+        fbasis_raw = remove_duplicates(fbasis_raw)
+        for i in range(len(fbasis)):
+            fbasis[i][0].sort()
+            fbasis[i][1].sort()
+        fbasis = remove_duplicates(fbasis)
 
-    # bisimulation test
-    fbasis_raw = basis
-    fbasis2 = []
-    fbasis = []
-    for [initial, final] in fbasis_raw:
-        def collapse(l):
-            l2 = []
-            for x in l:
-                if x in inter.keys():
-                    y = inter[x]
-                else:
-                    y = [x]
-                l2 += y
-            return l2
-        r = [sorted(initial), sorted(collapse(final))]
-        fbasis2.append(r)
-        r = [sorted(collapse(initial)), sorted(collapse(final))]
-        fbasis.append(r)
-    fbasis = remove_duplicates(fbasis)
+        # bisimulation test
+        fbasis2 = []
+        for [initial, final] in fbasis_raw:
+            def collapse(l):
+                l2 = []
+                for x in l:
+                    if x in inter.keys():
+                        y = inter[x]
+                    else:
+                        y = [x]
+                    l2 += y
+                return l2
+            r = [sorted(initial), sorted(collapse(final))]
+            fbasis2.append(r)
+    else: # compositional hybrid
+        fbasis_raw = basis
+
+        for i in range(len(fbasis_raw)):
+            fbasis_raw[i][0].sort()
+            fbasis_raw[i][1].sort()
+        fbasis_raw = remove_duplicates(fbasis_raw)
+
+        # bisimulation test
+        fbasis2 = []
+        fbasis = []
+        for [initial, final] in fbasis_raw:
+            def collapse(l):
+                l2 = []
+                for x in l:
+                    if x in inter.keys():
+                        y = inter[x]
+                    else:
+                        y = [x]
+                    l2 += y
+                return l2
+            r = [sorted(initial), sorted(collapse(final))]
+            fbasis2.append(r)
+            r = [sorted(collapse(initial)), sorted(collapse(final))]
+            fbasis.append(r)
+        fbasis = remove_duplicates(fbasis)
     # TODO : the following is not strictly correct because it tests for
     #        strong bisimulation instead of weak bisimulation.
     # permissive test

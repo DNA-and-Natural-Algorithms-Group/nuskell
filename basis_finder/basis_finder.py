@@ -363,13 +363,29 @@ def enumerate_basis(crn, fs):
     if done: return None
 
     fbasis = []
+    fbasis_raw = []
     for p in ebasis:
         initial = minimal_initial_state(p)
         final = final_state(p, initial)
         r = [sorted(initial), sorted(final)]
+        fbasis_raw.append(r)
+        def collapse(l):
+            l2 = []
+            for x in l:
+                if x in inter.keys():
+                    y = inter[x]
+                else:
+                    y = [x]
+                l2 += y
+            return l2
+        p1 = map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p)
+        initial = minimal_initial_state(p1)
+        final = final_state(p1, initial)
+        r = [sorted(initial), sorted(final)]
         fbasis.append(r)
     fbasis = remove_duplicates(sorted(fbasis))
-    return fbasis
+    fbasis_raw = remove_duplicates(sorted(fbasis_raw))
+    return (fbasis_raw, fbasis)
 
 def find_basis(crn, fs, optimize = True, inter2 = None):
     global inter
@@ -407,6 +423,7 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
                 division[i] = [rxn]
                 i += 1
         basis = []
+        basis_raw = []
         n = 0
         for c in division.values():
             if len(c)>0: n += 1
@@ -417,33 +434,6 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
             if c == []: continue
             n += 1
             print "Verifying module", n,":"
-#            ## identify pseudoformal species
-#            for r in c:
-#                r[0].sort()
-#                r[1].sort()
-#            # TODO : the following code is not strictly correct because
-#            #        x may be equivalent to more than one formal species.
-#            x = None
-#            for [r,p] in c:
-#                if len(r)==1 and len(p)==1 and r[0] in fs and \
-#                   p[0] in intermediates and [p,r] in c:
-#                    x = p[0]
-#                    y = r[0]
-#                    break
-#            if x:
-#                print "Found that "+x+" is equivalent to "+y+"."
-#                b = enumerate_basis(c, list(fs)+[x])
-#                if b != None:
-#                    b2 = []
-#                    for [r, p] in b:
-#                        r1 = [z if z != x else y for z in r]
-#                        p1 = [z if z != x else y for z in p]
-#                        b2.append([r1,p1])
-#                    #b2 = enumerate_basis(b, fs)
-#                    #if b2 == None: return None
-#                    basis += b2
-#                    continue
-#            ##
             ## new optimization using linear structure
             global linear, wastes
             wastes = set(intermediates)
@@ -460,9 +450,15 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
             b = enumerate_basis(c, fs)
             if b == None: # irregular or nontidy
                 return None
-            basis += b
+            (b1, b2) = b
+            basis += b1
+            basis_raw += b2
     else:
-        basis = enumerate_basis(crn, fs)
+        b = enumerate_basis(crn, fs)
+        if b == None: # irregular or nontidy
+            return None
+        (basis, basis_raw) = b
+    if inter: return (basis, basis_raw)
     return basis
 
 if __name__ == "__main__":
