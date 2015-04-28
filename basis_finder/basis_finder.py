@@ -369,20 +369,21 @@ def enumerate_basis(crn, fs):
         final = final_state(p, initial)
         r = [sorted(initial), sorted(final)]
         fbasis_raw.append(r)
-        def collapse(l):
-            l2 = []
-            for x in l:
-                if x in inter.keys():
-                    y = inter[x]
-                else:
-                    y = [x]
-                l2 += y
-            return l2
-        p1 = map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p)
-        initial = minimal_initial_state(p1)
-        final = final_state(p1, initial)
-        r = [sorted(initial), sorted(final)]
-        fbasis.append(r)
+        if inter: # integrated hybrid theory
+            def collapse(l):
+                l2 = []
+                for x in l:
+                    if x in inter.keys():
+                        y = inter[x]
+                    else:
+                        y = [x]
+                    l2 += y
+                return l2
+            p1 = map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p)
+            initial = minimal_initial_state(p1)
+            final = final_state(p1, initial)
+            r = [sorted(initial), sorted(final)]
+            fbasis.append(r)
     fbasis = remove_duplicates(sorted(fbasis))
     fbasis_raw = remove_duplicates(sorted(fbasis_raw))
     return (fbasis_raw, fbasis)
