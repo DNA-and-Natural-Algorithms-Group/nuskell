@@ -309,7 +309,10 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     if method == "--bisimulation":
         return crn_bisimulation_equivalence.test((old_crn, fs), (new_crn, fs), verbose)#, inter)
     elif method == "--pathway":
-        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose)
+        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose, False)
+    elif method == "--integrated":
+        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose, True)
+
 
 
 if __name__ == "__main__":
@@ -322,8 +325,9 @@ if __name__ == "__main__":
         print "Compile CRNFILE to DNA molecules using the translation scheme",
         print "from TSFILE and verify the result."
         print
-        print "  --pathway      Use the pathway equivalence notion [default]."
+        print "  --pathway      Use the compositional hybrid notion [default]."
         print "  --bisimulation Use the bisimulation equivalence notion."
+        print "  --integrated   Use the integrated hybrid notion."
         print "  --help         Output this help."
         print
         print "Report bugs to <seungwoo.theory@gmail.com>."
