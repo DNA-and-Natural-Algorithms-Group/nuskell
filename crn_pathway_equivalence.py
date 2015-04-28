@@ -115,7 +115,7 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = False)
             z = map(lambda x: x.strip(), line.split("->"))
             y1 = z[0]
             y2 = map(lambda x: x.strip(), z[1].split("+"))
-            if y1[0] == "i": y1 = y1[1:]
+            if y1[0] == "i" or y1[0] == "w": y1 = y1[1:]
             inter[y1] = y2
             fs2.add(y1)
         print
