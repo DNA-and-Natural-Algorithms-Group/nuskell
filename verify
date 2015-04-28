@@ -296,16 +296,14 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     for x in rm:
         if x in inter.keys(): del inter[x]
         if x in fsp: fsp.remove(x)
-    species = set()
-    for [r,p] in new_crn: species = species.union(set(r)).union(set(p))
+    norm = set(fsp)-rm
     flag = None
-    while flag != rm:
-        new_crn = filter(lambda x: len(set(x[0]).intersection(rm)) == 0, new_crn)
-        norm = set(fsp)-rm
+    while flag != norm:
+        flag = set(list(norm))
         for [r,p] in new_crn:
-            norm = norm.union(set(p))
-        flag = rm
-        rm = species - norm
+            if set(r).intersection(norm) == set(r):
+                norm = norm.union(set(p))
+    new_crn = filter(lambda x: set(x[0]).intersection(norm) == set(x[0]), new_crn)
 
     # fs = formal species; cs = fuels or constant species
     if method == "--bisimulation":
