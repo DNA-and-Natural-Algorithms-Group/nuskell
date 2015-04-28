@@ -473,6 +473,7 @@ if __name__ == "__main__":
 
     crn = remove_const(crn, const_species)
     basis = find_basis(crn, formal_species)
-    print "Formal basis :"
-    for (r, p) in basis:
-        print_reaction([r, p])
+    if basis != None:
+        print "Formal basis :"
+        for (r, p) in basis:
+            print_reaction([r, p])

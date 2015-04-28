@@ -94,7 +94,7 @@ module fork(r, p) =
     if len(p) == 2 then
         fork2(r, p[0], p[1])
     else
-        fork2(i, p[0], p[1]) + join2(p[0], p[1], i) +
+        fork2(i, p[0], p[1]) + 
         fork(r, tail(tail(p)) + [i])
         where
             i = signal();
