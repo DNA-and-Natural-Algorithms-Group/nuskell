@@ -1,4 +1,4 @@
-import time, basis_finder, string, crn_bisimulation_equivalence
+import time, basis_finder, string, crn_bisimulation_equivalence, sys
 
 def printRxn(rxn, inter = {}):
     first = True
@@ -62,7 +62,7 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def test(c1, c2, inter, verbose = True, integrated = False):
+def test(c1, c2, inter, verbose = True, integrated = False, interactive = False):
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     #for rxn in crn2:
@@ -106,6 +106,19 @@ def test(c1, c2, inter, verbose = True, integrated = False):
         print "   ",
         printRxn(rxn, inter)
     print
+
+    if interactive:
+        print "Enter species to be treated as formal species, along with its interpretation:"
+        print "(e.g. i187 -> A + B)"
+        print "When done, press ctrl + D."
+        for line in sys.stdin:
+            z = map(lambda x: x.strip(), line.split("->"))
+            y1 = z[0]
+            y2 = map(lambda x: x.strip(), z[1].split("+"))
+            if y1[0] == "i": y1 = y1[1:]
+            inter[y1] = y2
+            fs2.add(y1)
+        print
 
     basis = basis_finder.find_basis(crn2, fs2, True, inter if integrated else None)
     if basis == None: # irregular or nontidy
