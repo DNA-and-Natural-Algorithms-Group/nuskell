@@ -62,7 +62,7 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def test(c1, c2, inter, verbose = True, integrated = False, interactive = False):
+def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     #for rxn in crn2:

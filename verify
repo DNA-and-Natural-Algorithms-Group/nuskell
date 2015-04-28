@@ -95,7 +95,7 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def test(crnfile, domfile, method, verbose = True, condense = True):
+def test(crnfile, domfile, method, interactive = False, condense = True, verbose = True):
     # Parse the crn
     (old_crn, fs, cs_waste) = crn_parser.parse_file(crnfile)       # fs is the set of formal species
     t = old_crn
@@ -309,9 +309,9 @@ def test(crnfile, domfile, method, verbose = True, condense = True):
     if method == "--bisimulation":
         return crn_bisimulation_equivalence.test((old_crn, fs), (new_crn, fs), verbose)#, inter)
     elif method == "--pathway":
-        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose, False)
+        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose, False, interactive)
     elif method == "--integrated":
-        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose, True)
+        return crn_pathway_equivalence.test((old_crn, fs), (new_crn, fsp), inter, verbose, True, interactive)
 
 
 
@@ -328,6 +328,7 @@ if __name__ == "__main__":
         print "  --pathway      Use the compositional hybrid notion [default]."
         print "  --bisimulation Use the bisimulation equivalence notion."
         print "  --integrated   Use the integrated hybrid notion."
+        print "  --interactive  Use interactive mode for hybrid approach."
         print "  --help         Output this help."
         print
         print "Report bugs to <seungwoo.theory@gmail.com>."
@@ -342,15 +343,22 @@ if __name__ == "__main__":
     # Get the arguments.
     ts_file = sys.argv[1]
     crn_file = sys.argv[2]
-    if len(sys.argv) < 4: method = "--pathway" 
-    else: method = sys.argv[3]
+    
+    options = sys.argv[3:]
+    method = None
+    interactive = False
+    if "--pathway" in options: method = "--pathway"
+    if "--bisimulation" in options: method = "--bisimulation"
+    if "--integrated" in options: method = "--integrated"
+    if method == None: method = "--pathway" 
+    if "--interactive" in options: interactive = True
 
     # Add the correct extensions if necessary.
     if len(ts_file) < 3 or ts_file[-3:] != ".ts": ts_file += ".ts"
     if len(crn_file) < 4 or crn_file[-4:] != ".crn": crn_file += ".crn"
 
     compiler.compile(ts_file, crn_file)
-    v = test(crn_file, crn_file[:-4] + ".dom", method)
+    v = test(crn_file, crn_file[:-4] + ".dom", method, interactive)
 
     if v:
         print "verify: compilation was correct."
