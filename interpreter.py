@@ -12,7 +12,7 @@ from copy import copy
 import DNAObjects
 
 # default lengths for short() and long() built-in functions
-short_domain_length = 5
+short_domain_length = 6
 long_domain_length = 15
 
 # built-in types for the ts language

@@ -172,6 +172,7 @@ def test(crnfile, domfile, method, interactive = False, condense = True, verbose
     enumerator.MAX_COMPLEX_COUNT = 10000
     enumerator.MAX_REACTION_COUNT = 50000
     enumerator.MAX_COMPLEX_SIZE = 100
+    #enumerator.k_fast = 2
     enumerator.REJECT_REMOTE = True
     enumerator.enumerate()
     enumerator_out.output_crn(enumerator,tfile, output_condensed = condense)
