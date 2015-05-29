@@ -8,7 +8,7 @@
 # Verifier executable.
 #
 
-import sys, compiler, crn_parser, dom_parser, random, os, crn_bisimulation_equivalence, crn_pathway_equivalence, string, copy, enumerator.input as enumerator_in, enumerator.output as enumerator_out
+import sys, compiler, crn_parser, dom_parser, random, os, crn_bisimulation_equivalence, crn_pathway_equivalence, string, copy, enumerator.input as enumerator_in, enumerator.output as enumerator_out, argparse, enumerator.reactions as reactions
 
 def find(l, key):
     for i in range(len(l)):
@@ -95,6 +95,93 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
+def enumarg(enum):
+	# Parse command-line arguments
+	parser = argparse.ArgumentParser(description="""
+		Peppercorn: Domain-level nucleic acid reaction enumerator. See README.{html, pdf} for usage examples.
+		""")
+	parser.add_argument('--max-complex-size', '--complex-size', action='store', dest='MAX_COMPLEX_SIZE', default=enum.MAX_COMPLEX_SIZE, type=int, \
+		help="Maximum number of strands allowed in a complex (used to prevent polymerization) (default: %(default)s)")
+	parser.add_argument('--max-complex-count', '--max-complexes', action='store', dest='MAX_COMPLEX_COUNT', default=enum.MAX_COMPLEX_COUNT, type=int, \
+		help="Maximum number of complexes that may be enumerated before the enumerator halts. (default: %(default)s)")
+	parser.add_argument('--max-reaction-count', '--max-reactions', action='store', dest='MAX_REACTION_COUNT', default=enum.MAX_REACTION_COUNT, type=int, \
+		help="Maximum number of reactions that may be enumerated before the enumerator halts. (default: %(default)s)")
+
+	parser.add_argument('--release-cutoff-1-1', action='store', dest='RELEASE_CUTOFF_1_1', type=int, \
+		help="Maximum number of bases that will be released spontaneously in a 1-1 `open` reaction (default: %d)" % reactions.RELEASE_CUTOFF_1_1)
+	parser.add_argument('--release-cutoff-1-n', action='store', dest='RELEASE_CUTOFF_1_N', type=int, \
+		help="Maximum number of bases that will be released spontaneously in a 1-n `open` reaction. (default: %d)" % reactions.RELEASE_CUTOFF_1_N)
+	parser.add_argument('--release-cutoff', action='store', dest='RELEASE_CUTOFF', default=None, type=int, \
+		help="Maximum number of bases that will be released spontaneously in an `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting --release-cutoff-1-1 and --release-cutoff-1-n to the same value)")
+
+	parser.add_argument('--k-slow', action='store', dest='k_slow', default=0.0, type=float, \
+		help="Unimolecular reactions slower than this rate will be discarded (default: %(default)f)")
+	parser.add_argument('--k-fast', action='store', dest='k_fast', default=0.0, type=float, \
+		help="Unimolecular reactions slower than this rate will be marked as slow (default: %(default)f)")
+
+	parser.add_argument('--reject-remote', action='store_true', dest='REJECT_REMOTE', default=False, \
+		help="Discard remote toehold mediated 3-way and 4-way branch migration reactions. (default: %(default)s)")
+	parser.add_argument('--no-max-helix', action='store_false', dest='UNZIP', default=True, \
+		help="Don't apply 'max helix at a time' semantics to 3-way branch migration reactions. (default: False)")
+	parser.add_argument('--legacy-unzip', action='store_true', dest='LEGACY_UNZIP', default=False, \
+		help="Apply legacy 'UNZIP=True' behavior; no effect with --no-max-helix (default: %(default)s)")
+
+	parser.add_argument('--bfs-ish', action='store_true', dest='bfs', \
+		help="When searching for bimolecular reactions, look to the oldest complexes first. (default: %(default)s)")
+	parser.add_argument('--ignore-branch-3way', action='store_true', dest='ignore_branch_3way', \
+		help="Ignore 3-way branch migration events during enumeration.  (default: %(default)s)")
+	parser.add_argument('--ignore-branch-4way', action='store_true', dest='ignore_branch_4way', \
+		help="Ignore 4-way branch migration events during enumeration.  (default: %(default)s)")
+
+
+	parser.add_argument('--profile', action='store_true', dest='profile',\
+		help="Enable statistical profiling")
+	cl_opts, unknown = parser.parse_known_args()
+
+	# Transfer options to enumerator object
+	if cl_opts.k_slow is not None:
+		enum.k_slow = cl_opts.k_slow
+	if cl_opts.k_fast is not None:
+		enum.k_fast = cl_opts.k_fast
+
+	if cl_opts.MAX_REACTION_COUNT is not None:
+		enum.MAX_REACTION_COUNT = cl_opts.MAX_REACTION_COUNT
+
+	if cl_opts.MAX_COMPLEX_COUNT is not None:
+		enum.MAX_COMPLEX_COUNT = cl_opts.MAX_COMPLEX_COUNT
+
+	if cl_opts.MAX_COMPLEX_SIZE is not None:
+		enum.MAX_COMPLEX_SIZE = cl_opts.MAX_COMPLEX_SIZE
+
+	if cl_opts.RELEASE_CUTOFF is not None:
+		enum.RELEASE_CUTOFF = cl_opts.RELEASE_CUTOFF
+
+	if cl_opts.RELEASE_CUTOFF_1_1 is not None:
+		enum.RELEASE_CUTOFF_1_1 = cl_opts.RELEASE_CUTOFF_1_1
+
+	if cl_opts.RELEASE_CUTOFF_1_N is not None:
+		enum.RELEASE_CUTOFF_1_N = cl_opts.RELEASE_CUTOFF_1_N
+
+	if cl_opts.REJECT_REMOTE is not None:
+		enum.REJECT_REMOTE = cl_opts.REJECT_REMOTE
+
+	if cl_opts.UNZIP is not None:
+		enum.UNZIP = cl_opts.UNZIP
+
+	if cl_opts.LEGACY_UNZIP is not None:
+		enum.LEGACY_UNZIP = cl_opts.LEGACY_UNZIP
+
+	enum.DFS = not cl_opts.bfs
+
+	# Modify enumeration events based on command line options.
+	if cl_opts.ignore_branch_3way:
+			if reactions.branch_3way in enum.FAST_REACTIONS:
+					enum.FAST_REACTIONS.remove(reactions.branch_3way)
+
+	if cl_opts.ignore_branch_4way:
+			if reactions.branch_4way in enum.FAST_REACTIONS:
+					enum.FAST_REACTIONS.remove(reactions.branch_4way)
+
 def test(crnfile, domfile, method, interactive = False, condense = True, verbose = True):
     # Parse the crn
     (old_crn, fs, cs_waste) = crn_parser.parse_file(crnfile)       # fs is the set of formal species
@@ -172,8 +259,9 @@ def test(crnfile, domfile, method, interactive = False, condense = True, verbose
     enumerator.MAX_COMPLEX_COUNT = 10000
     enumerator.MAX_REACTION_COUNT = 50000
     enumerator.MAX_COMPLEX_SIZE = 100
-    #enumerator.k_fast = 2
-    enumerator.REJECT_REMOTE = True
+    #enumerator.k_fast = 2.0
+    #enumerator.REJECT_REMOTE = True
+    enumarg(enumerator)
     enumerator.enumerate()
     enumerator_out.output_crn(enumerator,tfile, output_condensed = condense)
     F = open(tfile, "r")
@@ -286,7 +374,7 @@ def test(crnfile, domfile, method, interactive = False, condense = True, verbose
         reactants = map(get_name, reactants)
         products = map(get_name, products)
         new_crn[i] = [reactants, products]
-
+    
     # preprocess fuel
     new_crn = removeFuels(new_crn, cs)
     new_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], new_crn))
