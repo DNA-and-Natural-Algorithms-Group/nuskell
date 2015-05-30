@@ -315,10 +315,12 @@ def test(crnfile, domfile, method, interactive = False, condense = True, verbose
             startpos = 0
             while startpos < len(target[0]):
                 if pos - startpos == len(original[0]):
+                    j = 0
                     for i in range(startpos, pos):
                         if original[0][i-startpos] == "?":
-                            del target[0][i]
-                            del target[1][i]
+                            del target[0][i-j]
+                            del target[1][i-j]
+                            j += 1
                             collapsed.add(y[0])
                     while startpos < len(target[0]) and "+" != target[0][startpos]:
                         startpos += 1
