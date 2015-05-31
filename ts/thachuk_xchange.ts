@@ -8,6 +8,9 @@
 #
 # Subtle point:  Unlike in figure 9, the unique-to-reaction domain "th" is implemented here as distinct for the "left side" fuel and the "right side" fuel.
 # This should also function correctly. In thachuk_xchange_WF.ts, the "th" domain is the same on both sides, as in figure 9.
+#
+# To avoid combinatorial explosion, this must be invoked along the lines of:
+# ./verify ts/thachuk_xchange.ts crn/reaction1.crn --release-cutoff-1-1 4
 
 class formal(s) = "d1a d1b d1c d2a d2b d2c d3a d3b d3c ? ? ?"
                 | " .   .   .   .   .   .   .   .   .  ? ? ?"

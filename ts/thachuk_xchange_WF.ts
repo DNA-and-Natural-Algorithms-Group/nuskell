@@ -6,6 +6,9 @@
 # _WF stands for "waste fuel".  There are two "wastes" produced by the standard reaction pathway that aren't formally waste, because they are not inert.
 # So make them fuels, formally.  They are build by waste1().
 # Unfortunately, although it appears "correct" in some sense, this scheme cannot be proved correct by bisimulation or pathway decomposition, even on just A+B->X+Y.
+#
+# To avoid combinatorial explosion, this must be invoked along the lines of:
+# ./verify ts/thachuk_xchange_WF.ts crn/reaction1.crn --release-cutoff-1-1 4
 
 class formal(s) = "d1a d1b d1c d2a d2b d2c d3a d3b d3c ? ? ?"
                 | " .   .   .   .   .   .   .   .   .  ? ? ?"
