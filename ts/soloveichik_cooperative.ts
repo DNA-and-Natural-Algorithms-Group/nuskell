@@ -10,7 +10,7 @@
 # using the options          --release-cutoff-1-1 4 --release-cutoff-1-n 8 --k-fast 0.1
 # and thus the verifying compiler invocation will be
 #
-# ./verify ts/soloveichik_cooperative.ts crn/crn4z.crn --release-cutoff-1-1 4 --release-cutoff-1-n 8 --k-fast 0.1
+# ./verify ts/soloveichik_cooperative.ts crn/reaction1.crn --release-cutoff-1-1 4 --release-cutoff-1-n 8 --k-fast 0.1
 
 class formal(s) = "? ? ? d1a d1b d1c d2a d2b d2c"
                 | ". . .  .   .   .   .   .   . "

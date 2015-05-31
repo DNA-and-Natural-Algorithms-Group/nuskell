@@ -1,5 +1,5 @@
 #
-# The figure 7 "xchange gates" from Thachuk, Winfree, Soloveichik, LNCS xxx, 2015
+# The section 6, figure 9 "xchange gates" from Thachuk, Winfree, Soloveichik, LNCS xxx, 2015
 # 
 # Coded by Erik Winfree (winfree@caltech.edu)
 #

@@ -1,13 +1,13 @@
 #
-# The figure 7 "xchange gates" from Thachuk, Winfree, Soloveichik, LNCS xxx, 2015
+# The section 6, figure 9 "xchange gates" from Thachuk, Winfree, Soloveichik, LNCS xxx, 2015
 # 
 # Coded by Erik Winfree (winfree@caltech.edu)
 #
 # Note that there are two "wastes" produced by the standard reaction pathway that aren't formally waste, because they are not inert.
 # It is not necessary to start with them present, but they will cause bisimulation and pathway decomposition verification to fail.
 #
-# Subtle point:  Unlike in figure 7, the unique-to-reaction domain "th" is implemented here as distinct for the "left side" fuel and the "right side" fuel.
-# This should also function correctly. In thachuk_xchange_WF.ts, the "th" domain is the same on both sides, as in figure 7.
+# Subtle point:  Unlike in figure 9, the unique-to-reaction domain "th" is implemented here as distinct for the "left side" fuel and the "right side" fuel.
+# This should also function correctly. In thachuk_xchange_WF.ts, the "th" domain is the same on both sides, as in figure 9.
 
 class formal(s) = "d1a d1b d1c d2a d2b d2c d3a d3b d3c ? ? ?"
                 | " .   .   .   .   .   .   .   .   .  ? ? ?"
