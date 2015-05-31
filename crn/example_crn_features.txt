@@ -1,0 +1,86 @@
+crn1: duplicate reactant, no product
+A -> B
+B + B -> A
+B ->
+
+crn2: 
+X3 + X4 -> X5
+X5 -> X1
+X1 + X2 -> X3
+
+crn3: multiple products, duplicate product
+X3 + X4 -> X5
+X5 -> X1
+X1 + X2 -> X3
+X2 + X6 -> X7
+X1 + X5 -> X9
+X3 + X7 -> X9 + X10 + X2 + X4
+X1 -> X2 + X2
+
+crn4: catalytic, duplicate product
+A + B -> B + B
+B + C -> C + C
+C + A -> A + A
+
+crn5: no product, spontaneous, multiple products, trimolecular
+-> A + B + C + D
+-> X + Y + Z + W
+X ->
+Y -> 
+Z ->
+W ->
+A + B + X -> Y + Y 
+
+crn6: no product, multiple products, catalytic
+A + B -> A + C
+B + A -> X + B + A
+X -> X + Y + X
+Y + B -> Y + X + A
+X ->
+X + A -> C
+
+crn7: trimolecular, duplicate product
+A + B + X -> Y + Y 
+
+crn8: no product, multiple products, trimolecular
+F -> A + B + C + D
+W ->
+W + F -> A
+A + B + X -> Y + Y 
+
+crn9: spontaneous
+-> A + B 
+
+crn10: catalytic, multiple products, multiple reactants
+A + X + Y + C + D -> A + B + C + D
+X + Y -> C + D
+
+crn11: catalytic, multiple products, multiple reactants
+A + X + Y + C + D -> A + B + C + D
+
+crn12: trimolecular, duplicate product, duplicate reactant, reversible
+A + B + X -> Y + Y 
+Y + Y -> A + B + X
+
+crn13: redundant reaction, reversible
+X3 + X4 -> X5
+X5 -> X1
+X1 + X2 -> X3
+X5 -> X3 + X4
+X1 + X2 -> X3
+
+crn14: reversible
+X -> Y
+Y -> X
+
+crn15: reversible, trimolecular, multiple products
+A + B + C -> Y + X 
+Y + X -> A + B + C
+
+crn16: spontaneous, no product
+-> A + B 
+C -> X
+X -> B
+C -> 
+
+reaction1 through reaction14: all variations of A+B->X+Y with some reactants or products not distinct

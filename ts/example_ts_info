@@ -1,0 +1,25 @@
+soloveichik.ts:             from Soloveichik, Seelig, Winfree (PNAS 2010); unimolecular and bimolecular only, multiple products OK  (no spontaneous, no trimolecular or higher)
+soloveichik_general.ts:     all reaction types are possible
+soloveichik_opt.ts:         all, combining reactions with same reactants and prefixes of product lists into a single module
+
+cardelli_SA.ts:		    from Cardelli (Natural Computing, 2013); not spontaneous, but all other arities of products and reactants (?)  
+cardelli_SA_noGC.ts:	    as above, but without the garbage collection reactions
+
+cardelli_2domain.ts:	    from Cardelli (MSCS 2013)
+cardelli_2domain_noGC.ts:   as above but without the garbage collection reactions
+cardelli_fj.ts:		    ?
+
+qian.ts:		    as proposed in Qian, Soloveichik, Winfree (LNCS, 2011), but irreversible reactions only (and they have the post-commit bug)
+qian_rev.ts:		    as proposed in Qian, Soloveichik, Winfree (LNCS, 2011), with both reversible and irreversible reactions (with the post-commit bug)
+qian_bug.ts:		    a variant of qian.ts that introduces irreversibility using an extra toehold on a helper strand (which allows a deadlock bug)
+qian_mastersthesis.ts:	    aka qian_fixed.ts: only implements irreversible reactions, but does so with a turning point commit step, thus verifies as correct
+qian_fixedrev.ts:	    like qian_mastersthesis.ts, but also implements reversible reactions reversibly
+
+thachuk_xchange.ts:	    Thachuk's "leakless" scheme, figure 9 of Thachuk, Winfree, Soloveichik (LNCS, 2015); 2-to-2 reactions only; has non-inert "waste"
+thachuk_xchange_WF.ts:	    as above, but declares the "waste" to be fuel; should be correct, but can't be proven by bisimulation or pathway decomposition
+soloveichik_cooperative.ts: Soloveichik's "leakless" scheme, figure 8 of the same paper; 2-to-2 reactions only; requires enumeration of "slow" toehold dissociation
+
+chen_2domain.ts:	    [to be created, from Yuan-Jyue Chen et al 2013]
+srinivas.ts:		    [to be created, from Srinivas et al 2015 in preparation]
+srinivas_opt.ts:	    [to be created, combining all reactions with the same reactants, regardless of products]
+mehta_2domain.ts:	    [to be created, based on Jenish Mehta's new scheme]
