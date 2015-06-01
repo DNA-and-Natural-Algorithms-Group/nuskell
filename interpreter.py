@@ -554,7 +554,7 @@ function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, t
         strands.append(new_strand)
         return new_strand
 
-    wildcard_domain = DNAObjects.Domain(name = "?")
+    wildcard_domain = DNAObjects.Domain(name = "?", length = 1)
 
     # convert formal species
     for fs_name in formal_species_dict:
@@ -564,7 +564,6 @@ function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, t
         strand = []
         structure = ""
         for (x, y) in complex_old_format:
-            if y == "?": y = "."
             structure += y
             if x == "+":
                 strand = get_strand(strand)
@@ -592,7 +591,6 @@ function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, t
         strand = []
         structure = ""
         for (x, y) in complex_old_format:
-            if y == "?": y = "."
             structure += y
             if x == "+":
                 strand = get_strand(strand)
