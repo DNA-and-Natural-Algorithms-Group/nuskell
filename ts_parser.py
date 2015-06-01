@@ -43,7 +43,7 @@ number = G(T(W(nums), "num"))
 domains = G(S('"') + \
             OneOrMore(G(identifier + O("*")) | "?" | "+") + \
             S('"'))
-dotparen = G(S('"') + OneOrMore(W("().~?+", max=1)) + S('"'))
+dotparen = G(S('"') + OneOrMore(W("().~+", max=1)) + S('"'))
 dna = G(T(domains + S("|") + dotparen, "dna"))
 
 atom = paren | list | identifier | number | dna

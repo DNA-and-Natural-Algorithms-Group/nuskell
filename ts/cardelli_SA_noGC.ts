@@ -12,13 +12,13 @@
 #
 
 class formal(s) = "? t b"
-                | "? . ."
+                | ". . ."
     where {
         t = short();
         b = long() };
 
 class signal() = "? t b"
-                | "? . ."
+               | ". . ."
     where {
         t = short();
         b = long() };

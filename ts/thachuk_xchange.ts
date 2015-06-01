@@ -13,7 +13,7 @@
 # ./verify ts/thachuk_xchange.ts crn/reaction1.crn --release-cutoff-1-1 4
 
 class formal(s) = "d1a d1b d1c d2a d2b d2c d3a d3b d3c ? ? ?"
-                | " .   .   .   .   .   .   .   .   .  ? ? ?"
+                | " .   .   .   .   .   .   .   .   .  . . ."
     where {
         d1a = short() ; 
         d1b = short() ;

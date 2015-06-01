@@ -234,8 +234,6 @@ def test(crnfile, domfile, method, interactive = False, condense = True, verbose
                 c[1] += " "+sname
         i[1] = i[1][:-1]
         for j in i[2]:
-            if j == "?":
-                j = "."
             if j == "+": j = " + "
             c[2] += j
         out_complexes.append(c)

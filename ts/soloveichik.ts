@@ -7,7 +7,7 @@
 #
 
 class formal(s) = "? a b c"
-                | "? . . ."
+                | ". . . ."
     where {
         a = short() ; 
         b = long() ;

@@ -20,7 +20,7 @@ L = Literal
 identifier = W(alphas, alphanums)
 number = W(nums, nums)
 domain = G(OneOrMore((G(identifier + O("*")) | "?" | "+")))
-dotparen = G(OneOrMore(W("().?+", max=1)))
+dotparen = G(OneOrMore(W("().+", max=1)))
 structure = domain + OneOrMore(LineEnd().suppress()) + dotparen
 sequence = G(S("sequence") + identifier + S(":") + number + OneOrMore(LineEnd().suppress()))
 molecule = G(identifier + S(":") + OneOrMore(LineEnd().suppress()) + structure)
