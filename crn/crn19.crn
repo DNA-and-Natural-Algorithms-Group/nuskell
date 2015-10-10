@@ -1,0 +1,3 @@
+A + B + C -> X + Y
+X -> A + B + C
+Y -> A + B + C

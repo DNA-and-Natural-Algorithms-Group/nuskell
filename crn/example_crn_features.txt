@@ -83,4 +83,24 @@ C -> X
 X -> B
 C -> 
 
+crn17: reversible and irreversible 2-to-2 bimolecular
+A + B -> X + Y
+X + Y -> A + B
+R + S -> P + Q
+
+crn18: unimolecular, multiple products
+A -> B
+B -> C
+C -> A + X
+X -> Y
+Y -> Z
+Z -> X + A
+
+crn19: bimolecular reactants have multiple origins
+A + B + C -> X + Y
+X -> A + B + C
+Y -> A + B + C
+
 reaction1 through reaction14: all variations of A+B->X+Y with some reactants or products not distinct
+ reaction8: A+A->A+B
+ reaction10: A+A->B+A

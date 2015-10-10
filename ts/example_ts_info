@@ -19,7 +19,8 @@ thachuk_xchange.ts:	    Thachuk's "leakless" scheme, figure 9 of Thachuk, Winfre
 thachuk_xchange_WF.ts:	    as above, but declares the "waste" to be fuel; should be correct, but can't be proven by bisimulation or pathway decomposition
 soloveichik_cooperative.ts: Soloveichik's "leakless" scheme, figure 8 of the same paper; 2-to-2 reactions only; requires enumeration of "slow" toehold dissociation
 
+mehta_3domain.ts:	    unpublished but elegant scheme by Jenish Mehta
+
 chen_2domain.ts:	    [to be created, from Yuan-Jyue Chen et al 2013]
 srinivas.ts:		    [to be created, from Srinivas et al 2015 in preparation]
 srinivas_opt.ts:	    [to be created, combining all reactions with the same reactants, regardless of products]
-mehta_2domain.ts:	    [to be created, based on Jenish Mehta's new scheme]
