@@ -207,6 +207,9 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
             if not flag:
                 print "Permissive test failed:"
                 print "  Cannot get from ",initial," to",rxn[1]
+                print "Formal basis found was:"
+                for [r,p] in fbasis_raw:
+                    print r, "->", p
                 return None
     # permissive test end
     basis = fbasis
