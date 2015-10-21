@@ -8,6 +8,9 @@
 # Finds the formal basis of the given CRN.
 #
 
+#EW needs:
+import copy, random
+
 import sys, crn_parser
 
 def print_reaction(rxn):
@@ -266,6 +269,9 @@ def enumerate(p, w_max, i_max, crn, fs):
                     print
                     done = 1
                     return
+    #crn_perm=copy.copy(crn)  #EW  replaces crn by crn_perm
+    #random.shuffle(crn_perm) #EW   in the recursive call below
+    #for r in crn_perm:       #EW   (uncomment these three, comment out the line below, and you have randomized/shuffled search
     for r in crn:
         enumerate(p + [r], w_max, i_max, crn, fs)
     

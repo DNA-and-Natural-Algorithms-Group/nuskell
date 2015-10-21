@@ -102,5 +102,18 @@ X -> A + B + C
 Y -> A + B + C
 
 reaction1 through reaction14: all variations of A+B->X+Y with some reactants or products not distinct
- reaction8: A+A->A+B
- reaction10: A+A->B+A
+ reaction0:  A + A -> A + A
+ reaction1:  A + B -> X + Y
+ reaction2:  A + B -> A + Y
+ reaction3:  B + A -> Y + A
+ reaction4:  A + B -> Y + A
+ reaction5:  B + A -> A + Y
+ reaction6:  A + B -> B + B
+ reaction7:  A + B -> Y + A
+ reaction8:  A + A -> A + B
+ reaction9:  A + A -> B + B
+ reaction10: A + A -> B + A
+ reaction11: A + B -> A + A
+ reaction12: A + B -> A + B
+ reaction13: A + B -> B + A
+ reaction14: A + B -> X + X

@@ -1,5 +1,22 @@
 import time, basis_finder, string, crn_bisimulation_equivalence, sys
 
+# EW added, copied from printRxn
+def printSpecies(Sp_list, inter = {}):
+    print "{",
+    first = True
+    for x in Sp_list:
+        if x[0] not in string.letters:
+            if x in inter.keys() and inter[x]==[]:
+                x = "w" + x
+            else:
+                x = "i" + x
+        if not first:
+            print ",",
+        else:
+            first = False
+        print x,
+    print "}"
+
 def printRxn(rxn, inter = {}):
     first = True
     for x in rxn[0]:
@@ -101,7 +118,8 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
         printRxn(rxn)
     print
     print "Compiled CRN:"
-    print "formal species = ", fs2
+    print "formal species = ", 
+    printSpecies(fs2, inter)      #EW makes print-out prettier
     for rxn in crn2:
         print "   ",
         printRxn(rxn, inter)
