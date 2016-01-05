@@ -33,7 +33,7 @@ macro output(s)
         t = toehold;
         x = s.x };
 
-class outgate(r, p, a)
+class outgate(r, p, a, b)
     = [ "x + out1 t b + a + t* a* b* t* out2 x*"
       | "( +  ~   ( ( + ( + .  )  )  )   ~   )"] + l
     where {
