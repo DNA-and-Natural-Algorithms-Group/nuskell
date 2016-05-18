@@ -21,7 +21,7 @@ setup(
     author_email='somebody@caltech.edu',
     #url='http://www.dna.caltech.edu/nuskell/',
     license=license,
-    install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1', 'enumerator==0.4.0'],
+    install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1', 'peppercorn==0.4.0'],
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 
       'nuskell.include', 'nuskell.include.DNAObjects', # remove these dependencies
       'nuskell.verifier'],

@@ -17,7 +17,8 @@ import nuskell.parser.crn_parser as crn_parser
 from nuskell.interpreter.interpreter import interpret
 from nuskell.verifier.verifier import verify
 
-def compile(ts_file, input_crn, pilfile=None, domfile=None):
+def compile(ts_file, input_crn, pilfile=None, domfile=None, 
+    sdlen=6, ldlen=15):
   """ A formal chemical reaction network (CRN) is compiled into a DNA strand
   displacement circuit in domain level representation (DOM). The translation
   scheme must be formulated in the nuskell programming language. 
@@ -31,7 +32,8 @@ def compile(ts_file, input_crn, pilfile=None, domfile=None):
   ts = ts_parser.parse_file(ts_file)
   (crn, formal_species, const_species) = crn_parser.parse_string(input_crn)
 
-  domains, strands, formal_species, constant_species = interpret(ts, crn, formal_species)
+  domains, strands, formal_species, constant_species = \
+      interpret(ts, crn, formal_species, sdlen=sdlen, ldlen=ldlen)
 
   if pilfile :
     print_as_PIL(pilfile, domains, strands, formal_species, constant_species)
@@ -163,19 +165,40 @@ def main() :
   import sys
   import argparse
   def get_nuskell_args() :
-    """ A collection of arguments for nuskell """
+    """ A collection of arguments for nuskell 
+    nuskell reads and processes chemical reaction networks (CRNs). Three
+    different modes are supported to process this CRN:
+      
+      Compile a formal CRN to a domain-level (DOM) implementation CRN 
+        - requires a translation scheme file
+
+      Compare a formal CRN to an implementation CRN using bisimulation
+        - requires an implementation CRN file 
+        - optionally reads an interpretation CRN 
+
+      Verify that the formal CRN is implemented by an implementation CRN using
+      pathway decomposition
+        - requires a translation scheme file
+
+    """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("--compile", action = 'store',
+        help="Specify path to the translation scheme")
   
+    parser.add_argument("--compare", action = 'store',
+        help="Specify path to the translation scheme")
+
     parser.add_argument("--ts", required=True, action = 'store',
         help="Specify path to the translation scheme")
     parser.add_argument("-o", "--output", default='', action = 'store',
         help="Specify name of output file")
-    # TODO
-    # parser.add_argument("--short", type=int, default=6,
-    #     help="Length of short domains when using the short() built-in function")
-    # parser.add_argument("--long", type=int, default=15,
-    #     help="Length of long domains when using the long() built-in function")
+
+    parser.add_argument("--dom_short", type=int, default=6,
+        help="Length of short domains when using the short() built-in function")
+    parser.add_argument("--dom_long", type=int, default=15,
+        help="Length of long domains when using the long() built-in function")
 
     # could make it an array of methods: 
     #   [bisimulation, pathway-equivalence]
@@ -199,7 +222,11 @@ def main() :
 
   pilfile = args.output + '.pil'
   domfile = args.output + '.dom'
-  compile(args.ts, input_crn, pilfile, domfile)
+  compile(args.ts, input_crn, 
+      pilfile=pilfile, 
+      domfile=domfile, 
+      sdlen = args.dom_short,
+      ldlen = args.dom_long)
  
   if args.verify :
     print "Compilation done. enumerating pathways ... "
