@@ -188,7 +188,7 @@ class Environment:
     else :
       assert isinstance(value, bindings)
 
-    print "create binding:", len(self.env), name, value
+    #print "create binding:", len(self.env), name, value
 
     self.env[-1][name] = value
     return self.env
@@ -361,7 +361,7 @@ class Environment:
     tag = v[0]
     content = v[1:]
 
-    print 't', tag, content
+    #print 't', tag, content
     if tag in operators.keys():
       self.env, operand1 = self.interpret_expr(content[0])
       self.env, operand2 = self.interpret_expr(content[1])

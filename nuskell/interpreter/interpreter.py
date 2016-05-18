@@ -111,15 +111,15 @@ def tls_code_snippet():
   :return: a code snippet in the tls language format
   """
   return """ 
-    #function range(x) = if x == 0 then [] else range(x - 1) + [x - 1] ;
-    #function sum(x) = if len(x) == 0 then empty elseif len(x) == 1 then x[0] else x[0] + sum(tail(x)) ;
-    function len(x) = if x == [] then 0 else 1 + len(tail(x)) 
-    #function reverse(x) = if x == [] then [] else reverse(tail(x)) + [x[0]] ;
-    #function rxn_degree(x, r) = if len(x) == 0 then [] elseif len(x[0].reactants) == r then [x[0]] + rxn_degree(tail(x), r) else rxn_degree(tail(x), r) ;
-    #function unirxn(x) = if len(x) == 0 then [] elseif len(x[0].reactants) == 1 then [x[0]] + unirxn(tail(x)) else unirxn(tail(x)) ;
-    #function birxn(x) = if len(x) == 0 then [] elseif len(x[0].reactants) == 2 then [x[0]] + birxn(tail(x)) else birxn(tail(x)) ;
-    #function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
-    #function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
+    function range(x) = if x == 0 then [] else range(x - 1) + [x - 1] ;
+    function sum(x) = if len(x) == 0 then empty elseif len(x) == 1 then x[0] else x[0] + sum(tail(x)) ;
+    function len(x) = if x == [] then 0 else 1 + len(tail(x)) ;
+    function reverse(x) = if x == [] then [] else reverse(tail(x)) + [x[0]] ;
+    function rxn_degree(x, r) = if len(x) == 0 then [] elseif len(x[0].reactants) == r then [x[0]] + rxn_degree(tail(x), r) else rxn_degree(tail(x), r) ;
+    function unirxn(x) = if len(x) == 0 then [] elseif len(x[0].reactants) == 1 then [x[0]] + unirxn(tail(x)) else unirxn(tail(x)) ;
+    function birxn(x) = if len(x) == 0 then [] elseif len(x[0].reactants) == 2 then [x[0]] + birxn(tail(x)) else birxn(tail(x)) ;
+    function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
+    function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
 def interpret(tls_parsed, crn_parsed, fs_list, 
     name='tls_author', sdlen=6, ldlen=15, verbose=True):
@@ -132,13 +132,13 @@ def interpret(tls_parsed, crn_parsed, fs_list,
   # Parse a piece of sample code with utilities
   header = ts_parser.parse(tls_code_snippet())
 
-  print header
+  #print header
 
   # add the code to the environment
   tls_env.interpret(header)
 
   tls_env.interpret(tls_parsed)
-  raise Exception, "stop here"
+  #raise Exception, "stop here"
 
   # create formal species
   formal_species_objects = map(Species, fs_list)
