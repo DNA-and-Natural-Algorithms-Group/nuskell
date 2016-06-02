@@ -11,9 +11,27 @@ from pyparsing import (Word, Literal, Group, Suppress, lineno, Optional,
  nums, lineEnd, empty, FollowedBy, Forward, OneOrMore, ZeroOrMore, alphas,
  alphanums, delimitedList, col, ParseException, ParseFatalException,
  operatorPrecedence, ParserElement, opAssoc, StringStart, StringEnd,
- pythonStyleComment)
+ pythonStyleComment, quotedString)
+
+"""
+grammar:
+
+  document ::= statement ';' [document] 
+  statement ::= class | function | module | macro | global
+  class ::= 'class' + name + '(' + names + ')' + '=' + expr
+  function ::= 'function' + name + '(' + names + ')' + '=' + expr
+  module ::= 'module' + name + '(' + names + ')' + '=' + expr
+  macro ::= 'macro' + name + '(' + names + ')' + '=' + expr
+  global ::= 'global' + name_list + '=' + expr
+
+  name_list ::= '[' + name_list + ']' | name
+
+  args ::= 
+  
+"""
 
 def ts_document_setup():
+  """The gramar to parse a translation scheme"""
   ParserElement.enablePackrat()
   
   W = Word
@@ -36,8 +54,8 @@ def ts_document_setup():
     return x.setParseAction(TPA(tag))
   
   expr = Forward()
-  exprlist = delimitedList(expr)
-  
+  exprlist = delimitedList(expr) 
+
   paren = S("(") + expr + S(")")
   list = G(T(S("[") + O(exprlist) + S("]"), "list"))
   identifier = G(T(W(alphas, alphanums + "_"), "id"))
@@ -72,22 +90,26 @@ def ts_document_setup():
            | identifier)
   
   asgn = G(id_list + S("=") + expr)
-  where_clause = G(S("where") + S("{") + delimitedList(asgn, ";") \
-                   + S("}")) | G(S("where") + asgn)
+  where_clause = G(S("where") + S("{") + \
+      delimitedList(asgn, ";") + S("}")) | G(S("where") + asgn)
+
+  quote_expr = G(T(quotedString, 'quote'))
   where_expr = G(T(test + O(where_clause), "where"))
+  if_expr = G("if" + expr + S("then") + expr + \
+      ZeroOrMore(S("elseif") + expr + S("then") + expr) + \
+      S("else") + expr)
   
-  expr << (G("if" + expr + S("then") + expr + ZeroOrMore(S("elseif") \
-           + expr + S("then") + expr) + S("else") + expr) | where_expr)
+  expr << (if_expr | where_expr | quote_expr)
   
-  class_def = G("class" + identifier + G(S("(") + \
-                O(delimitedList(identifier)) + S(")")) + S("=") + expr)
-  function_def = G("function" + identifier + G(S("(") + \
-                 O(delimitedList(identifier)) + S(")")) + S("=") + expr)
-  module_def = G("module" + identifier + G(S("(") + \
-                 O(delimitedList(identifier)) + S(")")) + S("=") + expr)
-  macro_def = G("macro" + identifier + G(S("(") + \
-                O(delimitedList(identifier)) + S(")")) + S("=") + expr)
-  global_def = G("global" + id_list + S("=") + expr)
+  class_def    = G("class" + identifier + \
+      G(S("(") + O(delimitedList(identifier)) + S(")")) + S("=") + expr)
+  function_def = G("function" + identifier + \
+      G(S("(") + O(delimitedList(identifier)) + S(")")) + S("=") + expr)
+  module_def   = G("module" + identifier + \
+      G(S("(") + O(delimitedList(identifier)) + S(")")) + S("=") + expr)
+  macro_def    = G("macro" + identifier + \
+      G(S("(") + O(delimitedList(identifier)) + S(")")) + S("=") + expr)
+  global_def   = G("global" + id_list + S("=") + expr)
   
   stmt = class_def | function_def | module_def | macro_def | global_def
   

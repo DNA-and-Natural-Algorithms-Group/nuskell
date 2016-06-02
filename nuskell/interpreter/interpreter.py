@@ -22,7 +22,7 @@ def flatten(x):
      [(a, "("), (b, "("), ..., (-a, ")")]
   """
   if isinstance(x, Structure):
-    l = tlsenv.funky()._flip([[x.domains, x.dotparens], len(x.domains)])
+    l = tlsenv._builtin()._flip([[x.domains, x.dotparens], len(x.domains)])
     l = map(lambda x: (x[0], x[1]), l)
     return flatten(l)
   if type(x) == list:
@@ -127,7 +127,7 @@ def interpret(tls_parsed, crn_parsed, fs_list,
   # Setup the environment
   tls_env = tlsenv.Environment(name, sdlen=sdlen, ldlen=ldlen)
 
-  #if verbose : tls_env.print_environment()
+ # if verbose : tls_env.print_environment()
 
   # Parse a piece of sample code with utilities
   header = ts_parser.parse(tls_code_snippet())
@@ -148,7 +148,7 @@ def interpret(tls_parsed, crn_parsed, fs_list,
   # compile the formal species
   tls_env._create_binding("__formalspecies__", formal_species_objects)
 
-  tls_env.env, formal_species_result = tls_env.interpret_expr(
+  tls_env._env, formal_species_result = tls_env.interpret_expr(
       ["trailer",
         ["id", "map"], 
         ["apply", 
@@ -167,7 +167,7 @@ def interpret(tls_parsed, crn_parsed, fs_list,
   crn_object = map(lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
 
   tls_env._create_binding("__crn__", crn_object)
-  tls_env.env, solution = tls_env.interpret_expr( 
+  tls_env._env, solution = tls_env.interpret_expr( 
       ["trailer", 
         ["id", "main"], 
         ["apply", 
