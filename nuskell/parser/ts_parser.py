@@ -7,32 +7,42 @@
 # Parser module for translation scheme description files (*.ts).
 #
 
-from pyparsing import (Word, Literal, Group, Suppress, lineno, Optional,
- nums, lineEnd, empty, FollowedBy, Forward, OneOrMore, ZeroOrMore, alphas,
- alphanums, delimitedList, col, ParseException, ParseFatalException,
- operatorPrecedence, ParserElement, opAssoc, StringStart, StringEnd,
- pythonStyleComment, quotedString)
+from pyparsing import (Word, Literal, Group, Suppress, Optional, Forward,
+    OneOrMore, ZeroOrMore, nums, alphas, alphanums, delimitedList,
+    operatorPrecedence, ParserElement, opAssoc, StringStart, StringEnd,
+    pythonStyleComment, quotedString, ParseElementEnhance)
 
 """
 grammar:
 
-  document ::= statement ';' [document] 
-  statement ::= class | function | module | macro | global
-  class ::= 'class' + name + '(' + names + ')' + '=' + expr
-  function ::= 'function' + name + '(' + names + ')' + '=' + expr
-  module ::= 'module' + name + '(' + names + ')' + '=' + expr
-  macro ::= 'macro' + name + '(' + names + ')' + '=' + expr
-  global ::= 'global' + name_list + '=' + expr
+  document ::= statements | statement 
 
-  name_list ::= '[' + name_list + ']' | name
+  statement ::= class | function | module | macro | global
+  class     ::= 'class'    + identifier + '(' + identifiers + ')' + '=' + expr
+  function  ::= 'function' + identifier + '(' + identifiers + ')' + '=' + expr
+  module    ::= 'module'   + identifier + '(' + identifiers + ')' + '=' + expr
+  macro     ::= 'macro'    + identifier + '(' + identifiers + ')' + '=' + expr
+  global    ::= 'global'   + id_list + '=' + expr
+
+  id_list ::= '[' + id_list + ']' | identifier
+
+  expr ::= if_expr | where_expr | quote_expr
+
+  if_expr ::= 'if' + expr + 'then' + expr + 
+              'elsif' + expr + 'then' + expr + 'else' + expr
+
+  where_expr ::= test + where_clause | test
+  test ::= 
+  where_clause ::= 'where' + '{' + asigns + '}' | 'where' + asgn
 
   args ::= 
   
 """
 
 def ts_document_setup():
-  """The gramar to parse a translation scheme"""
+  """The gramar to parse a translation scheme."""
   ParserElement.enablePackrat()
+  ParseElementEnhance.setDefaultWhitespaceChars(" \n\t\r")
   
   W = Word
   G = Group
@@ -41,6 +51,7 @@ def ts_document_setup():
   L = Literal
   
   def TPAOp(s, l, t):
+    """ """
     def helper(t):
       if len(t) == 1:
         return t[0]
@@ -50,14 +61,14 @@ def ts_document_setup():
   
   def T(x, tag):
     def TPA(tag):
-        return lambda s, l, t: [tag] + t.asList()
+      return lambda s, l, t: [tag] + t.asList()
     return x.setParseAction(TPA(tag))
   
   expr = Forward()
   exprlist = delimitedList(expr) 
 
   paren = S("(") + expr + S(")")
-  list = G(T(S("[") + O(exprlist) + S("]"), "list"))
+  list  = G(T(S("[") + O(exprlist) + S("]"), "list"))
   identifier = G(T(W(alphas, alphanums + "_"), "id"))
   number = G(T(W(nums), "num"))
   domains = G(S('"') + \
@@ -78,12 +89,12 @@ def ts_document_setup():
   factor << (G(T(S("-") + factor, "uminus")) | atom_trailers)
   
   test = operatorPrecedence(factor,
-             [(W("*/",max=1), 2, opAssoc.LEFT, TPAOp),
-             (W("+-",max=1) , 2, opAssoc.LEFT, TPAOp),
-             ((L("==") | L(">=") | L("<=") | L(">") | L("<") | L("!=")), \
-              2, opAssoc.LEFT, TPAOp),
-             ((L("and") | L("or")), 2, opAssoc.LEFT, TPAOp)])
-  
+      [(W("*/",max=1), 2, opAssoc.LEFT, TPAOp),
+       (W("+-",max=1), 2, opAssoc.LEFT, TPAOp),
+       ((L("==") | L(">=") | L("<=") | L(">") | L("<") | L("!=")), \
+           2, opAssoc.LEFT, TPAOp),
+       ((L("and") | L("or")), 2, opAssoc.LEFT, TPAOp)])
+
   
   id_list = Forward()
   id_list << (G(T(S("[") + delimitedList(id_list) + S("]"), "idlist")) \
@@ -117,12 +128,12 @@ def ts_document_setup():
   document.ignore(pythonStyleComment)
   return document
 
+def parse_ts_file(filename):
+  """Parses the given .ts file and returns the result as a list."""
+  ts_document = ts_document_setup()
+  return ts_document.parseFile(filename, parseAll = True).asList()
 
-ts_document = ts_document_setup()
-def parse_file(filename):
-    """Parses the given .ts file and returns the result as a list."""
-    return ts_document.parseFile(filename, parseAll = True).asList()
-
-def parse(data):
+def parse_ts_string(data):
     """Parses the given string and returns the result as a list."""
+    ts_document = ts_document_setup()
     return ts_document.parseString(data).asList()

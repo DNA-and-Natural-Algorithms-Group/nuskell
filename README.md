@@ -26,4 +26,7 @@ python setup.py install --prefix=/your/destination/nuskell-x.y.r
 export PATH=/your/destination/nuskell-x.y.r/bin:$PATH
 export PYTHONPATH=/your/destination/nuskell-x.y.r/lib/python2.7/site-packages/:$PYTHONPATH
 
+##### Devolment / Unittests #####
+
+python setup.py test
 

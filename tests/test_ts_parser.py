@@ -1,5 +1,5 @@
 import unittest
-import nuskell.parser as np
+from nuskell.parser import parse_ts_file, parse_ts_string
 
 
 class TestTLSparser(unittest.TestCase):
@@ -80,7 +80,7 @@ class TestTLSparser(unittest.TestCase):
                               ['id', 'x']]]]]]]]]]]]]
 
     self.assertEqual(
-        np.ts_parser.parse(self.f1), pf1, 'built-in function len(x)')
+        parse_ts_string(self.f1), pf1, 'built-in function len(x)')
 
     #print self.f2
     #print np.ts_parser.parse(self.f2)
@@ -98,7 +98,7 @@ class TestTLSparser(unittest.TestCase):
           ['trailer', ['list', ['where', ['-', ['trailer',
             ['id', 'x']], ['trailer', ['num', '1']]]]]]]]]]]
 
-    self.assertEqual(np.ts_parser.parse(self.f2), pf2, 'built-in function range(x)')
+    self.assertEqual(parse_ts_string(self.f2), pf2, 'built-in function range(x)')
 
 
     pf3 = [['function', 
@@ -127,7 +127,7 @@ class TestTLSparser(unittest.TestCase):
                       ['trailer', 
                         ['id', 'x']]]]]]]]]]]]]
 
-    self.assertEqual(np.ts_parser.parse(self.f3), pf3, 'built-in function sum(x)')
+    self.assertEqual(parse_ts_string(self.f3), pf3, 'built-in function sum(x)')
 
 
     print self.m1
@@ -145,7 +145,7 @@ class TestTLSparser(unittest.TestCase):
               ['where', ['trailer', ['id', 'crn']]]]]]]]]]]
 
     print self.m3
-    print np.ts_parser.parse(self.m3)
+    print parse_ts_string(self.m3)
     pm3 = [['module', 
       ['id', 'rxn'], 
       [['id', 'r']], 
@@ -179,7 +179,7 @@ class TestTLSparser(unittest.TestCase):
 
 
     print self.m5
-    print np.ts_parser.parse(self.m5)
+    print parse_ts_string(self.m5)
 
 
 if __name__ == '__main__':

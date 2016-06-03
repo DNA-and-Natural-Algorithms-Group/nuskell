@@ -11,7 +11,7 @@
 import os
 import sys
 
-import nuskell.parser.ts_parser as ts_parser
+from nuskell.parser import parse_crn_string, parse_ts_file, parse_ts_string
 import nuskell.parser.crn_parser as crn_parser
 
 from nuskell.interpreter.interpreter import interpret
@@ -29,8 +29,8 @@ def compile(ts_file, input_crn, pilfile=None, domfile=None,
   :param pilfile: The output file name of a DOM-level cirucit in .dom format
   """
 
-  ts = ts_parser.parse_file(ts_file)
-  (crn, formal_species, const_species) = crn_parser.parse_string(input_crn)
+  ts = parse_ts_file(ts_file)
+  (crn, formal_species, const_species) = parse_crn_string(input_crn)
 
   domains, strands, formal_species, constant_species = \
       interpret(ts, crn, formal_species, sdlen=sdlen, ldlen=ldlen)

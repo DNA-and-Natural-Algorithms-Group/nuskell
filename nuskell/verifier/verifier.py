@@ -1,8 +1,7 @@
 
 import os
 import sys
-import nuskell.parser.dom_parser as dom_parser
-import nuskell.parser.crn_parser as crn_parser
+from nuskell.parser import parse_crn_string, parse_dom_file
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 
@@ -283,7 +282,7 @@ def verify(input_crn, domfile, method = 'bisimulation', verbose = True):
   interactive = False
 
   # Parse the CRN
-  (inp_crn, inp_fs, inp_cs) = crn_parser.parse_string(input_crn) 
+  (inp_crn, inp_fs, inp_cs) = parse_crn_string(input_crn) 
   t = inp_crn
   inp_crn = []
   for [x, r, p] in t:
@@ -292,7 +291,7 @@ def verify(input_crn, domfile, method = 'bisimulation', verbose = True):
       inp_crn.append([p,r])
 
   # Parse the DOM
-  dom = dom_parser.parse(domfile)
+  dom = parse_dom_file(domfile)
 
   # Generate an input file for state enumerator
   efile, complexes = enumerator_input(dom)

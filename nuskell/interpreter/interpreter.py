@@ -10,7 +10,7 @@
 import sys
 from copy import copy
 
-import nuskell.parser.ts_parser as ts_parser
+from nuskell.parser import parse_ts_string
 import nuskell.include.DNAObjects as DNAObjects
 
 import nuskell.interpreter.environment as tlsenv
@@ -130,9 +130,7 @@ def interpret(tls_parsed, crn_parsed, fs_list,
  # if verbose : tls_env.print_environment()
 
   # Parse a piece of sample code with utilities
-  header = ts_parser.parse(tls_code_snippet())
-
-  #print header
+  header = parse_ts_string(tls_code_snippet())
 
   # add the code to the environment
   tls_env.interpret(header)

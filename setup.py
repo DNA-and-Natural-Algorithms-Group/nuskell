@@ -22,6 +22,7 @@ setup(
     #url='http://www.dna.caltech.edu/nuskell/',
     license=license,
     install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1', 'peppercorn==0.4.0'],
+    test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 
       'nuskell.include', 'nuskell.include.DNAObjects', # remove these dependencies
       'nuskell.verifier'],

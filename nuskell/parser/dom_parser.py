@@ -30,6 +30,6 @@ def dom_document_setup():
   document.ignore(pythonStyleComment)
   return document
 
-def parse(data):
+def parse_dom_file(data):
   document = dom_document_setup()
   return document.parseFile(data).asList()

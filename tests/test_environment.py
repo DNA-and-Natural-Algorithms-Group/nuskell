@@ -1,6 +1,8 @@
 import unittest
+import nuskell.parser as np
 import nuskell.interpreter as ni
 from nuskell.interpreter.environment import *
+from nuskell.interpreter.environment import _builtin
 
 class TestReaction(unittest.TestCase):
   def setUp(self):
@@ -68,7 +70,7 @@ class TestEnvironment(unittest.TestCase):
 
     #self.env1._create_binding('tail', Function('ar','value'))
 
-class Test_funky(unittest.TestCase):
+class Test_builtin(unittest.TestCase, _builtin):
   def setUp(self):
     self.env1 = Environment('env1')
 
@@ -84,7 +86,7 @@ class Test_funky(unittest.TestCase):
 
   def test_builtin_tail(self):
     l = [1,2,3,4]
-    self.assertEqual(funky()._tail([l]), [2,3,4], 'tail testing')
+    self.assertEqual(self._tail([l]), [2,3,4], 'tail testing')
 
   def test_builtin_complement(self):
     t1 = self.t1
@@ -94,11 +96,11 @@ class Test_funky(unittest.TestCase):
     t5 = 'something'
     tl = [t1, t2, t3, t4, t5]
 
-    self.assertEqual(funky()._complement([t1]), Domain(5, id=-1), 
+    self.assertEqual(_builtin()._complement([t1]), Domain(5, id=-1), 
         'complement testing')
 
     # super annoying test ... abusing the __str__ function of Domains
-    r2 = funky()._complement([t2])
+    r2 = _builtin()._complement([t2])
     r2dots = list(r2.dotparens)
     self.assertEqual(r2dots, ['(',')','.'], 'complement testing 2')
 
@@ -115,51 +117,69 @@ class Test_funky(unittest.TestCase):
 
     self.assertEqual(r2doms, x2doms, 'complement testing 2')
 
-    self.assertEqual(funky()._complement([t3]), ')', 'complement testing')
-    self.assertEqual(funky()._complement([t4]), '(', 'complement testing')
-    self.assertEqual(funky()._complement([t5]), 'something', 'complement testing')
+    self.assertEqual(_builtin()._complement([t3]), ')', 'complement testing')
+    self.assertEqual(_builtin()._complement([t4]), '(', 'complement testing')
+    self.assertEqual(_builtin()._complement([t5]), 'something', 'complement testing')
     
-    rl = list(funky()._complement([tl]))
+    rl = list(_builtin()._complement([tl]))
     rlt = [t5, t3, t4]
     self.assertEqual(rl[:3], rlt, 'complement testing')
     self.assertEqual(isinstance(rl[3], Structure), True, 'complement testing')
     self.assertEqual(isinstance(rl[4], Domain), True, 'complement testing')
 
-  def test_flip(self):
+  def test_builtin_infty(self):
+    """ not written yet """
+    pass
+
+  def test_builtin_unique(self):
+    """ not written yet """
+    pass
+
+  def test_builtin_flip(self):
     n = 3 # dimenstion of inner list
     l = [['a','b','c'], ['d','e','f'], ['g','h','i'], ['j','k','l']]
     r = [['a', 'd', 'g', 'j'], ['b', 'e', 'h', 'k'], ['c','f','i','l']]
+    self.assertEqual(_builtin()._flip([l,n]), r, 'flip testing')
 
-    self.assertEqual(funky()._flip([l,n]), r, 'flip testing')
-    print funky()._flip([l, n])
+  def test_builtin_rev_reactions(self):
+    """ not written yet """
+    pass
 
+  def test_builtin_irrev_reactions(self):
+    """ not written yet """
+    pass
 
   def test_if(self):
     """ not ready yet """
-    #pass
-    #content = [
-    #    ['where', 
-    #      ['==', 
-    #        ['trailer', 
-    #          ['id', 'x']], 
-    #        ['trailer', ['list']]]], 
-    #      ['where', 
-    #        ['trailer', 
-    #          ['num', '0']]], 
-    #      ['where', 
-    #        ['+', 
-    #          ['trailer', 
-    #            ['num', '1']], 
-    #          ['trailer', 
-    #            ['id', 'len'], 
-    #            ['apply', 
-    #              ['where', 
-    #                ['trailer', 
-    #                  ['id', 'tail'], 
-    #                  ['apply', 
-    #                    ['where', 
-    #                      ['trailer', 
-    #                        ['id', 'x']]]]]]]]]]]
-    #print funky()._if(self.env1, content)
-    #self.env1._create_binding('tail', Function('ar','value'))
+
+    cont = np.ts_parser.parse(
+        "function len(x) = if x == [] then 0 else 1 + len(tail(x))")
+    print cont
+
+
+    content = [
+        ['where', 
+          ['==', 
+            ['trailer', 
+              ['id', 'x']], 
+            ['trailer', ['list']]]], 
+          ['where', 
+            ['trailer', 
+              ['num', '0']]], 
+          ['where', 
+            ['+', 
+              ['trailer', 
+                ['num', '1']], 
+              ['trailer', 
+                ['id', 'len'], 
+                ['apply', 
+                  ['where', 
+                    ['trailer', 
+                      ['id', 'tail'], 
+                      ['apply', 
+                        ['where', 
+                          ['trailer', 
+                            ['id', 'x']]]]]]]]]]]
+    print _builtin()._if(self.env1, content)
+    self.env1._create_binding('tail', Function('ar','value'))
 

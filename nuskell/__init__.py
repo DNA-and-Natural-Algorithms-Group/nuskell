@@ -7,11 +7,7 @@ __version__ = "0.0.1"
 # Import the compiler I/O base #
 from nuskell.compiler import main, compile
 
-# Import the compiler utilities #
 import nuskell.parser
-#import nuskell.parser.tls_parser as tls_parser
-import nuskell.parser.crn_parser as crn_parser
-import nuskell.parser.dom_parser as crn_parser
 
 import nuskell.interpreter.interpreter as interpreter
 

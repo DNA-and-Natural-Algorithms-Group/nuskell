@@ -7,7 +7,9 @@
 # Parser module for chemical reaction network description files (*.crn).
 #
 
-from pyparsing import *
+from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore,
+    alphas, alphanums, delimitedList, StringStart, StringEnd, LineEnd,
+    pythonStyleComment, ParseElementEnhance)
 
 def crn_document_setup():
   """ Parse a chemical reaction network
@@ -69,7 +71,6 @@ def crn_document_setup():
   document.ignore(pythonStyleComment)
   return document
 
-crn_document = crn_document_setup()
 def species(crn):
   """ Returns the list of all the distinct species in the given CRN """
   species = set()
@@ -107,13 +108,15 @@ def split_reversible_reactions(crn):
             new_crn.append([p, r])
     return new_crn
 
-def parse_file(data):
-    """Parses the given .crn file and returns the result in the form of
+def parse_crn_file(filename):
+    """Parses the given file and returns the result in the form of
        (crn, formal species, constant species)."""
-    crn = crn_document.parseFile(data, parseAll = True).asList()
+    crn_document = crn_document_setup()
+    crn = crn_document.parseFile(filename, parseAll = True).asList()
     return _post_process(crn)
 
-def parse_string(data):
+def parse_crn_string(data):
     """Parses the given string and returns the result in the form of
        (crn, formal species, constant species)."""
+    crn_document = crn_document_setup()
     return _post_process(crn_document.parseString(data).asList())
