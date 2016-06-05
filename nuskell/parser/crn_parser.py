@@ -12,23 +12,22 @@ from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore,
     pythonStyleComment, ParseElementEnhance)
 
 def crn_document_setup():
-  """ Parse a chemical reaction network
-  CRN:
-    A + B -> C + D
-    -> A
-    X ->
-    A + C <=> X
-  returns: 
-  (
-    [['irreversible', ['A', 'B'], ['C','D']], 
-     ['irreversible', [], ['A']], 
-     ['irreversible', ['X'], []], 
-     ['reversible', ['A', 'C'], ['X']], 
-    ['A', 'B', 'C', 'D', 'X'], 
-    []
-  )
+  """Parse a chemical reaction network. 
+  
+  The crn document parser reads one chemical reaction per line, as well as
+  special lines that define 'formal' and 'constant' species of the crn.
 
-  -- this can read other input as well, but I haven't figured that out yet.
+  Returns:
+    a **pyparsing** document formating
+
+  .. Input example:
+  .. A + B -> C + D
+  .. -> A
+  .. X ->
+  .. A + C <=> X
+  .. formal = {A, B, C, D}
+  .. constant = {}
+
   """
   
   W = Word
@@ -72,7 +71,18 @@ def crn_document_setup():
   return document
 
 def species(crn):
-  """ Returns the list of all the distinct species in the given CRN """
+  """Returns a list of all distinct species in the CRN.
+
+  :param crn: a chemical reaction network 
+
+  .. [['irreversible', ['A', 'B'], ['C','D']], 
+  ..  ['irreversible', [], ['A']], 
+  ..  ['irreversible', ['X'], []], 
+  ..  ['reversible', ['A', 'C'], ['X']], 
+  ..  ['A', 'B', 'C', 'D', 'X'], []]
+
+  :return: list of species.
+  """
   species = set()
   for rxn in crn:
     # skip 'formal' or 'constant' statement
@@ -81,14 +91,44 @@ def species(crn):
   return list(species)
 
 def _post_process(crn):
-  formal_species = species(crn)
+  """Take a crn and return it together with a list of formal and
+  constant species.
+ """
+  all_species = species(crn)
+  formal_species = []
   constant_species = []
   for x in crn:
+    # overwrite the species assignment
     if x[0] == "formal":
       formal_species = x[1:]
     elif x[0] == "constant":
       constant_species = x[1:]
-      formal_species = formal_species - constant_species
+
+  #check that formal/constant assignments make sense!
+  asp = set(all_species)
+  fsp = set(formal_species)
+  csp = set(constant_species)
+
+  if csp :
+    if fsp :
+      if asp != fsp | csp :
+        raise ValueError, "missing species in CRN input"
+      elif fsp & csp :
+        raise ValueError, "species declared as formal & constant"
+    else :
+      fsp = asp - csp
+  elif fsp :
+    csp = asp - fsp
+    if asp != fsp | csp :
+      raise ValueError, "missing species in CRN input"
+    elif fsp & csp :
+      raise ValueError, "species declared as formal & constant"
+  else :
+    fsp = asp
+
+  formal_species = list(fsp)
+  constant_species = list(csp)
+
   for i in range(len(crn)):
     if crn[i][0] != "reversible" and crn[i][0] != "irreversible":
       crn = crn[:i]
@@ -96,17 +136,21 @@ def _post_process(crn):
   return (crn, formal_species, constant_species)
 
 def split_reversible_reactions(crn):
-    """ called by basis_finder """
-    new_crn = []
-    for rxn in crn:
-        if rxn[0] == "irreversible":
-            new_crn.append(rxn[1:])
-        if rxn[0] == "reversible":
-            r = rxn[1]
-            p = rxn[2]
-            new_crn.append([r, p])
-            new_crn.append([p, r])
-    return new_crn
+  """Replace every occurence of a reversible reaction with the two
+  corresponding irreversible reactions.
+  
+  .. called by basis_finder 
+  """
+  new_crn = []
+  for rxn in crn:
+    if rxn[0] == "irreversible":
+      new_crn.append(rxn[1:])
+    if rxn[0] == "reversible":
+      r = rxn[1]
+      p = rxn[2]
+      new_crn.append([r, p])
+      new_crn.append([p, r])
+  return new_crn
 
 def parse_crn_file(filename):
     """Parses the given file and returns the result in the form of
@@ -116,7 +160,15 @@ def parse_crn_file(filename):
     return _post_process(crn)
 
 def parse_crn_string(data):
-    """Parses the given string and returns the result in the form of
-       (crn, formal species, constant species)."""
+    """Parses a crn in string format and returns the result in the form of
+    (crn, formal_species, constant_species).
+
+    :returns: 
+    .. ([['irreversible', ['A', 'B'], ['C','D']], 
+    ..   ['irreversible', [], ['A']], 
+    ..   ['irreversible', ['X'], []], 
+    ..   ['reversible', ['A', 'C'], ['X']], 
+    ..   ['A', 'B', 'C', 'D', 'X'], [] ])
+    """
     crn_document = crn_document_setup()
     return _post_process(crn_document.parseString(data).asList())

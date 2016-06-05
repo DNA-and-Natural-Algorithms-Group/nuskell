@@ -11,20 +11,19 @@
 import os
 import sys
 
-from nuskell.parser import parse_crn_string, parse_ts_file, parse_ts_string
-import nuskell.parser.crn_parser as crn_parser
+from nuskell.parser import parse_crn_string, parse_ts_file
 
 from nuskell.interpreter.interpreter import interpret
 from nuskell.verifier.verifier import verify
 
-def compile(ts_file, input_crn, pilfile=None, domfile=None, 
-    sdlen=6, ldlen=15):
-  """ A formal chemical reaction network (CRN) is compiled into a DNA strand
-  displacement circuit in domain level representation (DOM). The translation
-  scheme must be formulated in the nuskell programming language. 
+def compile(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15):
+  """A formal chemical reaction network (CRN) is compiled into domain level
+  representation (DOM) of a DNA strand displacement circuit (DSD).  The
+  translation-scheme has to be formulated using the nuskell programming
+  language. 
 
-  :param ts_file: The input file name of a translation scheme
   :param input_crn: An input string representation of the formal CRN
+  :param ts_file: The input file name of a translation scheme
   :param pilfile: The output file name of a DOM-level cirucit in .pil format
   :param pilfile: The output file name of a DOM-level cirucit in .dom format
   """
@@ -156,11 +155,11 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
   return
 
 def main() :
-  """ Main interface to the nuskell compiler. This function uses arparse to
-  collect non-standard system parameters, compiles the formal CRN to a
-  DOM-level circuit and prints the results as PIL or DOM files. The function
-  also allows to verify if a given DOM representation implements the input CRN
-  (see nuskell.verifier).
+  """Standard interface to the nuskell compiler.  Commandline-parameters are
+  collected in order to compile and/or verify CRNs using DNA strand
+  displacement translation-schemes.  Domain-level DSD circuits are printed in
+  the .pil or .dom fileformat, verbose information, as well as results for
+  verification are printed to STDOUT.
   """
   import sys
   import argparse
@@ -222,7 +221,7 @@ def main() :
 
   pilfile = args.output + '.pil'
   domfile = args.output + '.dom'
-  compile(args.ts, input_crn, 
+  compile(input_crn, args.ts,
       pilfile=pilfile, 
       domfile=domfile, 
       sdlen = args.dom_short,
