@@ -7,10 +7,10 @@ import crn_pathway_equivalence
 
 try :
   # TODO: only used in do_enumerator_things()
-  import enumerator
+  import peppercorn
 except ImportError:
-  sys.exit("""nuskell depends on the enumertor package
-  -- download at http://dna.caltech.edu/enumerator """)
+  sys.exit("""nuskell depends on the peppercorn package
+  -- download at http://dna.caltech.edu/peppercorn """)
 
 def find(l, key):
   for i in range(len(l)):

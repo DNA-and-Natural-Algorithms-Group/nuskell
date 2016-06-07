@@ -14,7 +14,8 @@ from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure
 from nuskell.interpreter.environment import builtin_functions
 
-import nuskell.include.DNAObjects as DNAObjects
+#import nuskell.include.DNAObjects as DNAObjects
+import dnaobjects as DNAObjects
 
 def flatten(x):
   """Takes a Structure instance and convert it to the following format:
@@ -163,12 +164,17 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   # get the results in form of a dictionary d={fs:Object}
   fs_result = ts_env.formal_species_dict
   # get the final solution object
-  solution  = ts_env.main_solution
+  cs_result = ts_env.constant_species_solution
 
+  return post_process(fs_result, cs_result)
 
-  #################################
-  # convert output to DNA Objects #
-  #################################
+def post_process(fs_result, solution):
+  """Convert output to DNA Objects format.
+
+  Args:
+    fs_result (Dict{'FS':Species()}) : Compiled formal species
+    solution (Solution()): Compiled Solution of the DSD S
+  """
 
   # flatten outputs
   for k in fs_result.keys():
@@ -192,22 +198,23 @@ def interpret(ts_parsed, crn_parsed, fs_list,
       starred = True
     for d in domains:
       if d.name == domain_name:
-        if starred: return d.C
+        if starred: return d.complement
         return d
-    new_dom = DNAObjects.Domain(name = domain_name, length = x.length)
+    constraint = 'N' * x.length
+    new_dom = DNAObjects.Domain(name = domain_name, constraints = constraint)
     domains.append(new_dom)
     if starred: new_dom = new_dom.C
     return new_dom
 
   def get_strand(strand):
     for x in strands:
-      if x.domain_list == strand:
+      if x.domains == strand:
         return x
     new_strand = DNAObjects.Strand(domains = strand)
     strands.append(new_strand)
     return new_strand
 
-  wildcard_domain = DNAObjects.Domain(name = "?", length = 1)
+  wildcard_domain = DNAObjects.Domain(name = "?", constraints = 'N')
 
   # convert formal species
   for fs_name in fs_result:

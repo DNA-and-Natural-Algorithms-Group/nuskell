@@ -746,10 +746,10 @@ class Environment(builtin_expressions):
 
     # main(__crn__)
     self._create_binding("__crn__", crn_object)
-    self._env, self.main_solution = self.interpret_expr( 
+    self._env, self.constant_species_solution = self.interpret_expr( 
         ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
 
-    return self._env, self.main_solution
+    return self._env, self.constant_species_solution
 
   # Public functions #
   @property

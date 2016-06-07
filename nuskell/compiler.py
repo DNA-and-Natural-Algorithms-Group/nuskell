@@ -56,7 +56,7 @@ def print_as_PIL(outfile, domains, strands, formal_species, constant_species):
   for x in strands:
     total_length = 0
     print >> F, "strand " + x.name + " =",
-    for d in x.domain_list:
+    for d in x.domains:
       total_length += d.length
       print >> F, d.name,
     print >> F, ": " + str(total_length)
@@ -65,21 +65,21 @@ def print_as_PIL(outfile, domains, strands, formal_species, constant_species):
   for x in formal_species:
     print >> F, "structure " + x.name + " =",
     first = True
-    for s in x.strand_list:
+    for s in x.strands:
       if first: first = False
       else: print >> F, "+",
       print >> F, s.name,
-    print >> F, ": "  + x.structure
+    print >> F, ": "  + x.structure.to_dotparen()
 
   print >> F, "# Constant species"
   for x in constant_species:
     print >> F, "structure " + x.name + " =",
     first = True
-    for s in x.strand_list:
+    for s in x.strands:
       if first: first = False
       else: print >> F, "+",
       print >> F, s.name,
-    print >> F, ": "  + x.structure
+    print >> F, ": "  + x.structure.to_dotparen()
   # TODO : figure out a way to deal with the wildcards.
   return
 
@@ -102,16 +102,16 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
     print >> F, x.name + " :"
     first = True
     t = []
-    for s in x.strand_list:
+    for s in x.strands:
       if first: first = False
       else: print >> F, "+",
-      for d in s.domain_list:
+      for d in s.domains:
         print >> F, d.name,
         t.append(d)
     print >> F
     i = 0
-    while i < len(x.structure):
-      if x.structure[i] == "+":
+    while i < len(x.structure.to_dotparen()):
+      if x.structure.to_dotparen()[i] == "+":
         print >> F, "+",
         i += 1
       else:
@@ -120,7 +120,7 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
         elif t[0].length == 0:
           t = t[1:]
         else:
-          print >> F, x.structure[i],
+          print >> F, x.structure.to_dotparen()[i],
           i += t[0].length
           t = t[1:]
     print >> F
@@ -130,16 +130,16 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
     print >> F, x.name + " :"
     first = True
     t = []
-    for s in x.strand_list:
+    for s in x.strands:
       if first: first = False
       else: print >> F, "+",
-      for d in s.domain_list:
+      for d in s.domains:
         print >> F, d.name,
         t.append(d)
     print >> F
     i = 0
-    while i < len(x.structure):
-      if x.structure[i] == "+":
+    while i < len(x.structure.to_dotparen()):
+      if x.structure.to_dotparen()[i] == "+":
         print >> F, "+",
         i += 1
       else:
@@ -148,7 +148,7 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
         elif t[0].length == 0:
           t = t[1:]
         else:
-          print >> F, x.structure[i],
+          print >> F, x.structure.to_dotparen()[i],
           i += t[0].length
           t = t[1:]
     print >> F
