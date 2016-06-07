@@ -17,6 +17,3 @@ import nuskell.interpreter.interpreter as interpreter
 # import nuskell.verifier.crn_pathway_equivalence as crn_pathway_equivalence 
 # import nuskell.verifier.crn_bisimulation_equivalence as crn_bisimulation_equivalence
 
-# Depricated import of other peppersuite dependencies #
-import nuskell.include.DNAObjects
-

@@ -17,15 +17,13 @@ setup(
     version=version,
     description='DNA strand displacement compiler (CRN <=> DOM)',
     long_description=readme,
-    author='Seung Woo Shin, ...',
-    author_email='somebody@caltech.edu',
+    author='Seung Woo Shin, Stefan Badelt, Robert Johnson, Erik Winfree',
+    author_email='winfree@caltech.edu',
     #url='http://www.dna.caltech.edu/nuskell/',
     license=license,
     install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1', 'peppercorn==0.4.0'],
     test_suite='tests',
-    packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 
-      'nuskell.include', 'nuskell.include.DNAObjects', # remove these dependencies
-      'nuskell.verifier'],
+    packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell']
 )
 

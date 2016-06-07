@@ -10,12 +10,12 @@
 import sys
 from copy import copy
 
+import dnaobjects as DNAObjects
+
 from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure
 from nuskell.interpreter.environment import builtin_functions
 
-#import nuskell.include.DNAObjects as DNAObjects
-import dnaobjects as DNAObjects
 
 def flatten(x):
   """Takes a Structure instance and convert it to the following format:
