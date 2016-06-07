@@ -1,35 +1,60 @@
-"""The tls language environment.
+# -*- coding: utf-8 -*-
+#
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+# Modified by Stefan Badelt (badelt@caltech.edu)
+#
+#
 
-Recommended Input: 
-  *) tls code parsed by the tls_parser module
-  *) crns parsed by the crn_parser module
+"""The DSD translation scheme language environment.
 
+This module comprises all classes and functions that are used to set up the
+nuskell compiler environment. The environment has multiple levels. Built-in
+functions are defined in the base-level upon initialization, additional nuskell
+code is embedded using public functions of the **Environment** class. At this
+point, only the interpreter module communicates with the environment module in
+order to set up and execute the nuskell script together with the CRN of
+interest.
+
+.. When modifying this file, use 2-whitespace character indents, 
+.. otherwise follow the Google Python Style Guide:
+.. http://google.github.io/styleguide/pyguide.html
 """
 
 import sys
 from copy import copy
 
-# exceptions
+class RuntimeError(Exception):
+  """Exception for environment.py module.
+
+  Args:
+    value (str): Human readable string describing the exception.
+  """
+  def __init__(self, value):
+    self.value = "Runtime error : " + value
+
+  def __str__(self):
+    return self.value
+
 class void(object):
   """An empty object returned by the print function"""
   pass
 
-class RuntimeError(Exception):
-  def __init__(self, value):
-    self.value = "Runtime error : " + value
-  def __str__(self):
-    return self.value
-
 class Species(object):
+  """The Species object.
+
+  Args:
+    name (str): The name of a species.
+  """
   def __init__(self, name):
     self.name = name
 
 class Reaction(object):
   """Format of a single reaction:
 
-  :param reactands: a list of educts ['A', 'B']
-  :param products: a list of products ['C']
-  :param reversible: True or False
+  Args:
+    reactands (List[str]) : a list of educts, eg. ['A', 'B']
+    products (List[str]) : a list of products, eg. ['C']
+    reversible (bool) : True or False
   """
   def __init__(self, reactants, products, reversible):
     self.reactants = reactants
@@ -37,30 +62,31 @@ class Reaction(object):
     self.reversible = reversible
 
 class Function(object):
-  """ A function of the nuskell language """
+  """A function object of the nuskell language."""
   def __init__(self, args, body):
     self.args = args
     self.body = body
 
-class Solution(object):
-  """A set of Structure Objects found *in Solution* """
-  def __init__(self, initial):
-    assert isinstance(initial, set)
-    all(isinstance(s, Structure) for s in initial)
-    self.molecules = initial
-
-  def __add__(self, other):
-    assert isinstance(other, Solution)
-    return Solution(self.molecules.union(other.molecules))
-  
 class Domain(object):
-  """ This is a weird class, it is possible to define domains with 
-  the same id but different length, the comparison was messed up and
-  the global domain_length dictionary is never used ...
+  """The DNA domain class.
+  
+  A DNA domain is a sequence of consecutive nucleotides. Typically, a domain,
+  (as well as its complementary domain) is present in multiple DNA strands in a
+  DSD circuit.  The domain-ID is a unique descriptor refering to all DNA
+  domains with that ID.
 
-  TODO: This needs a rewrite in my opinion, 
-    *) remove domain_length 
-    *) rewrite __init__ and __eq__
+  .. TODO: It is possible to define domains with the same ID, but differnet
+  .. sequence length. Some other code needs cleanup, eg. the domain_length
+  .. dictionary is never used and the comparison is probably useless. 
+
+  Attributes: 
+    domain_id (int) : A global counter to increment the domain ID upon
+      initialization.  
+
+  Args:
+    length (int): The length of the domain.
+    id (Optional(int)): The length of the domain.
+  
   """
   domain_id = 0
   #domain_length = {}
@@ -93,18 +119,45 @@ class Domain(object):
     return not (self == other)
 
 class Structure(object):
+  """The Structure of a DNA complex.
+
+  The structure is specified using a list of domains and a corresponding
+  dot-parens notation. 
+
+  .. TODO: explain what the attributes are used for, give an example
+
+  Args:
+    domains (List[Domain]): A list of Domain-Objects
+    dotparens (List[str]): A list of dot-parens characters ".(.+)."
+    attr (Dict[]):
+  """
   def __init__(self, domains, dotparens, attr):
     self.domains = domains
     self.dotparens = dotparens
     self.attributes = attr
 
-class _builtin(object):
-  """A collection of built-in nuskell function types. Three flavours of
-  functions are combined in this class. 
+class Solution(object):
+  """A set of structure objects.
+
+  The solution object contains all species that have to be present in
+  ``infinite'' concentration in a DSD circuit.
+
+  Args:
+    initial (set[Solution]) : A set of Solution objects
+  """
+  def __init__(self, initial):
+    assert isinstance(initial, set)
+    all(isinstance(s, Structure) for s in initial)
+    self.molecules = initial
+
+  def __add__(self, other):
+    """Returns the union of two solution objects."""
+    assert isinstance(other, Solution)
+    return Solution(self.molecules.union(other.molecules))
   
-  *) Base-level functions (prefix bl_) are independent of the current
-  environment, they take a list of arguments and return a processed version of
-  these arguments.
+
+class builtin_expressions(object):
+  """Supported expressions of the nuskell programming language.
 
   *) Environment dependent functions (prefix ed_) interpret their arguments in
   the context of the current environment, and they *often* actually update the
@@ -113,6 +166,75 @@ class _builtin(object):
   *) trailer functions (prefix tf_) have an additional head argument that is
   ...
   """
+  #def __init__(self, env):
+  #  # Shall we initialize this every time with a new environment? -- NO
+  #  self.env = env
+
+  def interpret_expr(self, expr):
+    """Recursive interpretation the body of a global variable."""
+    operators = { "*" : lambda x, y: x * y,
+                  "/" : lambda x, y: x / y,
+                  "+" : lambda x, y: x + y,
+                  "-" : lambda x, y: x - y,
+                  "==" : lambda x, y: x == y,
+                  "!=" : lambda x, y: x != y,
+                  ">" : lambda x, y: x > y,
+                  "<" : lambda x, y: x < y,
+                  ">=" : lambda x, y: x >= y,
+                  "<=" : lambda x, y: x <= y }
+
+    keywords = {
+        'id' : lambda self, content: (self._env, self._ref_binding(content[0])),
+        'if' : self._if,  # return self._env, value
+        'or' : self._or,  # return self._env, operand1 or operand2
+        'and': self._and, # return self._env, operand1 and operand2
+        'num': lambda self, content: (self._env, int(content[0])), 
+        'quote': lambda self, content: (self._env, content[0]), 
+        'dna': self._dna, # return self._env, Structure()
+        'list': self._list, # return self._env, content
+        'where': self._where, # return self._env, value
+        'uminus': self._uminus, # return self._env, -value (integer only!)
+        #'trailer': self._trailer, # return self._env, head
+        }
+
+    tag = expr[0]
+    content = expr[1:]
+
+    #print 't', tag, content
+    if tag in operators.keys():
+      self._env, operand1 = self.interpret_expr(content[0])
+      self._env, operand2 = self.interpret_expr(content[1])
+      return self._env, operators[tag](operand1, operand2)
+    elif tag == 'trailer' :
+      """ nested stuff ... 
+      has two list arguments, the function name (x[0], args=x[1:]
+      function call, list indexing, or accessing attribute of an object
+      """
+      trailerkeys = {
+          'apply' : self._apply,
+          'index' : self._index,
+          'attribute' : self._attribute
+          }
+
+      #print tag, content
+
+      # function call, list attribute of an object
+      self._env, head = self.interpret_expr(content[0])
+
+      #print tag, head
+
+      for x in content[1:]:
+        key = x[0]
+        args = x[1:]
+        #print 'k', key, 'a', args
+        self._env, head = trailerkeys[key](self, head, args)
+
+      return self._env, head
+    elif tag in keywords.keys():
+      return keywords[tag](self, content)
+    else :
+      raise RuntimeError("Unknown expression `" + tag + "' was found.")
+      return self._env, None
 
   # Context-dependent
   @staticmethod
@@ -191,6 +313,7 @@ class _builtin(object):
         for key, value in asgn_pattern_match(id_list, value) :
           theenv._env = theenv._create_binding(key, value)
       # evaluate the final value
+
     theenv._env, value = theenv.interpret_expr(content[0])
     theenv._destroy_level()
     return theenv._env, value
@@ -230,7 +353,48 @@ class _builtin(object):
           "The attribute `"+identifier+"' could not be found.")
     return theenv._env, head
 
-  # eval_builtin_functions
+
+class builtin_functions(object):
+  """Builtin functions of the nuskell programming language.
+
+  This object is typically initialized within the environment after the
+  respective functions have been bound.  Most methods do not require any class
+  variables and are therefore declared as staticmethods.  As a consequence, the
+  functions can be accessed without prior initialization of the Object. 
+  """
+  ################################
+  ### Builtin-function section ###
+  ################################
+
+  def __init__(self, sdl=6, ldl=15) :
+    self._short_domain_length = sdl
+    self._long_domain_length = ldl
+
+  def eval_builtin_functions(self, f, args):
+    """Evaluate built-in functions. These functions do not alter the
+    environment and they are contained in their own class for readability.
+    """
+
+    keywords = {
+        'print': self._print,
+        'abort': self._abort,
+        'tail' : self.tail,
+        'flip' : self.flip,
+        'long' : lambda x: Domain(self._long_domain_length),
+        'short' : lambda x: Domain(self._short_domain_length),
+        'infty' : self.infty,
+        'unique' : self.unique,
+        'complement' : self.complement,
+        'rev_reactions' : self.rev_reactions,
+        'irrev_reactions' : self.irrev_reactions,
+        }
+
+    if f in keywords.keys() :
+      return keywords[f](args)
+    else :
+      raise RuntimeError("`" + f + "' could not be resolved.")
+      return None
+
   def _print(self, args):
     """Print statment, primarily to debug nuskell scripts"""
     for a in args:
@@ -243,66 +407,17 @@ class _builtin(object):
 
   def _abort(self, args):
     """Raise SystemExit and print the error message"""
-    raise SystemExit, 'EXIT: ' + args[0]
+    raise SystemExit('EXIT: ' + args[0])
 
-  def _tail(self, args) :
+  @staticmethod
+  def tail(args) :
     """ Returns the last element.. """
     if type(args[0]) != list:
       raise RuntimeError("`tail' should have a list as its argument.")
     return args[0][1:]
 
-  # # eval_builtin_functions
-  # def _complain(self, args) :
-  #   """ Write an Error message and quit() """
-  #   if type(args[0]) != list:
-  #     raise RuntimeError("`complain' with a string!")
-  #   #print args[0]
-  #   return args[1:]
-
-  def _complement(self, args) :
-    """ Returns the complement of a given input. It can interpret Structures, 
-    Domains and Dot-bracket lists, as well as lists of lists.
-
-    :param args: an expression in form of an array, where the first element
-    in the array contains the data of interest. ... yeah, a bit complicated...
-
-    :return: complement of the input
-    """
-    x = args[0]
-    if type(x) == list:
-      # args[0] forces us to introduce additional lists ...
-      for i in range(len(x)) : x[i] = [x[i]]
-      return reversed(map(self._complement, x))
-    elif isinstance(x, Domain):
-      return ~x
-    elif isinstance(x, Structure):
-      return Structure(
-          self._complement([x.domains]),
-          self._complement([x.dotparens]),
-          dict(x.attributes))
-    elif x == "(":
-      return ")"
-    elif x == ")":
-      return "("
-    else:
-      return x
-  
-  def _infty(self, args) :
-    """
-    'infty' is a built-in function that takes a structure instance and puts
-    that the species is supposed to have "infinite" concentration. The
-    resulting object will be a Solution instance
-    """
-    if not isinstance(args[0], Structure):
-      raise RuntimeError("The argument of `infty' should be a structure")
-    return Solution(set([args[0]]))
-
-  def _unique(self, args) :
-    if type(args[0]) != int:
-      raise RuntimeError("The first argument of `unique' should be an integer.")
-    return Domain(args[0])
-
-  def _flip(self, args) :
+  @staticmethod
+  def flip(args) :
     """A matrix transpose function for lists of lists. 
 
     :param args: a list that contains both the lol and and integer to specify
@@ -330,7 +445,54 @@ class _builtin(object):
         res[j][i] = l[i][j]
     return res
 
-  def _rev_reactions(self, args) : 
+  @staticmethod
+  def infty(args) :
+    """
+    'infty' is a built-in function that takes a structure instance and puts
+    that the species is supposed to have "infinite" concentration. The
+    resulting object will be a Solution instance
+    """
+    if not isinstance(args[0], Structure):
+      raise RuntimeError("The argument of `infty' should be a structure")
+    return Solution(set([args[0]]))
+
+  @staticmethod
+  def unique(args) :
+    if type(args[0]) != int:
+      raise RuntimeError("The first argument of `unique' should be an integer.")
+    return Domain(args[0])
+
+  @staticmethod
+  def complement(args) :
+    """ Returns the complement of a given input. It can interpret Structures, 
+    Domains and Dot-bracket lists, as well as lists of lists.
+
+    :param args: an expression in form of an array, where the first element
+    in the array contains the data of interest. ... yeah, a bit complicated...
+
+    :return: complement of the input
+    """
+    x = args[0]
+    if type(x) == list:
+      # args[0] forces us to introduce additional lists ...
+      for i in range(len(x)) : x[i] = [x[i]]
+      return reversed(map(self._complement, x))
+    elif isinstance(x, Domain):
+      return ~x
+    elif isinstance(x, Structure):
+      return Structure(
+          self._complement([x.domains]),
+          self._complement([x.dotparens]),
+          dict(x.attributes))
+    elif x == "(":
+      return ")"
+    elif x == ")":
+      return "("
+    else:
+      return x
+  
+  @staticmethod
+  def rev_reactions(args) : 
     if type(args[0]) != list:
       raise RuntimeError("The argument of `rev_reactions' should be a list.")
     crn = args[0]
@@ -350,7 +512,8 @@ class _builtin(object):
       new_crn.append(r)
     return new_crn
 
-  def _irrev_reactions(self, args) : 
+  @staticmethod
+  def irrev_reactions(args) : 
     """
     a function that divides every reversible reaction into a pair of
     irreversible reaction.
@@ -367,8 +530,8 @@ class _builtin(object):
         new_crn.append(r) 
     return new_crn
 
-class Environment(_builtin):
-  """ The environment of the tls language. It collects built-in functions
+class Environment(builtin_expressions):
+  """The environment of the tls language. It collects built-in functions
   together with the functions specified in the translation scheme, in order to
   compile a DNA strand displacement circuit.
   """
@@ -389,9 +552,52 @@ class Environment(_builtin):
     """
     self._name = name
     self._env = [{}]
-    self._env = self.base_level_functions()
-    self._short_domain_length = sdlen
-    self._long_domain_length = ldlen
+
+    # Setup the builtin functions. 
+    self._env, self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
+    #print self._bfunc_Obj._long_domain_length 
+
+  def _init_builtin_functions(self, sdlen, ldlen):
+    """Initialization of builtin functions of the nuskell environment
+
+    **TODO** this is where we want to discribe what: tail, complement, infty,
+    short, long, unique, flip, empty, rev_reactions, irrev_reactions, ... do!
+    """
+    self._create_binding("print", Function(["s"], "print"))
+    self._create_binding("abort", Function(["s"], "abort"))
+    self._create_binding("tail", Function(["l"], "tail"))
+    self._create_binding("flip", Function(["l", "n"], "flip"))
+    self._create_binding("long", Function([], "long"))
+    self._create_binding("short", Function([], "short"))
+    self._create_binding("infty", Function(["species"], "infty"))
+    self._create_binding("unique", Function(["l"], "unique"))
+    self._create_binding("complement", Function(["l"], "complement"))
+    self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
+    self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
+    self._create_binding("empty", Solution(set()))
+    return self._env, builtin_functions(sdlen, ldlen)
+
+  def _create_binding(self, name, value):
+    """Create a binding for a new nuskell function in the top level
+
+    :param name: Function name
+    :param value: Some built-in data type to be adressed (Function, Solution,
+    Species, Domain, Reaction, Structure), either as single value or list
+
+    :return: updated environment
+    """
+
+    bindings = (Function, Solution, Species, Domain, Reaction, Structure, void)
+    #print 'n:', name, 'v:', type(value), value
+    if isinstance(value, list) :
+      assert all(isinstance(s, bindings) for s in value)
+    else :
+      assert isinstance(value, bindings)
+
+    #print "create binding:", len(self._env), name, value
+
+    self._env[-1][name] = value
+    return self._env
 
   # Private environment modification functions #
   def _create_level(self): # _create_env_level
@@ -416,28 +622,6 @@ class Environment(_builtin):
     self._env.pop()
     return self._env
 
-  def _create_binding(self, name, value):
-    """Create a binding for a new nuskell function in the top level
-
-    :param name: Function name
-    :param value: Some built-in data type to be adressed (Function, Solution,
-    Species, Domain, Reaction, Structure), either as single value or list
-
-    :return: updated environment
-    """
-
-    bindings = (Function, Solution, Species, Domain, Reaction, Structure, void)
-    #print 'n:', name, 'v:', type(value), value
-    if isinstance(value, list) :
-      assert all(isinstance(s, bindings) for s in value)
-    else :
-      assert isinstance(value, bindings)
-
-    #print "create binding:", len(self._env), name, value
-
-    self._env[-1][name] = value
-    return self._env
-
   def _ref_binding(self, name):
     """Get the reference to an exisiting function binding, by searching all
     levels.
@@ -455,7 +639,7 @@ class Environment(_builtin):
   ### documentation ends here ... ###
   def _eval_func(self, f, args):
     if type(f.body) == str: # the function is a built-in function
-      return self._env, self._eval_builtin_func(f.body, args)
+      return self._env, self._bfunc_Obj.eval_builtin_functions(f.body, args)
   
     def hardcopy_list(l):
       if type(l) != list:
@@ -481,31 +665,91 @@ class Environment(_builtin):
     self._destroy_level()
     return self._env, value
 
-  def _eval_builtin_func(self, f, args):
-    """Evaluate built-in functions. These functions do not alter the
-    environment and they are contained in their own class for readability.
+  def interpret(self, code):
+    """Creates bindings for variables and functions defined in the body of the
+    code. Returns the environment (the final namespace).
+
+    Note: 
+      This function creates bindings for every function in the nuskell code.
+      At this point all keywords (class, function, macro, module) are treated
+      exactly the same, only the **global** keyword is special, because the 
+      global expressions are **interpreted first** and then bound.
     """
+    for stmt in code:
+      kwd = stmt[0]
+      body = stmt[1:]
 
-    keywords = {
-        'print': self._print,
-        'abort': self._abort,
-        'tail' : self._tail,
-        'flip' : self._flip,
-        'long' : lambda x: Domain(self._long_domain_length),
-        'short' : lambda x: Domain(self._short_domain_length),
-        'infty' : self._infty,
-        'unique' : self._unique,
-        #'complain' : self._complain,
-        'complement' : self._complement,
-        'rev_reactions' : self._rev_reactions,
-        'irrev_reactions' : self._irrev_reactions,
-        }
+      if kwd == "global":
+        # create binding to interpretation of the expression
+        id_list = body[0]
+        id_list = remove_id_tags(id_list)
 
-    if f in keywords.keys() :
-      return keywords[f](args)
-    else :
-      raise RuntimeError("`" + f + "' could not be resolved.")
-      return None
+        value = body[1]
+        self._env, value = self.interpret_expr(value)
+
+        for key, value in asgn_pattern_match(id_list, value) :
+          self._create_binding(key, value)
+      else:
+        # create binding to the function, without interpretation
+        # e.g. kwd = module; id = 'rxn'; args = ['r']; body_ = [where...]
+        assert body[0][0] == "id"
+        #print "k:", kwd, "b:", body
+        id = body[0][1]
+        args = map(lambda x: x[1], body[1]) # remove 'id' tags from args
+        body_ = body[2] # the ['where' [...]] part
+        #print "id:", id, 'a', args, 'b2', body_
+        self._create_binding(id, Function(args, body_))
+    return self._env
+
+  def translate_formal_species(self, fs_list):
+    formal_species_objects = map(Species, fs_list)
+
+    # compile the formal species
+    self._create_binding("__formalspecies__", formal_species_objects)
+
+    # map(formal, __formalspecies__)
+    self._env, fs_result = self.interpret_expr(["trailer",
+      ["id", "map"], ["apply", 
+        ["id", "formal"], 
+        ["id", "__formalspecies__"]]])
+
+    self.formal_species_dict = {}
+    for i in range(len(fs_list)):
+      self.formal_species_dict[fs_list[i]] = fs_result[i]
+
+    return self._env, self.formal_species_dict
+
+  def translate_reactions(self, crn_parsed):
+    """Execute the main() function of the translation scheme.
+    
+    The crn is combined with the compiled formal species.
+
+    Args:
+      crn_paresed (List[Lists]): A crn in crn_parser format.
+
+    Returns:
+      self.env : The updated environment
+      self.main_solution (Solution) : The final Solution object
+
+    Raises:
+      RuntimeError: If the compiled formal species cannot be found
+
+    """
+    if not self.formal_species_dict :
+      raise RuntimeError('Could not find the compiled formal species!')
+    crn_remap = map(
+        lambda x: [x[0]] + map(
+          lambda y: map(
+            lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
+    crn_object = map(
+        lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
+
+    # main(__crn__)
+    self._create_binding("__crn__", crn_object)
+    self._env, self.main_solution = self.interpret_expr( 
+        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+
+    return self._env, self.main_solution
 
   # Public functions #
   @property
@@ -516,132 +760,8 @@ class Environment(_builtin):
   def env(self) :
     return self._env
 
-  def print_environment(self) :
-    """ Print a snapshot of the current environment """
-    for dic in self._env:
-      for func in dic :
-        if isinstance(dic[func], Function):
-          print "f", func, dic[func].args, dic[func].body
-        elif isinstance(dic[func], Solution):
-          print "s", func, dic[func].molecules
-        else :
-          print "unknown thingy"
-
-  def base_level_functions(self):
-    """ Initialization of builtin functions of the nuskell environment
-
-    **TODO** this is where we want to discribe what: tail, complement, infty,
-    short, long, unique, flip, empty, rev_reactions, irrev_reactions, ... do!
-    """
-    self._create_binding("print", Function(["s"], "print"))
-    self._create_binding("abort", Function(["s"], "abort"))
-    self._create_binding("tail", Function(["l"], "tail"))
-    self._create_binding("complement", Function(["l"], "complement"))
-    self._create_binding("infty", Function(["species"], "infty"))
-    self._create_binding("short", Function([], "short"))
-    self._create_binding("long", Function([], "long"))
-    self._create_binding("unique", Function(["l"], "unique"))
-    self._create_binding("flip", Function(["l", "n"], "flip"))
-    self._create_binding("empty", Solution(set()))
-    self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
-    self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
-    return self._env
-
-  def interpret(self, code):
-    """ 
-    Creates bindings for variables and functions defined in the body of the
-    code. Returns the environment (the final namespace).
-    """
-    for stmt in code:
-      kwd = stmt[0]
-      body = stmt[1:]
-      if kwd == "global":
-        #print "GLOBAL", kwd, 'b:', body
-        id_list = body[0]
-        id_list = remove_id_tags(id_list)
-
-        value = body[1]
-        #print 'id', id_list, 'v', value
-        self._env, value = self.interpret_expr(value)
-
-        for key, value in asgn_pattern_match(id_list, value) :
-          self._create_binding(key, value)
-      else:
-        # function declaration
-        assert body[0][0] == "id"
-        #print "k:", kwd, "b:", body
-        id = body[0][1]
-        args = map(lambda x: x[1], body[1])
-        body_ = body[2]
-        #print id, body_, args
-        self._create_binding(id, Function(args, body_))
-    return self._env
-
-
-  def interpret_expr(self, v):
-    """ Recursive interpretation the body of a global variable """
-    operators = { "*" : lambda x, y: x * y,
-                  "/" : lambda x, y: x / y,
-                  "+" : lambda x, y: x + y,
-                  "-" : lambda x, y: x - y,
-                  "==" : lambda x, y: x == y,
-                  "!=" : lambda x, y: x != y,
-                  ">" : lambda x, y: x > y,
-                  "<" : lambda x, y: x < y,
-                  ">=" : lambda x, y: x >= y,
-                  "<=" : lambda x, y: x <= y }
-
-    keywords = {
-        'id' : lambda self, content: (self._env, self._ref_binding(content[0])),
-        'if' : self._if,  # return self._env, value
-        'or' : self._or,  # return self._env, operand1 or operand2
-        'and': self._and, # return self._env, operand1 and operand2
-        'num': lambda self, content: (self._env, int(content[0])), 
-        'quote': lambda self, content: (self._env, content[0]), 
-        'dna': self._dna, # return self._env, Structure(domains, dotparen, attributes)
-        'list': self._list, # return self._env, content
-        'where': self._where, # return self._env, value
-        'uminus': self._uminus, # return self._env, -value (integer only!)
-        #'trailer': self._trailer, # return self._env, head
-        }
-
-    tag = v[0]
-    content = v[1:]
-
-    #print 't', tag, content
-    if tag in operators.keys():
-      self._env, operand1 = self.interpret_expr(content[0])
-      self._env, operand2 = self.interpret_expr(content[1])
-      return self._env, operators[tag](operand1, operand2)
-    elif tag == 'trailer' :
-      """ nested stuff ... 
-      has two list arguments, the function name (x[0], args=x[1:]
-      function call, list indexing, or accessing attribute of an object
-      """
-      trailerkeys = {
-          'apply' : self._apply,
-          'index' : self._index,
-          'attribute' : self._attribute
-          }
-
-      #print tag, content
-
-      # function call, list attribute of an object
-      self._env, head = self.interpret_expr(content[0])
-
-
-      for x in content[1:]:
-        key = x[0]
-        args = x[1:]
-        self._env, head = trailerkeys[key](self, head, args)
-
-      return self._env, head
-    elif tag in keywords.keys():
-      return keywords[tag](self, content)
-    else :
-      raise RuntimeError("Unknown expression `" + tag + "' was found.")
-      return self._env, None
-
+  # TODO: A method that prints the environment in some human readable way.
+  # def __str__(): pass
 
 def asgn_pattern_match(id, value):
   """Does the pattern matching for list assignments.
@@ -662,7 +782,7 @@ def asgn_pattern_match(id, value):
     either an identifier or a list-tree consisting only of identifiers.""")
 
 def remove_id_tags(l):
-  """Helper function to remove all tags from the given id_list. """
+  """Helper function to remove all tags from the given id_list."""
   kwd = l[0]
   if kwd == "idlist":
     return map(remove_id_tags, l[1:])

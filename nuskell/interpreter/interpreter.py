@@ -11,18 +11,17 @@ import sys
 from copy import copy
 
 from nuskell.parser import parse_ts_string
-import nuskell.include.DNAObjects as DNAObjects
+from nuskell.interpreter.environment import Environment, Structure
+from nuskell.interpreter.environment import builtin_functions
 
-import nuskell.interpreter.environment as tlsenv
-from nuskell.interpreter.environment import Structure
-from nuskell.interpreter.environment import Species, Reaction
+import nuskell.include.DNAObjects as DNAObjects
 
 def flatten(x):
   """Takes a Structure instance and convert it to the following format:
      [(a, "("), (b, "("), ..., (-a, ")")]
   """
   if isinstance(x, Structure):
-    l = tlsenv._builtin()._flip([[x.domains, x.dotparens], len(x.domains)])
+    l = builtin_functions.flip([[x.domains, x.dotparens], len(x.domains)])
     l = map(lambda x: (x[0], x[1]), l)
     return flatten(l)
   if type(x) == list:
@@ -104,11 +103,11 @@ def rotate(complex):
     dpr = dpr[p + 1:] + ["+"] + dpr[:p]
     return [dom, dpr]
 
-def tls_code_snippet():
-  """ Sample code of the tls language, which is parsed upon initialization of
-  the tls environment.
+def ts_code_snippet():
+  """ Sample code of the ts language, which is parsed upon initialization of
+  the ts environment.
 
-  :return: a code snippet in the tls language format
+  :return: a code snippet in the ts language format
   """
   return """ 
     function range(x) = if x == 0 then [] else range(x - 1) + [x - 1] ;
@@ -121,134 +120,120 @@ def tls_code_snippet():
     function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
-def interpret(tls_parsed, crn_parsed, fs_list, 
-    name='tls_author', sdlen=6, ldlen=15, verbose=True):
+def interpret(ts_parsed, crn_parsed, fs_list, 
+    name='ts_author', sdlen=6, ldlen=15, verbose=True):
+  """Interface to the nuskell environment.
 
-  # Setup the environment
-  tls_env = tlsenv.Environment(name, sdlen=sdlen, ldlen=ldlen)
+  The translation scheme is executed in the nuskell environment.
 
- # if verbose : tls_env.print_environment()
+  Args:
+    ts_parsed (List[List[...]]) : nuskell code in a complex data structure as
+      it is returned after parsing it with the **nuskell.parser** module.
+    crn_parsed (Llist[List[...]]) : A data structure that describes a formal
+      crn. See **nuskell.parser** for details.
+    fs_list () : A list of formal species. 
+    name (str) : A name for the nuskell environment, usually referring to the
+      implemted translation scheme.
+    sdlen (Optional[int]) : Domain length of the *built-in* short() function
+    ldlen (Optional[int]) : Domain length of the *built-in* long() function
+    .. verbose (Optional[bool]) : Toggle a verbose mode for additional feedback 
+      during computations.
 
-  # Parse a piece of sample code with utilities
-  header = parse_ts_string(tls_code_snippet())
+  Returns:
+    The given CRN translated with the given translation scheme into a DSD circuit.
+  """
+
+  # Initialize the environment
+  ts_env = Environment(name, sdlen=sdlen, ldlen=ldlen)
+
+  # Parse a piece of sample code with common utilitiy functions
+  header = parse_ts_string(ts_code_snippet())
 
   # add the code to the environment
-  tls_env.interpret(header)
+  ts_env.interpret(header)
 
-  tls_env.interpret(tls_parsed)
-  #raise Exception, "stop here"
+  # interpret the translation scheme
+  ts_env.interpret(ts_parsed)
 
-  # create formal species
-  formal_species_objects = map(Species, fs_list)
+  # translate formal species list using the formal() function 
+  ts_env.translate_formal_species(fs_list)
+  # translate the crn using the main() function 
+  ts_env.translate_reactions(crn_parsed)
 
-  ####### include into evironment? ##########
-
-  # compile the formal species
-  tls_env._create_binding("__formalspecies__", formal_species_objects)
-
-  tls_env._env, formal_species_result = tls_env.interpret_expr(
-      ["trailer",
-        ["id", "map"], 
-        ["apply", 
-          ["id", "formal"], 
-          ["id", "__formalspecies__"]]])
-
-  # final tranlsation of formal species
-  formal_species_dict = {}
-  for i in range(len(fs_list)):
-    #print fs_list, i, formal_species_result[i]
-    formal_species_dict[fs_list[i]] = formal_species_result[i]
-
-  # compile reactions -- scary!
-  crn_remap = map(lambda x: [x[0]] + map(
-    lambda y: map(lambda z: formal_species_dict[z], y), x[1:]), crn_parsed)
-  crn_object = map(lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
-
-  tls_env._create_binding("__crn__", crn_object)
-  tls_env._env, solution = tls_env.interpret_expr( 
-      ["trailer", 
-        ["id", "main"], 
-        ["apply", 
-          ["id", "__crn__"]]])
-
-  # flatten outputs
-  for k in formal_species_dict.keys():
-    #print formal_species_dict[k]
-    #print flatten(formal_species_dict[k])
-    formal_species_dict[k] = \
-        strip_consecutive_strandbreaks(flatten(formal_species_dict[k]))
-
-  solution_as_list = list()
-  for m in solution.molecules:
-    solution_as_list.append(strip_consecutive_strandbreaks(flatten(m)))
-
-  #print 'fsd',formal_species_dict 
-  #for k in formal_species_dict:
-  #  print k, formal_species_dict[k]
-
-  #print 'sal', solution_as_list
-  #for s in solution_as_list:
-  #  print 's', s
+  # get the results in form of a dictionary d={fs:Object}
+  fs_result = ts_env.formal_species_dict
+  # get the final solution object
+  solution  = ts_env.main_solution
 
 
   #################################
   # convert output to DNA Objects #
   #################################
+
+  # flatten outputs
+  for k in fs_result.keys():
+    fs_result[k] = \
+        strip_consecutive_strandbreaks(flatten(fs_result[k]))
+
+  solution_as_list = list()
+  for m in solution.molecules:
+    solution_as_list.append(strip_consecutive_strandbreaks(flatten(m)))
+
   domains = []
   strands = []
   fs_list = []
   constant_species = []
 
   def get_domain(x):
-      domain_name = str(x)
-      starred = False
-      if domain_name[-1] == "*":
-          domain_name = domain_name[:-1]
-          starred = True
-      for d in domains:
-          if d.name == domain_name:
-              if starred: return d.C
-              return d
-      new_dom = DNAObjects.Domain(name = domain_name, length = x.length)
-      domains.append(new_dom)
-      if starred: new_dom = new_dom.C
-      return new_dom
+    domain_name = str(x)
+    starred = False
+    if domain_name[-1] == "*":
+      domain_name = domain_name[:-1]
+      starred = True
+    for d in domains:
+      if d.name == domain_name:
+        if starred: return d.C
+        return d
+    new_dom = DNAObjects.Domain(name = domain_name, length = x.length)
+    domains.append(new_dom)
+    if starred: new_dom = new_dom.C
+    return new_dom
 
   def get_strand(strand):
-      for x in strands:
-          if x.domain_list == strand:
-              return x
-      new_strand = DNAObjects.Strand(domains = strand)
-      strands.append(new_strand)
-      return new_strand
+    for x in strands:
+      if x.domain_list == strand:
+        return x
+    new_strand = DNAObjects.Strand(domains = strand)
+    strands.append(new_strand)
+    return new_strand
 
   wildcard_domain = DNAObjects.Domain(name = "?", length = 1)
 
   # convert formal species
-  for fs_name in formal_species_dict:
-      # add a strand break at the end for convenience
-      complex_old_format = formal_species_dict[fs_name] + [("+", "+")]
-      complex = []
-      strand = []
-      structure = ""
-      for (x, y) in complex_old_format:
-          structure += y
-          if x == "+":
-              strand = get_strand(strand)
-              complex.append(strand)
-              strand = []
-              continue
-          if x == "?":
-              x = wildcard_domain
-          else:
-              x = get_domain(x)
-          strand.append(x)
-      # remove the strand break that was added at the beginning
-      structure = structure[:-1]
-      fs_list.append( \
-          DNAObjects.Complex(name = fs_name, \
-                             strands = complex, \
-                             structure = structure))
+  for fs_name in fs_result:
+    # add a strand break at the end for convenience
+    complex_old_format = fs_result[fs_name] + [("+", "+")]
+    complex = []
+    strand = []
+    structure = ""
+    for (x, y) in complex_old_format:
+      structure += y
+      if x == "+":
+        strand = get_strand(strand)
+        complex.append(strand)
+        strand = []
+        continue
+      if x == "?":
+        x = wildcard_domain
+      else:
+        x = get_domain(x)
+      strand.append(x)
+    # remove the strand break that was added at the beginning
+    structure = structure[:-1]
+    fs_list.append( \
+        DNAObjects.Complex(name = fs_name, \
+                           strands = complex, \
+                           structure = structure))
 
   previous = []
   # convert constant species
@@ -290,14 +275,4 @@ def interpret(tls_parsed, crn_parsed, fs_list,
                                  structure = structure))
 
   return domains, strands, fs_list, constant_species
-
-
-  # print properties of the current environment
-  # print tls_env.report_env()
-  # print tls_env.report_tls()
-  # print tls_env.report_crn()
-  # print tls_env.report_dom()
-
-  # do the translation
-  # tls_env.translate(crn)
 
