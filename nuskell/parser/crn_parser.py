@@ -136,20 +136,15 @@ def _post_process(crn):
   return (crn, formal_species, constant_species)
 
 def split_reversible_reactions(crn):
-  """Replace every occurence of a reversible reaction with the two
-  corresponding irreversible reactions.
-  
-  .. called by basis_finder 
+  """Replace every reversible reaction with the two corresponding irreversible
+  reactions, remove the 'reversible' and 'irreversible' tags.
   """
   new_crn = []
-  for rxn in crn:
-    if rxn[0] == "irreversible":
-      new_crn.append(rxn[1:])
-    if rxn[0] == "reversible":
-      r = rxn[1]
-      p = rxn[2]
-      new_crn.append([r, p])
-      new_crn.append([p, r])
+  for [x, r, p] in crn:
+    assert (x == 'irreversible' or x == 'reversible')
+    new_crn.append([r,p])
+    if x == "reversible":
+      new_crn.append([p,r])
   return new_crn
 
 def parse_crn_file(filename):

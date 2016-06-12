@@ -7,18 +7,22 @@
 # Parser module for domain specification description files (*.dom).
 #
 
-from pyparsing import *
+from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore,
+    OneOrMore, alphas, alphanums, nums, delimitedList, StringStart, StringEnd,
+    LineEnd, pythonStyleComment, ParseElementEnhance)
 
 def dom_document_setup():
-  ParserElement.setDefaultWhitespaceChars(" \t")
-  
+  crn_DWC = "".join(
+      [x for x in ParseElementEnhance.DEFAULT_WHITE_CHARS if x != "\n"])
+  ParseElementEnhance.setDefaultWhitespaceChars(crn_DWC)
+
   W = Word
   G = Group
   S = Suppress
   O = Optional
   L = Literal
   
-  identifier = W(alphas, alphanums)
+  identifier = W(alphas, alphanums + "_")
   number = W(nums, nums)
   domain = G(OneOrMore((G(identifier + O("*")) | "?" | "+")))
   dotparen = G(OneOrMore(W("().+", max=1)))

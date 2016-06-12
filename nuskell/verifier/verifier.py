@@ -2,6 +2,7 @@
 import os
 import sys
 from nuskell.parser import parse_crn_string, parse_dom_file
+from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 
@@ -97,15 +98,20 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def post_process(enum_crn, inp_fs, cs, complexes, slow_cplxs):
+def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
   """ this might modify enum_crn"""
+
+  # Extract the constant species from all complexes
+  cs = map(lambda x: x[0], complexes)
+  cs = filter(lambda x: x not in input_fs, cs)
+
   inter = {}
   dictionary = {}
   fsp = []
   rm = set()
   for x in complexes:
     if "?" not in x[1]:
-      if x[0] in inp_fs:
+      if x[0] in input_fs:
         inter[x[0]] = [x[0]]
         fsp.append(x[0])
       continue
@@ -113,7 +119,7 @@ def post_process(enum_crn, inp_fs, cs, complexes, slow_cplxs):
     for y in slow_cplxs:
       if x[0] == y[0]:
         dictionary[y[0]] = x[0] + "_i"
-        if x[0] in inp_fs:
+        if x[0] in input_fs:
           inter[x[0]+"_i"] = [x[0]]
           fsp.append(x[0]+"_i")
         continue
@@ -124,12 +130,14 @@ def post_process(enum_crn, inp_fs, cs, complexes, slow_cplxs):
       while True:
         flag = True
         for i in range(len(original[0])):
-          if not ((original[0][i] == p[0][i] and original[1][i] == p[1][i]) or (original[0][i] == "?" and p[1][i] == ".")):
+          if not (
+              (original[0][i] == p[0][i] and original[1][i] == p[1][i]) or 
+              (original[0][i] == "?" and p[1][i] == ".")):
             flag = False
         if flag:
           cnt += 1
           dictionary[y[0]] = x[0] + "_" + str(cnt)
-          if x[0] in inp_fs:
+          if x[0] in input_fs:
             inter[x[0]+"_"+str(cnt)] = [x[0]]
             fsp.append(x[0]+"_"+str(cnt))
             rm.add(x[0]+"_i")
@@ -156,23 +164,24 @@ def post_process(enum_crn, inp_fs, cs, complexes, slow_cplxs):
   # removing initial signals that are unnecessary
   fsp = set(fsp)
   for x in rm:
-      if x in inter.keys(): del inter[x]
-      if x in fsp: fsp.remove(x)
+    if x in inter.keys(): del inter[x]
+    if x in fsp: fsp.remove(x)
   norm = set(fsp)-rm
   flag = None
   while flag != norm:
-      flag = set(list(norm))
-      for [r,p] in enum_crn:
-          if set(r).intersection(norm) == set(r):
-              norm = norm.union(set(p))
+    flag = set(list(norm))
+    for [r,p] in enum_crn:
+      if set(r).intersection(norm) == set(r):
+        norm = norm.union(set(p))
   enum_crn = filter(lambda x: set(x[0]).intersection(norm) == set(x[0]), enum_crn)
 
   return inter, enum_crn, fsp
 
+#TODO DEPRICATED
 def do_enumerator_things(efile):
-  import enumerator
-  import enumerator.input as enum_in
-  import enumerator.output as enum_out
+  import peppercorn as enumerator
+  import peppercorn.input as enum_in
+  import peppercorn.output as enum_out
   condense = True
 
   enumerator = enum_in.input_enum(efile)
@@ -184,6 +193,7 @@ def do_enumerator_things(efile):
   #TODO: check this and uncomment
   #enumarg(enumerator)
   enumerator.enumerate()
+
   enum_out.output_crn(enumerator,efile, output_condensed = condense)
 
   F = open(efile, "r")
@@ -219,6 +229,7 @@ def do_enumerator_things(efile):
 
   return e_crn, slow_cplxs
 
+#TODO DEPRICATED
 def enumerator_input(dom):
   import random, string
   efile = "".join(random.sample(string.letters + string.digits, 8)) + "._tmp"
@@ -275,47 +286,90 @@ def enumerator_input(dom):
   F.close()
   return efile, complexes
 
-def verify(input_crn, domfile, method = 'bisimulation', verbose = True):
-  """ Initilize the verification of a translation scheme
-  """
+#TODO DEPRICATED
+def enumarg(enum):
+  # DEPRICATED: Get cmd options for enumerator elswhere and initialize it earlier
+  cl_opts, unknown = parser.parse_known_args()
+
+  # Transfer options to enumerator object
+  if cl_opts.k_slow is not None:
+    enum.k_slow = cl_opts.k_slow
+  if cl_opts.k_fast is not None:
+    enum.k_fast = cl_opts.k_fast
+
+  if cl_opts.MAX_REACTION_COUNT is not None:
+    enum.MAX_REACTION_COUNT = cl_opts.MAX_REACTION_COUNT
+
+  if cl_opts.MAX_COMPLEX_COUNT is not None:
+    enum.MAX_COMPLEX_COUNT = cl_opts.MAX_COMPLEX_COUNT
+
+  if cl_opts.MAX_COMPLEX_SIZE is not None:
+    enum.MAX_COMPLEX_SIZE = cl_opts.MAX_COMPLEX_SIZE
+
+  if cl_opts.RELEASE_CUTOFF is not None:
+    enum.RELEASE_CUTOFF = cl_opts.RELEASE_CUTOFF
+
+  if cl_opts.RELEASE_CUTOFF_1_1 is not None:
+    enum.RELEASE_CUTOFF_1_1 = cl_opts.RELEASE_CUTOFF_1_1
+
+  if cl_opts.RELEASE_CUTOFF_1_N is not None:
+    enum.RELEASE_CUTOFF_1_N = cl_opts.RELEASE_CUTOFF_1_N
+
+  if cl_opts.REJECT_REMOTE is not None:
+    enum.REJECT_REMOTE = cl_opts.REJECT_REMOTE
+
+  if cl_opts.UNZIP is not None:
+    enum.UNZIP = cl_opts.UNZIP
+
+  if cl_opts.LEGACY_UNZIP is not None:
+    enum.LEGACY_UNZIP = cl_opts.LEGACY_UNZIP
+
+  enum.DFS = not cl_opts.bfs
+
+  # Modify enumeration events based on command line options.
+  if cl_opts.ignore_branch_3way:
+    if reactions.branch_3way in enum.FAST_REACTIONS:
+      enum.FAST_REACTIONS.remove(reactions.branch_3way)
+
+  if cl_opts.ignore_branch_4way:
+    if reactions.branch_4way in enum.FAST_REACTIONS:
+      enum.FAST_REACTIONS.remove(reactions.branch_4way)
+
+def verify(input_crn, enum_crn, complexes, slow_cplxs, 
+    method = 'bisimulation', verbose = True):
+  """Initilize the verification of a translation scheme """
 
   interactive = False
 
   # Parse the CRN
-  (inp_crn, inp_fs, inp_cs) = parse_crn_string(input_crn) 
-  t = inp_crn
-  inp_crn = []
-  for [x, r, p] in t:
-    inp_crn.append([r,p])
-    if x == "reversible":
-      inp_crn.append([p,r])
+  (input_crn, input_fs, input_cs) = parse_crn_string(input_crn) 
+  irrev_crn = split_reversible_reactions(input_crn)
 
-  # Parse the DOM
-  dom = parse_dom_file(domfile)
+  print 'f', input_fs
+  print 'e', enum_crn
 
-  # Generate an input file for state enumerator
-  efile, complexes = enumerator_input(dom)
+  # TODO: figure out what exactly pre_process does and then 
+  # go on...
 
-  #print efile, complexes
+  inter, enum_crn, fsp = pre_process(
+      enum_crn, 
+      input_fs, 
+      complexes, # need these! (cs = compelexes - input_fs)
+      slow_cplxs)
 
-  # constant species
-  cs = map(lambda x: x[0], complexes)
-  cs = filter(lambda x: x not in inp_fs, cs)
-  #print "constant species:", cs
+  print 'i', inter
+  print 'e', enum_crn
+  print 'f', fsp
 
-  # call state enumerator
-  enum_crn, slow_cplxs = do_enumerator_things(efile)
-  os.remove(efile)
-
-  # postprocess
-  inter, enum_crn, fsp = post_process(enum_crn, inp_fs, cs, complexes, slow_cplxs)
-  
   # fs = formal species; cs = fuels or constant species
   if method == 'bisimulation':
-      return crn_bisimulation_equivalence.test((inp_crn, inp_fs), (enum_crn, inp_fs), verbose)#, inter)
+    return crn_bisimulation_equivalence.test(
+        (irrev_crn, input_fs), (enum_crn, input_fs), verbose)
   elif method == 'pathway':
-      return crn_pathway_equivalence.test((inp_crn, inp_fs), (enum_crn, fsp), inter, verbose, False, interactive)
+    return crn_pathway_equivalence.test(
+        (irrev_crn, input_fs), (enum_crn, fsp), inter, verbose, False, interactive)
   elif method == 'integrated':
-      return crn_pathway_equivalence.test((inp_crn, inp_fs), (enum_crn, fsp), inter, verbose, True, interactive)
+    return crn_pathway_equivalence.test(
+        (irrev_crn, input_fs), (enum_crn, fsp), inter, verbose, True, interactive)
 
 

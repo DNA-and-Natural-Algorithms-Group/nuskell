@@ -1,5 +1,5 @@
 import unittest
-from nuskell.parser import parse_crn_string
+from nuskell.parser import parse_crn_string, split_reversible_reactions
 
 class TestCRNparser(unittest.TestCase):
   def setUp(self):
@@ -12,6 +12,12 @@ class TestCRNparser(unittest.TestCase):
 
   def tearDown(self):
     pass
+
+  def test_split_reversible_reactions(self):
+    self.crn1 = self.cr1 + "\n" + self.cr2
+    (crn, fs, cs) = parse_crn_string(self.crn1)
+    res = [[['A', 'B'], ['X', 'Y']], [['A'], ['X']], [['X'], ['A']]]
+    self.assertEqual(res, split_reversible_reactions(crn), 'split irreversible reactions')
 
   def test_parse_crn_string(self):
     """ Testing crn string parser """

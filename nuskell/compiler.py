@@ -12,6 +12,7 @@ import os
 import sys
 
 from nuskell.parser import parse_crn_string, parse_ts_file
+from nuskell.parser import parse_dom_file
 
 from nuskell.interpreter.interpreter import interpret
 from nuskell.verifier.verifier import verify
@@ -226,17 +227,64 @@ def main() :
       domfile=domfile, 
       sdlen = args.dom_short,
       ldlen = args.dom_long)
+
+
  
   if args.verify :
     print "Compilation done. enumerating pathways ... "
+    import peppercorn.input as pepin
+    import peppercorn.output as pepout
 
-    # if "--pathway" in options: method = "--pathway"
-    # if "--bisimulation" in options: method = "--bisimulation"
-    # if "--integrated" in options: method = "--integrated"
-    # if "--interactive" in options: interactive = True
+    #TODO: call enumerator_argparse, pass parser_object on
+    enum = pepin.input_pil(pilfile)
+    enum.MAX_COMPLEX_COUNT  = 10000
+    enum.MAX_REACTION_COUNT = 50000
+    enum.MAX_COMPLEX_SIZE   = 100
+    enum.enumerate()
+
+    # Write the output of peppercorn into the enumfile
+    enumfile = args.output + '.enum'
+    pepout.output_crn(enum, enumfile, output_condensed = True)
+
+    # Post-process enumerator results to extract the condensed crn
+    enum_crn = []
+    with open(enumfile, 'r') as enu :
+      for line in enu :
+        react = line.split('->')
+        react[0] = sorted([x.strip() for x in react[0].split('+')])
+        react[1] = sorted([x.strip() for x in react[1].split('+')])
+        enum_crn.append(react)
+
+    slow_cplxs = []
+    for rs in enum.resting_states:
+      name = str(rs)
+      for cx in rs.complexes:
+        cxs = []
+        #TODO: this should be easier in the peppercorn interface
+        for sd in cx.strands:
+          cxs.append('+')
+          for ds in map(str, sd.domains):
+            if ds[-1] == '*':
+              cxs.append([ds[:-1], '*'])
+            else:
+              cxs.append([ds])
+        # remove the first '+' again
+        if len(cxs)>0: cxs = cxs[1:]
+        cx = [name, cxs, list(cx.dot_paren_string())]
+        slow_cplxs.append(cx)
+
+    dom = parse_dom_file(domfile)
+    cplxs = dom[1] if len(dom)==2 else dom[0] # else: no sequence information
+
+    #print 'ec', enum_crn
+    #print 'sc', slow_cplxs
+    #print 'ic', input_crn
+    #print 'cp', cplxs
 
     print "Enumeration done. Verification using:", args.verify
-    v = verify(input_crn, domfile, method = args.verify, verbose = True) # condense = True, interactive = False
+    # --pathway --bisimulation --integrated
+    v = verify(input_crn, enum_crn, cplxs, slow_cplxs, 
+        method = args.verify, verbose = True)
 
     if v:
       print "verify: compilation was correct."
