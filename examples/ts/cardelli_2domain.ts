@@ -70,6 +70,7 @@ module reaction(r) =
         sum(map(infty, oneinput(r.reactants, r.products)))
     elseif len(r.reactants) == 2 then
         sum(map(infty, twoinput(r.reactants, r.products)))
-    else r[0];
+    else 
+      abort('reaction-type not implemented for this scheme');
 
 module main(crn) = sum(map(reaction, crn))

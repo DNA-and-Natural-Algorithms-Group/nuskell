@@ -6,32 +6,24 @@
 # Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 #
 
-class formal(s) = "? a b c"
-                | ". . . ."
-    where {
-        a = short() ; 
-        b = long() ;
-        c = short() };
+class formal(s) = "? a b c" | ". . . ." 
+  where { 
+    a = short(); 
+    b = long(); 
+    c = short() 
+  };
 
 class ugate(s, l)
      = ["b c d + c* b* a*"        # G_i
       | "( ( ~ + )  )  .",
         "e + f c*"                # T_i
       | "~ + ~ ."]
-    where {
-        a = s.a ;
-        b = s.b ;
-        c = s.c ;
-        [d, e, g] = flip(map(gmac, l), 3) ;
-        f = reverse(g) };
+    where { a = s.a ; b = s.b ; c = s.c ; [d, e, g] = flip(map(gmac, l), 3) ; f = reverse(g) };
 
 macro gmac(s)
-     = ["d a"
-      | ". .",
-        "d a b c +"
-      | "( ( . . +",
-        "a* d*"
-      | ")  )"]
+     = ["d a" | ". .",
+        "d a b c +" | "( ( . . +",
+        "a* d*" | ")  )"]
     where {
         d = long() ;
         a = s.a ; 
@@ -39,15 +31,25 @@ macro gmac(s)
         c = s.c };
 
 module unimolecular(r) = infty(g) + infty(t)
-    where
-        [g, t] = ugate(r.reactants[0], r.products);
+  where {
+  # Uncomment next lines for an example of a debugging statement. The 'void' keyword
+  # indicates a fake assignment, that is not further processed in the main expression
+    # void = 
+    #   if len(r.products) == 1 
+    #     then print("Reaction", r, "Reactand:", r.reactants[0], "Products", r.products[0])
+    #   else if len(r.products) == 2
+    #     then print("Reaction", r, "Reactand:", r.reactants[0], "Products", r.products[0], r.products[1])
+    #   else
+    #     print("Reaction", r, "Reactand:", r.reactants[0], "Products", r.products);
+    [g, t] = ugate(r.reactants[0], r.products)
+  };
 
 class bgate(s1, s2, l)
-    = ["b c d + e f g + f* e* d* c* b* a*"       # L_i
+    = ["b c d + e f g + f* e* d* c* b* a*"
      | "( ( ( + ( ( ~ + )  )  )  )  )  .",
-       "h + i f*"                                # T_i
+       "h + i f*"                        
      | "~ + ~ .",
-       "b c d"                                   # B_i
+       "b c d"                          
      | ". . ."]
     where {
         a = s1.a ;
@@ -59,17 +61,15 @@ class bgate(s1, s2, l)
         [g, h, j] = flip(map(gmac, l), 3) ;
         i = reverse(j) };
 
-module bimolecular(r) = infty(l) + infty(t) + infty(b)
-    where
-        [l, t, b] = bgate(r.reactants[0], r.reactants[1], r.products);
+module bimolecular(r) = infty(l) + infty(t) + infty(b) where [l, t, b] = bgate(r.reactants[0], r.reactants[1], r.products);
 
-module rxn(r) =
-    if len(r.reactants) == 1 then
-        unimolecular(r)
-    elseif len(r.reactants) == 2 then
-        bimolecular(r)
-    else r[0];
+module rxn(r) = 
+  if len(r.reactants) == 1 
+    then unimolecular(r) 
+  elseif len(r.reactants) == 2 
+    then bimolecular(r) 
+  else 
+    abort('no support for reactions with more than two reactands');
 
-module main(crn) = sum(map(rxn, crn))
-    where
-        crn = irrev_reactions(crn)
+module main(crn) = sum(map(rxn, crn)) 
+  where crn = irrev_reactions(crn)

@@ -81,8 +81,8 @@ module bimolecular(r) = infty(bifuel1(reactantA,reactantB,productX,productY,Q))
 module rxn(r) =
     if len(r.reactants) == 2 and len(r.products) == 2 then
         bimolecular(r)
-    else r[0];
-# this last line is a hack to cause a crash when the target CRN is invalid for this scheme
+    else  
+      abort('reaction-type not implemented for this scheme');
 
 module main(crn) = sum(map(rxn, crn))
     where
