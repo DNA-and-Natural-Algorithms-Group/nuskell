@@ -109,6 +109,7 @@ def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
   dictionary = {}
   fsp = []
   rm = set()
+  #TODO why?
   for x in complexes:
     if "?" not in x[1]:
       if x[0] in input_fs:
@@ -178,58 +179,6 @@ def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
   return inter, enum_crn, fsp
 
 #TODO DEPRICATED
-def do_enumerator_things(efile):
-  import peppercorn as enumerator
-  import peppercorn.input as enum_in
-  import peppercorn.output as enum_out
-  condense = True
-
-  enumerator = enum_in.input_enum(efile)
-  enumerator.MAX_COMPLEX_COUNT = 10000
-  enumerator.MAX_REACTION_COUNT = 50000
-  enumerator.MAX_COMPLEX_SIZE = 100
-  #enumerator.k_fast = 2.0
-  #enumerator.REJECT_REMOTE = True
-  #TODO: check this and uncomment
-  #enumarg(enumerator)
-  enumerator.enumerate()
-
-  enum_out.output_crn(enumerator,efile, output_condensed = condense)
-
-  F = open(efile, "r")
-  e_crn = []
-  for line in F:
-    line = line.split("->")
-    line[0] = line[0].split("+")
-    line[1] = line[1].split("+")
-    line[0] = map(lambda x: x.strip(), line[0])
-    line[1] = map(lambda x: x.strip(), line[1])
-    line[0] = sorted(line[0])
-    line[1] = sorted(line[1])
-    e_crn.append(line)
-  F.close()
-
-  # convert the output from state enumerator to cmpdna format
-  slow_cplxs = []
-  for z in enumerator.resting_states:
-    name = str(z)
-    for y in z.complexes:
-      y1 = []
-      for x in y.strands:
-        y1.append("+")
-        for w in x.domains:
-          w = str(w)
-          if w[-1] == "*":
-            y1.append([w[:-1], "*"])
-          else:
-            y1.append([w])
-      if len(y1)>0: y1 = y1[1:]
-      y = [name, y1, list(y.dot_paren_string())]
-      slow_cplxs.append(y)
-
-  return e_crn, slow_cplxs
-
-#TODO DEPRICATED
 def enumerator_input(dom):
   import random, string
   efile = "".join(random.sample(string.letters + string.digits, 8)) + "._tmp"
@@ -286,59 +235,98 @@ def enumerator_input(dom):
   F.close()
   return efile, complexes
 
-#TODO DEPRICATED
-def enumarg(enum):
-  # DEPRICATED: Get cmd options for enumerator elswhere and initialize it earlier
-  cl_opts, unknown = parser.parse_known_args()
+def set_enumargs(enum, args):
+  """Transfer options to Enumerator Object. 
+  
+  Set Nuskell-defaults here.
+  """
 
-  # Transfer options to enumerator object
-  if cl_opts.k_slow is not None:
-    enum.k_slow = cl_opts.k_slow
-  if cl_opts.k_fast is not None:
-    enum.k_fast = cl_opts.k_fast
+  enum.MAX_COMPLEX_COUNT  = 10000
+  enum.MAX_REACTION_COUNT = 50000
+  enum.MAX_COMPLEX_SIZE   = 100
+  #enum.k_fast = 2.0
+  #enum.REJECT_REMOTE = True
 
-  if cl_opts.MAX_REACTION_COUNT is not None:
-    enum.MAX_REACTION_COUNT = cl_opts.MAX_REACTION_COUNT
+  if args.k_slow is not None:
+    enum.k_slow = args.k_slow
+  if args.k_fast is not None:
+    enum.k_fast = args.k_fast
 
-  if cl_opts.MAX_COMPLEX_COUNT is not None:
-    enum.MAX_COMPLEX_COUNT = cl_opts.MAX_COMPLEX_COUNT
+  if args.MAX_REACTION_COUNT is not None:
+    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
 
-  if cl_opts.MAX_COMPLEX_SIZE is not None:
-    enum.MAX_COMPLEX_SIZE = cl_opts.MAX_COMPLEX_SIZE
+  if args.MAX_COMPLEX_COUNT is not None:
+    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
 
-  if cl_opts.RELEASE_CUTOFF is not None:
-    enum.RELEASE_CUTOFF = cl_opts.RELEASE_CUTOFF
+  if args.MAX_COMPLEX_SIZE is not None:
+    enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
 
-  if cl_opts.RELEASE_CUTOFF_1_1 is not None:
-    enum.RELEASE_CUTOFF_1_1 = cl_opts.RELEASE_CUTOFF_1_1
+  if args.RELEASE_CUTOFF is not None:
+    enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
 
-  if cl_opts.RELEASE_CUTOFF_1_N is not None:
-    enum.RELEASE_CUTOFF_1_N = cl_opts.RELEASE_CUTOFF_1_N
+  if args.RELEASE_CUTOFF_1_1 is not None:
+    enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF_1_1
 
-  if cl_opts.REJECT_REMOTE is not None:
-    enum.REJECT_REMOTE = cl_opts.REJECT_REMOTE
+  if args.RELEASE_CUTOFF_1_N is not None:
+    enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF_1_N
 
-  if cl_opts.UNZIP is not None:
-    enum.UNZIP = cl_opts.UNZIP
+  if args.REJECT_REMOTE is not None:
+    enum.REJECT_REMOTE = args.REJECT_REMOTE
 
-  if cl_opts.LEGACY_UNZIP is not None:
-    enum.LEGACY_UNZIP = cl_opts.LEGACY_UNZIP
+  if args.UNZIP is not None:
+    enum.UNZIP = args.UNZIP
 
-  enum.DFS = not cl_opts.bfs
+  if args.LEGACY_UNZIP is not None:
+    enum.LEGACY_UNZIP = args.LEGACY_UNZIP
+
+  # TODO: what is this?
+  # enum.DFS = not args.bfs
 
   # Modify enumeration events based on command line options.
-  if cl_opts.ignore_branch_3way:
+  if args.ignore_branch_3way:
     if reactions.branch_3way in enum.FAST_REACTIONS:
       enum.FAST_REACTIONS.remove(reactions.branch_3way)
 
-  if cl_opts.ignore_branch_4way:
+  if args.ignore_branch_4way:
     if reactions.branch_4way in enum.FAST_REACTIONS:
       enum.FAST_REACTIONS.remove(reactions.branch_4way)
 
+  return
+
 def verify(input_crn, enum_crn, complexes, slow_cplxs, 
     method = 'bisimulation', verbose = True):
-  """Initilize the verification of a translation scheme """
+  """Prepare the verification of a translation scheme.
 
+  This function initializes the:
+
+    *) formal CRN
+    *) implementation CRN (formal and constant species)
+    *) enumerated implementation CRN (formal, constant and enumerated species)
+    *) interpretation CRN (a mapping from implementation to the formal CRN)
+
+  ... and then calls the verification method chosen by the user in order to 
+  compute whether an implementation CRN is equivalent to the formal CRN:
+
+    *) pathway (Seung Woo Shin's notion of pathway equivalence)
+    *) pathway-integrated (Seung Woo Shin's integrated hybrid notion of pathway
+    equivalence)
+    *) bisimulation (Robert Johnson's ...)
+    *) bisimulation-xyz (Quin Dong's ...)
+    ...
+
+  Args: 
+    input_crn: formal input CRN
+    enum_crn: peppercorn-enumerated implementation CRN
+    complexes: all complexes in the (non-enumerated) implementation CRN
+    slow_cplxs: resting states in the enumerated implementation CRN
+    method: chose equivalence notion
+    verbose: print more information to STDOUT
+
+  Returns:
+    True: formal and implementation CRN are equivalent
+    False: formal and implementation CRN are not equivalent
+  
+  """
   interactive = False
 
   # Parse the CRN
@@ -350,6 +338,56 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
 
   # TODO: figure out what exactly pre_process does and then 
   # go on...
+
+  # Extract the constant species from all complexes
+  cs = map(lambda x: x[0], complexes)
+  cs = filter(lambda x: x not in input_fs, cs)
+
+  # Initialization of an interpretation dictionary, a formal species set, and
+  # the enumerated species as renamed in the preprocessing code
+
+  inter = {}  # { A_i : ['A'] }
+  fsp = set() # (['A_i', 'B_1', 'X_1'])
+
+  dictionary = {}
+  rm = set()
+  for x in complexes:
+    # x example: ['A', ['?', ['d1'], ['d2'], ['d3']], ['.', '.', '.', '.']]
+    if "?" not in x[1]:
+      if x[0] in input_fs:
+        inter[x[0]] = [x[0]]
+        fsp.add(x[0])
+      continue
+    cnt = 0
+    for y in slow_cplxs:
+      if x[0] == y[0]:
+        dictionary[y[0]] = x[0] + "_i"
+        if x[0] in input_fs:
+          inter[x[0]+"_i"] = [x[0]]
+          fsp.add(x[0]+"_i")
+        continue
+      original = x[1:]
+      target = y[1:]
+      if len(original[0]) != len(target[0]): continue
+      p = rotate(target)
+      while True:
+        flag = True
+        for i in range(len(original[0])):
+          if not (
+              (original[0][i] == p[0][i] and original[1][i] == p[1][i]) or 
+              (original[0][i] == "?" and p[1][i] == ".")):
+            flag = False
+        if flag:
+          cnt += 1
+          dictionary[y[0]] = x[0] + "_" + str(cnt)
+          if x[0] in input_fs:
+            inter[x[0]+"_"+str(cnt)] = [x[0]]
+            fsp.add(x[0]+"_"+str(cnt))
+            rm.add(x[0]+"_i")
+          break
+        if p == target:
+          break
+        p = rotate(p)
 
   inter, enum_crn, fsp = pre_process(
       enum_crn, 
@@ -367,9 +405,11 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
         (irrev_crn, input_fs), (enum_crn, input_fs), verbose)
   elif method == 'pathway':
     return crn_pathway_equivalence.test(
-        (irrev_crn, input_fs), (enum_crn, fsp), inter, verbose, False, interactive)
+        (irrev_crn, input_fs), 
+        (enum_crn, fsp), inter, verbose, False, interactive)
   elif method == 'integrated':
     return crn_pathway_equivalence.test(
-        (irrev_crn, input_fs), (enum_crn, fsp), inter, verbose, True, interactive)
+        (irrev_crn, input_fs), 
+        (enum_crn, fsp), inter, verbose, True, interactive)
 
 

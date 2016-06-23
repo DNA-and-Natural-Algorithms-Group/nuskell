@@ -256,7 +256,6 @@ class builtin_expressions(object):
     return theenv._env, value
 
   def _or(self, theenv, content):
-    sys.exit('or has not been tested')
     theenv._env, operand1 = theenv.interpret_expr(content[0])
     if operand1:
       return theenv._env, operand1
@@ -587,7 +586,8 @@ class Environment(builtin_expressions):
     :return: updated environment
     """
 
-    bindings = (Function, Solution, Species, Domain, Reaction, Structure, void)
+    bindings = (Function, Solution, Species, Domain, Reaction, Structure, void,
+        int, list)
     #print 'n:', name, 'v:', type(value), value
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)

@@ -39,7 +39,8 @@ def compile(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15):
     print_as_PIL(pilfile, domains, strands, formal_species, constant_species)
   if domfile :
     print_as_DOM(domfile, domains, strands, formal_species, constant_species)
-  return 
+
+  return domains, strands, formal_species, constant_species
 
 def print_as_PIL(outfile, domains, strands, formal_species, constant_species):
   """ Print a compiled circuit in the pepper internal language (PIL) file format. 
@@ -164,7 +165,8 @@ def main() :
   """
   import sys
   import argparse
-  def get_nuskell_args() :
+  import peppercorn.enumerator as pepen
+  def get_nuskell_args(parser) :
     """ A collection of arguments for nuskell 
     nuskell reads and processes chemical reaction networks (CRNs). Three
     different modes are supported to process this CRN:
@@ -181,9 +183,6 @@ def main() :
         - requires a translation scheme file
 
     """
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
     parser.add_argument("--compile", action = 'store',
         help="Specify path to the translation scheme")
   
@@ -209,38 +208,51 @@ def main() :
     #    help="Verify the equivalence between detailed semantics and " +
     #    "condensed semantics for DOMFILE or for CRNFILE compiled " + 
     #    "using TSFILE."
-  
-    return parser.parse_args()
-  args = get_nuskell_args()
+
+    return parser
+
+  parser = argparse.ArgumentParser(
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser = get_nuskell_args(parser)
+  parser = pepen.get_peppercorn_args(parser)
+  args = parser.parse_args()
 
   # Parse the input CRN 
   input_crn = sys.stdin.readlines()
   input_crn = "".join(input_crn)
 
   if args.output == '' :
-    args.output = 'nuskell_file'
+    args.output = 'implementation'
 
   pilfile = args.output + '.pil'
   domfile = args.output + '.dom'
-  compile(input_crn, args.ts,
-      pilfile=pilfile, 
-      domfile=domfile, 
-      sdlen = args.dom_short,
-      ldlen = args.dom_long)
+  d, s, f, c = compile(input_crn, args.ts,
+          pilfile=pilfile, 
+          domfile=domfile, 
+          sdlen = args.dom_short,
+          ldlen = args.dom_long)
+  
 
-
- 
   if args.verify :
     print "Compilation done. enumerating pathways ... "
     import peppercorn.input as pepin
     import peppercorn.output as pepout
+    import peppercorn.reactions as reactions
 
-    #TODO: call enumerator_argparse, pass parser_object on
-    enum = pepin.input_pil(pilfile)
-    enum.MAX_COMPLEX_COUNT  = 10000
-    enum.MAX_REACTION_COUNT = 50000
-    enum.MAX_COMPLEX_SIZE   = 100
+    import nuskell.verifier.verifier as nv
+
+    # TODO: need to check *ignoring* of history domains in the pil-file 
+    old = True
+    if old :
+      dom = parse_dom_file(domfile)
+      efile, ctmp = nv.enumerator_input(dom)
+      enum = pepin.input_enum(efile)
+    else :
+      enum = pepin.input_pil(pilfile)
+    nv.set_enumargs(enum, args)
     enum.enumerate()
+
+    print '- enumeration done.'
 
     # Write the output of peppercorn into the enumfile
     enumfile = args.output + '.enum'
@@ -255,12 +267,13 @@ def main() :
         react[1] = sorted([x.strip() for x in react[1].split('+')])
         enum_crn.append(react)
 
+    # TODO: this should be easier in the peppercorn/dnaobjects interface
+    # slow_cplxes = enum.resting_states.complexes().strands().domains()
     slow_cplxs = []
     for rs in enum.resting_states:
       name = str(rs)
       for cx in rs.complexes:
         cxs = []
-        #TODO: this should be easier in the peppercorn interface
         for sd in cx.strands:
           cxs.append('+')
           for ds in map(str, sd.domains):
@@ -276,10 +289,10 @@ def main() :
     dom = parse_dom_file(domfile)
     cplxs = dom[1] if len(dom)==2 else dom[0] # else: no sequence information
 
-    #print 'ec', enum_crn
-    #print 'sc', slow_cplxs
-    #print 'ic', input_crn
-    #print 'cp', cplxs
+    print 'ec', enum_crn
+    print 'sc', slow_cplxs
+    print 'ic', input_crn
+    print 'cp', cplxs
 
     print "Enumeration done. Verification using:", args.verify
     # --pathway --bisimulation --integrated

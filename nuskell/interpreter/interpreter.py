@@ -185,27 +185,32 @@ def post_process(fs_result, solution):
   for m in solution.molecules:
     solution_as_list.append(strip_consecutive_strandbreaks(flatten(m)))
 
-  domains = []
-  strands = []
   fs_list = []
-  constant_species = []
+  cs_list = []
 
+  # list of (DNAObject.Domain) domains in the system, modified by get_domain
+  domains = []
   def get_domain(x):
+    """Convert Domain format from Nuskell into DNAObjects """
     domain_name = str(x)
     starred = False
     if domain_name[-1] == "*":
       domain_name = domain_name[:-1]
       starred = True
+
+    # Check if we have seen the domain previously
     for d in domains:
       if d.name == domain_name:
-        if starred: return d.complement
-        return d
+        return d.complement if starred else d
+
+    # Otherwise initialize a new domain object
     constraint = 'N' * x.length
     new_dom = DNAObjects.Domain(name = domain_name, constraints = constraint)
     domains.append(new_dom)
-    if starred: new_dom = new_dom.C
-    return new_dom
+    return new_dom.complement if starred else new_dom
 
+  # list of (DNAObject.Strand) strands in the system, modified by get_strand
+  strands = []
   def get_strand(strand):
     for x in strands:
       if x.domains == strand:
@@ -214,7 +219,7 @@ def post_process(fs_result, solution):
     strands.append(new_strand)
     return new_strand
 
-  wildcard_domain = DNAObjects.Domain(name = "?", constraints = 'N')
+  wildcard_domain = DNAObjects.Domain(name = "?", constraints = 'N' * 15)
 
   # convert formal species
   for fs_name in fs_result:
@@ -235,51 +240,52 @@ def post_process(fs_result, solution):
       else:
         x = get_domain(x)
       strand.append(x)
+
     # remove the strand break that was added at the beginning
     structure = structure[:-1]
-    fs_list.append( \
-        DNAObjects.Complex(name = fs_name, \
-                           strands = complex, \
-                           structure = structure))
+    fs_list.append(
+        DNAObjects.Complex(name = fs_name, 
+          strands = complex, structure = structure))
 
   previous = []
   # convert constant species
   for cs in solution_as_list:
-      # add a strand break at the end for convenience
-      complex_old_format = cs + [("+", "+")]
-      complex = []
-      strand = []
-      structure = ""
-      for (x, y) in complex_old_format:
-          structure += y
-          if x == "+":
-              strand = get_strand(strand)
-              complex.append(strand)
-              strand = []
-              continue
-          if x == "?":
-              x = wildcard_domain
-          else:
-              x = get_domain(x)
-          strand.append(x)
-      # remove the strand break that was added at the beginning
-      structure = structure[:-1]
-      # has it been already added?
-      flag = False
-      for y in previous:
-          x = [complex, list(structure)]
-          p = rotate(x)
-          while True:
-              if p == y:
-                  flag = True
-              if p == x:
-                  break
-              p = rotate(p)
-      if not flag:
-          previous.append([complex, list(structure)])
-          constant_species.append( \
-              DNAObjects.Complex(strands = complex, \
-                                 structure = structure))
+    # add a strand break at the end for convenience
+    complex_old_format = cs + [("+", "+")]
+    complex = []
+    strand = []
+    structure = ""
+    for (x, y) in complex_old_format:
+      structure += y
+      if x == "+":
+        strand = get_strand(strand)
+        complex.append(strand)
+        strand = []
+        continue
+      if x == "?":
+        x = wildcard_domain
+      else:
+        x = get_domain(x)
+      strand.append(x)
+    # remove the strand break that was added at the beginning
+    structure = structure[:-1]
 
-  return domains, strands, fs_list, constant_species
+    # has it been already added?
+    seen = False
+    for y in previous:
+      x = [complex, list(structure)]
+      p = rotate(x)
+      while True:
+        if p == y:
+          seen = True
+        if p == x:
+          break
+        p = rotate(p)
+
+    if not seen:
+      previous.append([complex, list(structure)])
+      cs_list.append(
+          DNAObjects.Complex(strands = complex, structure = structure))
+
+  return domains, strands, fs_list, cs_list
 
