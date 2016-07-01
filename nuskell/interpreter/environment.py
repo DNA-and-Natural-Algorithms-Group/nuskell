@@ -352,7 +352,6 @@ class builtin_expressions(object):
           "The attribute `"+identifier+"' could not be found.")
     return theenv._env, head
 
-
 class builtin_functions(object):
   """Builtin functions of the nuskell programming language.
 
@@ -410,7 +409,7 @@ class builtin_functions(object):
 
   @staticmethod
   def tail(args) :
-    """ Returns the last element.. """
+    """ Returns the list minus the first element.. """
     if type(args[0]) != list:
       raise RuntimeError("`tail' should have a list as its argument.")
     return args[0][1:]

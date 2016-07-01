@@ -411,5 +411,7 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
     return crn_pathway_equivalence.test(
         (irrev_crn, input_fs), 
         (enum_crn, fsp), inter, verbose, True, interactive)
-
+  else:
+    print "Verification method unknown."
+    return False
 

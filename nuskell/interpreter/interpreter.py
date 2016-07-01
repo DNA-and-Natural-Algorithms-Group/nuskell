@@ -40,8 +40,8 @@ def flatten(x):
       return flatten(x)
 
 def strip_consecutive_strandbreaks(l):
-  """Make sure that there are no empty sequences. 
-  """
+  """Make sure that there are no empty sequences.  """
+  #print 'l', l
   flag = 1
   res = []
   for (x, y) in l:
@@ -183,6 +183,9 @@ def post_process(fs_result, solution):
 
   solution_as_list = list()
   for m in solution.molecules:
+    # Hack to enable empty solution objects.. 
+    # not exactly sure if we want this
+    if flatten(m) == [] : continue
     solution_as_list.append(strip_consecutive_strandbreaks(flatten(m)))
 
   fs_list = []
