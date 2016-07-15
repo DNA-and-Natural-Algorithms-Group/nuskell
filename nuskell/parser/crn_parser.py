@@ -47,22 +47,25 @@ def crn_document_setup():
   ParseElementEnhance.setDefaultWhitespaceChars(crn_DWC)
   
   identifier = W(alphas, alphanums+"_")
+
   
   reaction = T(G(O(delimitedList(identifier, "+"))) + \
              S("->") + \
-             G(O(delimitedList(identifier, "+"))), "irreversible") + \
-             S(LineEnd())
+             G(O(delimitedList(identifier, "+"))), "irreversible")
   rev_reaction = T(G(O(delimitedList(identifier, "+"))) + \
                  S("<=>") + \
-                 G(O(delimitedList(identifier, "+"))), "reversible") + \
-                 S(LineEnd())
+                 G(O(delimitedList(identifier, "+"))), "reversible")
   
+  expr = G(reaction | rev_reaction) 
+
+  reactline = expr + ZeroOrMore(S(";") + expr) + S(LineEnd())
+
   formal = G(L("formal") + S(L("=") + \
              L("{")) + delimitedList(identifier) + S("}"))
   constant = G(L("constant") + S(L("=") + \
                L("{")) + delimitedList(identifier) + S("}"))
   
-  crn = ZeroOrMore(G(reaction | rev_reaction) | S(LineEnd())) + \
+  crn = ZeroOrMore(reactline | S(LineEnd())) + \
         O(formal) + ZeroOrMore(S(LineEnd())) + \
         O(constant) + ZeroOrMore(S(LineEnd()))
   
@@ -93,7 +96,8 @@ def species(crn):
 def _post_process(crn):
   """Take a crn and return it together with a list of formal and
   constant species.
- """
+  """
+
   all_species = species(crn)
   formal_species = []
   constant_species = []
