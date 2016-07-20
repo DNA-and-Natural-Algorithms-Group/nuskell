@@ -236,6 +236,7 @@ def enumerator_input(dom):
   return efile, complexes
 
 def set_enumargs(enum, args):
+  import peppercorn.reactions as reactions
   """Transfer options to Enumerator Object. 
   
   Set Nuskell-defaults here.

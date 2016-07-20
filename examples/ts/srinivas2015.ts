@@ -3,10 +3,15 @@
 
 # written by Stefan Badelt (badelt@caltech.edu)
 
-class formal(s) = "h f m s" | ". . . ."
+# Extending short() and long() to contain metadata for sequence design:
+# Defaults: 
+#   short = toehold, long = branch-migration
+#   top-strand: ATC, bottom-strand ATG
+#   top:'NNNNNN', bottom:'HHHHH',
+
+class formal(s) = "? f m s" | ". . . ."
   where {
-    h = long(); # what about: history(s);
-    f = short();
+    f = short(top:'WHHHHW', bottom:'WDDDDW');
     m = long();
     s = short() };
 
@@ -16,18 +21,18 @@ macro prodg(s) =
     "fy* hy*" | ") )",
     "hy fy" | ". ."]
   where {
-   hy = s.h;
+   hy = long(tag:'history');
    fy = s.f;
    my = s.m;
    sy = s.s };
 
-module srinivas_pgate(r, p) = 
+module srinivas_pgate(r, p, hflux) = 
   [ "hx fx mx sx + n + m fx* hx* sa*"
   | "(  (  .  .  + ~ + ~  )   )   . ",
     "fx help" | ".  ~"] # helper
   where {
     sa = r[len(r)-1].s;
-    hx = p[0].h; 
+    hx = hflux; 
     fx = p[0].f; 
     mx = p[0].m; 
     sx = p[0].s;
@@ -35,12 +40,12 @@ module srinivas_pgate(r, p) =
     m = reverse(m)
   };
 
-module srinivas_pgate_p1(r, p) = 
+module srinivas_pgate_p1(r, p, hflux) = 
   [ "hx fx mx sx + fx* hx* sa*"
   | "(  (  .  .  +  )   )   . "] 
   where {
     sa = r[len(r)-1].s;
-    hx = p[0].h; 
+    hx = hflux;
     fx = p[0].f; 
     mx = p[0].m; 
     sx = p[0].s 
@@ -48,9 +53,9 @@ module srinivas_pgate_p1(r, p) =
 
 module flux(r,p) = if len(p) == 0 then [[]] 
   else if len(p) == 1 then [["h f" | ". ."]]
-  where {h = p[0].h; f = p[0].f }
+  where {h = long(); f = p[0].f }
   else [["h" | "."]]
-  where {h = p[0].h; f = p[0].f };
+  where {h = long(); f = p[0].f };
 
 module srinivas_rgate(r, p) = 
   # can deal with all len(p)
@@ -63,8 +68,8 @@ module srinivas_rgate(r, p) =
     sr = r[len(r)-1].s ;
     [fl] = flux(r,p);
     [n,m,l] = flip(map2(reactg, r, range(len(r)-1)),3);
-    void = print(r,p);
-    void = print([n,m,l]);
+    #void = print(r,p);
+    #void = print([n,m,l]);
     m = reverse(m) };
 
 module srinivas_rgate_r0(r, p) = 
@@ -98,23 +103,33 @@ macro reactg(r, i) =
 
 module rxn(r) = sum(map(infty, react + produce))
   where {
+
     react = 
       if len(r.reactants) == 0 then 
+        #-- needs a specific reactant-fuel
         srinivas_rgate_r0(r.reactants, r.products)
       else 
+        #-- adjusts back and fuel to number of products
         srinivas_rgate(r.reactants, r.products);
+
+    # void = print('a', react);
+    # void = print('b', react[0]);
+    # void = print('c', react[0].fl);
+    # void = print('h', react[0].fl[0].h);
+
     produce = 
-      if len(r.products) == 0 then []
+      if len(r.products) == 0 then 
+        []
       else if len(r.products) == 1 then 
         if len(r.reactants) == 0 then 
-          srinivas_pgate_p1(react, r.products)
+          srinivas_pgate_p1(react, r.products, hist) where hist = react[0].fl[0].h
         else 
-          srinivas_pgate_p1(r.reactants, r.products)
+          srinivas_pgate_p1(r.reactants, r.products, hist) where hist = react[0].fl[0].h
       else 
         if len(r.reactants) == 0 then 
-          srinivas_pgate(react, r.products)
+          srinivas_pgate(react, r.products, hist) where hist = react[0].fl[0].h
         else 
-          srinivas_pgate(r.reactants, r.products) };
+          srinivas_pgate(r.reactants, r.products, hist) where hist = react[0].fl[0].h };
 
 module main(crn) = sum(map(rxn, crn)) 
   where 

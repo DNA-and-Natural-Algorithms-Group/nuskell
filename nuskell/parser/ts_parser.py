@@ -105,12 +105,14 @@ def ts_document_setup():
       delimitedList(asgn, ";") + S("}")) | G(S("where") + asgn)
 
   quote_expr = G(T(quotedString, 'quote'))
+  dict_expr = G(T(OneOrMore(O(S(',')) + G(identifier + S(':') + (quote_expr| number))), 'dict')) 
+
   where_expr = G(T(test + O(where_clause), "where"))
   if_expr = G("if" + expr + S("then") + expr + \
       ZeroOrMore(S("elseif") + expr + S("then") + expr) + \
       S("else") + expr)
   
-  expr << (if_expr | where_expr | quote_expr)
+  expr << (dict_expr | if_expr | where_expr | quote_expr )
   
   class_def    = G("class" + identifier + \
       G(S("(") + O(delimitedList(identifier)) + S(")")) + S("=") + expr)

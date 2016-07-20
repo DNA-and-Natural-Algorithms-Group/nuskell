@@ -41,7 +41,6 @@ def flatten(x):
 
 def strip_consecutive_strandbreaks(l):
   """Make sure that there are no empty sequences.  """
-  #print 'l', l
   flag = 1
   res = []
   for (x, y) in l:
@@ -191,26 +190,7 @@ def post_process(fs_result, solution):
   fs_list = []
   cs_list = []
 
-  # list of (DNAObject.Domain) domains in the system, modified by get_domain
   domains = []
-  def get_domain(x):
-    """Convert Domain format from Nuskell into DNAObjects """
-    domain_name = str(x)
-    starred = False
-    if domain_name[-1] == "*":
-      domain_name = domain_name[:-1]
-      starred = True
-
-    # Check if we have seen the domain previously
-    for d in domains:
-      if d.name == domain_name:
-        return d.complement if starred else d
-
-    # Otherwise initialize a new domain object
-    constraint = 'N' * x.length
-    new_dom = DNAObjects.Domain(name = domain_name, constraints = constraint)
-    domains.append(new_dom)
-    return new_dom.complement if starred else new_dom
 
   # list of (DNAObject.Strand) strands in the system, modified by get_strand
   strands = []
@@ -240,8 +220,11 @@ def post_process(fs_result, solution):
         continue
       if x == "?":
         x = wildcard_domain
-      else:
-        x = get_domain(x)
+      elif x.is_complement or x in domains :
+        pass
+      else :
+        x.name = str(x)
+        domains.append(x)
       strand.append(x)
 
     # remove the strand break that was added at the beginning
@@ -267,8 +250,11 @@ def post_process(fs_result, solution):
         continue
       if x == "?":
         x = wildcard_domain
-      else:
-        x = get_domain(x)
+      elif x.is_complement or x in domains :
+        pass
+      else :
+        x.name = str(x)
+        domains.append(x)
       strand.append(x)
     # remove the strand break that was added at the beginning
     structure = structure[:-1]
