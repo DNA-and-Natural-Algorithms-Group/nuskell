@@ -90,6 +90,8 @@ module reaction(r) =
         nmmodule(r.reactants, [i])
         where
             i = signal()
+    else if len(r.reactants) == 0 then
+      abort('reaction type not implemented')
     else
         nmmodule(r.reactants, r.products);
 

@@ -116,6 +116,9 @@ module joinfork(r, p) =
             fork(r, i) + annihilator(i)
             where
                 i = signal()
+    elseif len(r) == 0 then
+      abort('reaction type not implemented')          
+
     elseif len(r) == 1 and len(p) == 1 then
         transducer(r[0], p[0])
     elseif len(r) == 1 then
