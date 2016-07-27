@@ -128,7 +128,9 @@ def ts_document_setup():
   
   stmt = class_def | function_def | module_def | macro_def | global_def
   
-  document = StringStart() + O(delimitedList(stmt, ";")) + StringEnd()
+  # Make ';' also an optional delimiter for the main() statement. That will make the 
+  # documentation easier, while keeping backward-compatibility
+  document = StringStart() + stmt + ZeroOrMore( S(";") + stmt ) + O(S(";")) + StringEnd()
   document.ignore(pythonStyleComment)
   return document
 
