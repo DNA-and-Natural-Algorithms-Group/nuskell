@@ -2,3 +2,6 @@
 *~
 *.swp
 
+dist/
+build/
+nuskell.egg-info/

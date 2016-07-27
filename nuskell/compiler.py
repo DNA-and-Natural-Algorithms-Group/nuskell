@@ -41,7 +41,7 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15)
   (crn, formal_species, const_species) = parse_crn_string(input_crn)
 
   domains, strands, formal_species, constant_species = \
-      interpret(ts, crn, formal_species, sdlen=sdlen, ldlen=ldlen)
+      interpret(ts, crn, formal_species, const_species, sdlen=sdlen, ldlen=ldlen)
 
   if pilfile :
     print_as_PIL(pilfile, domains, strands, formal_species, constant_species)

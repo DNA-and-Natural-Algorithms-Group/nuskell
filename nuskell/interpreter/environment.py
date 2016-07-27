@@ -174,7 +174,7 @@ class Solution(object):
   """
   def __init__(self, initial):
     assert isinstance(initial, set)
-    all(isinstance(s, Structure) for s in initial)
+    assert all(isinstance(s, Structure) for s in initial)
     self.molecules = initial
 
   def __add__(self, other):
@@ -230,7 +230,9 @@ class builtin_expressions(object):
           'index' : self._index,
           'attribute' : self._attribute
           }
+      # function call, list attribute of an object
       self._env, head = self.interpret_expr(content[0])
+
       for x in content[1:]:
         key = x[0]
         args = x[1:]
@@ -797,6 +799,55 @@ class Environment(builtin_expressions):
 
     return self.formal_species_dict
 
+  def translate_constant_species(self, cs_list, crn_parsed):
+    """Implementation CRN translator function.
+
+    This function builds a solution object from species that have been declared
+    as 'constant' in the input CRN. This enables to specify an implementation 
+    CRN directly as input and use the translation scheme merely to describe how
+    formal and constant species should look like. 
+
+    TODO: This function might be combined with the regular formalCRN-to-DSD
+    approach, but we should think about when this makes sense.
+
+    """
+    constant_species_objects = map(Species, cs_list)
+
+    # compile the formal species
+    self._create_binding("__constantspecies__", constant_species_objects)
+
+    self._env, cs_result = self.interpret_expr(["trailer",
+      ["id", "map"], ["apply", 
+        ["id", "constant"], 
+        ["id", "__constantspecies__"]]])
+
+    self.constant_species_dict = {}
+    for i in range(len(cs_list)):
+      self.constant_species_dict[cs_list[i]] = cs_result[i]
+
+    #NOTE: could be more pretty
+    crn_remap = []
+    for e, i in enumerate(crn_parsed[0]):
+      if e == 0 : 
+        crn_remap.append(crn_parsed[0][e])
+      else :
+        sp = []
+        for x in i :
+          if x in self.constant_species_dict :
+            y = self.constant_species_dict[x]
+            sp.extend([y])
+        crn_remap.append(sp)
+    crn_remap = [crn_remap]
+
+    crn_object = map(
+        lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
+
+    self._create_binding("__crn__", crn_object)
+    self._env, self.constant_species_solution = self.interpret_expr( 
+        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+ 
+    return self.constant_species_solution
+
   def translate_reactions(self, crn_parsed):
     """Execute the main() function of the translation scheme.
     
@@ -820,6 +871,7 @@ class Environment(builtin_expressions):
     crn_remap = map(
         lambda x: [x[0]] + map( lambda y: map(
             lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
+
     crn_object = map(
         lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
 

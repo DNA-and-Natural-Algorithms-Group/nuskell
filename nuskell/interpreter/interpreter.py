@@ -120,7 +120,7 @@ def ts_code_snippet():
     function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
-def interpret(ts_parsed, crn_parsed, fs_list, 
+def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
     name='ts_author', sdlen=6, ldlen=15, verbose=True):
   """Interface to the nuskell environment.
 
@@ -157,8 +157,13 @@ def interpret(ts_parsed, crn_parsed, fs_list,
 
   # translate formal species list using the formal() function 
   fs_result = ts_env.translate_formal_species(fs_list)
-  # translate the crn using the main() function 
-  cs_result = ts_env.translate_reactions(crn_parsed)
+
+  if cs_list :
+    # translate a given constant species list using the constant() function 
+    cs_result = ts_env.translate_constant_species(cs_list, crn_parsed)
+  else :
+    # translate the crn using the main() function 
+    cs_result = ts_env.translate_reactions(crn_parsed)
 
   # # Alternative way to extract data at the end.
   # # get the results in form of a dictionary d={fs:Object}
