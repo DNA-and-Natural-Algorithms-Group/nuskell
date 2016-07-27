@@ -825,19 +825,21 @@ class Environment(builtin_expressions):
     for i in range(len(cs_list)):
       self.constant_species_dict[cs_list[i]] = cs_result[i]
 
-    #NOTE: could be more pretty
+    # replace every instance of a constant species in the CRN with the
+    # respective cs_result instance. Skip all non-constant species
     crn_remap = []
-    for e, i in enumerate(crn_parsed[0]):
-      if e == 0 : 
-        crn_remap.append(crn_parsed[0][e])
-      else :
-        sp = []
-        for x in i :
-          if x in self.constant_species_dict :
-            y = self.constant_species_dict[x]
-            sp.extend([y])
-        crn_remap.append(sp)
-    crn_remap = [crn_remap]
+    for r in crn_parsed:
+      react = []
+      for e, field in enumerate(r):
+        if e == 0 :
+          react.append(field)
+        else :
+          spec = []
+          for s in field :
+            if s in self.constant_species_dict :
+              spec.append(self.constant_species_dict[s])
+          react.append(spec)
+      crn_remap.append(react)
 
     crn_object = map(
         lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
