@@ -21,7 +21,7 @@ interest.
 """
 
 import sys
-import dnaobjects
+import nuskell.include.dnaobjects as dnaobjects
 from copy import copy
 
 class RuntimeError(Exception):

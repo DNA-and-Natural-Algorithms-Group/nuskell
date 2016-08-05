@@ -10,7 +10,7 @@
 import sys
 from copy import copy
 
-import dnaobjects as DNAObjects
+import nuskell.include.dnaobjects as DNAObjects
 
 from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure

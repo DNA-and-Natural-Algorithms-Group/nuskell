@@ -6,12 +6,14 @@ from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 
-try :
-  # TODO: only used in do_enumerator_things()
-  import peppercorn
-except ImportError:
-  sys.exit("""nuskell depends on the peppercorn package
-  -- download at http://dna.caltech.edu/peppercorn """)
+import nuskell.include.peppercorn as peppercorn
+import nuskell.include.peppercorn.reactions as reactions
+# try :
+#   # TODO: only used in do_enumerator_things()
+#   import peppercorn
+# except ImportError:
+#   sys.exit("""nuskell depends on the peppercorn package
+#   -- download at http://dna.caltech.edu/peppercorn """)
 
 def find(l, key):
   for i in range(len(l)):
@@ -236,7 +238,6 @@ def enumerator_input(dom):
   return efile, complexes
 
 def set_enumargs(enum, args):
-  import peppercorn.reactions as reactions
   """Transfer options to Enumerator Object. 
   
   Set Nuskell-defaults here.

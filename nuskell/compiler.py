@@ -165,7 +165,7 @@ def main() :
   """
   import sys
   import argparse
-  import peppercorn.enumerator as pepen
+  import nuskell.include.peppercorn.enumerator as pepen
   def get_nuskell_args(parser) :
     """ A collection of arguments for nuskell 
     nuskell reads and processes chemical reaction networks (CRNs). Three
@@ -235,9 +235,9 @@ def main() :
 
   if args.verify :
     print "Compilation done. enumerating pathways ... "
-    import peppercorn.input as pepin
-    import peppercorn.output as pepout
-    import peppercorn.reactions as reactions
+    import nuskell.include.peppercorn.input as pepin
+    import nuskell.include.peppercorn.output as pepout
+    import nuskell.include.peppercorn.reactions as reactions
 
     import nuskell.verifier.verifier as nv
 
