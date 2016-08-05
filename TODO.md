@@ -1,14 +1,29 @@
-# Nuskell -- Checklist for Release
+# Nuskell - Checklist for Release
 
-## DNA22:
+## Release 0.2.2 (for DNA22):
   - include Robert's bisimulation '
-  - add basic shinx documentation 
+  - add basic sphinx documentation 
+  - unittesting for bisimulation
+
+### Clarify:
+  - history domains
+  - naming conventions: 
+    * Nuskell compiler, nuskell executable/library
+    * CRN is programming language
+    * translation schemes are instructrions written in ...?
+    * CRN-to-DSD, DOM, DNA, TSD?
+
+  - commandline calls
+  - Authors in setup and licence, choice of licence, ...
+  - how *independent* shall `Nuskell` be? 
 
 ## Publication/Release 1.0:
   - add crn-simulation
   - add nuskell.optimization module
   - add schemes/ directory with well documented examples
   - case-by-case analysis for non formal-CRN-type schemes
+  - unittesting for translation (as much as possible, but no more)
+  - unittesting for pathway-decomposition
 
 ### Publication content:
   - Describe the .ts language
@@ -54,15 +69,4 @@
   - comparison of translation schemes
   - verification using `Nuskell`
   - optimization using `Nuskell`
-
-### Clarify:
-  - history domains
-  - naming conventions: 
-    * Nuskell compiler, nuskell executable/library
-    * CRN is programming language
-    * translation schemes are instructrions written in ...?
-    * CRN-to-DSD, DOM, DNA, TSD?
-
-  - commandline calls
-  - Authors in setup and licence, choice of licence, ...
 
