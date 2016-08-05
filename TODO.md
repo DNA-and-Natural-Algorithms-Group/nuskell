@@ -64,4 +64,5 @@
     * CRN-to-DSD, DOM, DNA, TSD?
 
   - commandline calls
+  - Authors in setup and licence, choice of licence, ...
 
