@@ -1,27 +1,3 @@
-===============================================================================
-                  === The *nuskell* compiler package ===
-
-usage:
-
-  ./compile translation_scheme.nus [options] < formal.crn > dom_design.pil
-
-nuskell is a compiler written in python2.7. The nuskell compiler translates 
-formal chemical reaction networks into a domain-level specification using
-a translation scheme written in the nuskell programming language.
-
- --verify
- --verify_wolfe
- --verify_condense
- --enumerate
- -o, --output [pil/dom/silent]
-
-
- echo "A + B => C; C + B <=> A" | ./nuskell --ts examples/soloveichick.ts --verbose --verify --print pil > test.out
-
-
-===============================================================================
-
-
 README written by Seung Woo Shin (lagnared@gmail.com) in September 2011, any
 questions can be directed that direction.
 
