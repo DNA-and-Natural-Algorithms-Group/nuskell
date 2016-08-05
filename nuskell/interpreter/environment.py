@@ -7,13 +7,13 @@
 
 """The DSD translation scheme language environment.
 
-This module comprises all classes and functions that are used to set up the
-nuskell compiler environment. The environment has multiple levels. Built-in
-functions are defined in the base-level upon initialization, additional nuskell
-code is embedded using public functions of the **Environment** class. At this
-point, only the interpreter module communicates with the environment module in
-order to set up and execute the nuskell script together with the CRN of
-interest.
+This module contains all classes and functions that are needed to set up a
+Nuskell compile environment. Built-in functions are defined in the base-level
+upon initialization of the Environment() object, Nuskell code is embedded using
+public functions of the **Environment** class. At this point, only the
+interpreter module communicates with the environment module in order to set up
+the final namespace for a translation scheme and execute the translation scheme
+together with the input CRN.
 
 .. When modifying this file, use 2-whitespace character indents, 
 .. otherwise follow the Google Python Style Guide:
@@ -184,18 +184,10 @@ class Solution(object):
   
 
 class builtin_expressions(object):
-  """Supported expressions of the nuskell programming language.
+  """ Builtin expressions of Nuskell translation schemes.
 
-  *) Environment dependent functions (prefix ed_) interpret their arguments in
-  the context of the current environment, and they *often* actually update the
-  environment with supplied content.
-
-  *) trailer functions (prefix tf_) have an additional head argument that is
-  ...
   """
-  #def __init__(self, env):
-  #  # Shall we initialize this every time with a new environment? -- NO
-  #  self.env = env
+  # Say something about special trailer functions here?
 
   def interpret_expr(self, expr):
     """Recursive interpretation the body of a global variable."""
@@ -222,46 +214,34 @@ class builtin_expressions(object):
         'list': self._list, # return self._env, content
         'where': self._where, # return self._env, value
         'uminus': self._uminus, # return self._env, -value (integer only!)
-        #'trailer': self._trailer, # return self._env, head
         }
 
     tag = expr[0]
     content = expr[1:]
 
-    #print 't', tag, content
     if tag in operators.keys():
       self._env, operand1 = self.interpret_expr(content[0])
       self._env, operand2 = self.interpret_expr(content[1])
       return self._env, operators[tag](operand1, operand2)
+
     elif tag == 'trailer' :
-      """ nested stuff ... 
-      has two list arguments, the function name (x[0], args=x[1:]
-      function call, list indexing, or accessing attribute of an object
-      """
       trailerkeys = {
           'apply' : self._apply,
           'index' : self._index,
           'attribute' : self._attribute
           }
-
-      #print tag, content
-
-      # function call, list attribute of an object
       self._env, head = self.interpret_expr(content[0])
-
-      #print tag, head
-
       for x in content[1:]:
         key = x[0]
         args = x[1:]
-        #print 'k', key, 'a', args
         self._env, head = trailerkeys[key](self, head, args)
-
       return self._env, head
+
     elif tag in keywords.keys():
       return keywords[tag](self, content)
+
     else :
-      raise RuntimeError("Unknown expression `" + tag + "' was found.")
+      raise RuntimeError("Unknown expression: `" + tag + "'")
       return self._env, None
 
   # Context-dependent
@@ -306,7 +286,6 @@ class builtin_expressions(object):
     return theenv._env, kwargs
 
   def _dna(self, theenv, content):
-    #print content
     domains = content[0]
     dotparen = content[1]
     attributes = {}
@@ -314,23 +293,16 @@ class builtin_expressions(object):
       if domains[i] != "?" and domains[i] != "+":
         starred = (len(domains[i]) == 2)
         dom = domains[i][0]
-        #print 'early1', dom, starred
         theenv._env, dom_value = theenv.interpret_expr(dom)        
-        #print 'early', dom, ':', dom_value
         attributes[dom[1]] = dom_value
-        #print dom[1], ':', dom_value
         if starred:
           dom_value = ~dom_value
         domains[i] = dom_value
-        #print 'what', domains, ':', dom_value
-    #print "r", domains, dotparen, attributes
     return theenv._env, Structure(domains, dotparen, attributes)
 
   def _list(self, theenv, content) :
-    #print 'l', content
     for i in range(len(content)):
       theenv._env, content[i] = theenv.interpret_expr(content[i])
-    #print 'l', content
     return theenv._env, content
 
   def _where(self, theenv, content): 
@@ -347,7 +319,6 @@ class builtin_expressions(object):
 
         for key, value in asgn_pattern_match(id_list, value) :
           theenv._env = theenv._create_binding(key, value)
-      # evaluate the final value
 
     theenv._env, value = theenv.interpret_expr(content[0])
     theenv._destroy_level()
@@ -362,7 +333,6 @@ class builtin_expressions(object):
 
   # trailer functions
   def _apply(self, theenv, head, args):
-    #print "apply", head, args
     for i in range(len(args)):
       theenv._env, args[i] = theenv.interpret_expr(args[i])
     theenv._env, head = theenv._eval_func(head, args)
@@ -389,7 +359,7 @@ class builtin_expressions(object):
     return theenv._env, head
 
 class builtin_functions(object):
-  """Builtin functions of the nuskell programming language.
+  """Builtin functions of Nuskell translation schemes.
 
   This object is typically initialized within the environment after the
   respective functions have been bound.  Most methods do not require any class
@@ -632,38 +602,36 @@ class builtin_functions(object):
     return new_crn
 
 class Environment(builtin_expressions):
-  """The environment of the tls language. It collects built-in functions
-  together with the functions specified in the translation scheme, in order to
-  compile a DNA strand displacement circuit.
+  """The Nuskell environment to interpret translation schemes. 
+  
+  Environment inherits all builtin expressions. It provides the interface to
+  interpret code in a translation scheme, and to execute the code by assigning
+  formal species and applying them to the main() function.
   """
 
-  def __init__(self, name, sdlen = 6, ldlen = 15):
-    """
-    Initializes the environment. Takes a name which usually refers to the
-    current translation scheme, and parses a sample code that comprises
-    built-in utilities. It seems that the length of domains is not so important
-    at this point, ... It influences the sequence length in the .pil file, 
-    but choosing an appropriate lenght might be more important for sequence
-    design itself, rather than for domain level design. 
-    
-    :param name: Name of the translation scheme
-    :param sdlen: Length of inbuilt **short()** domains
-    :param ldlen: Length of inbuilt **long()** domains
+  def __init__(self, name='default_env', sdlen = 6, ldlen = 15):
+    """ Initialize the environment. 
 
+    Collects optional arguments for the setup of the Environment and
+    initializes built-in functions: short(), long(), tail(), flip(), etc...
+    
+    Args:
+      name (optional, str): The name of the Environment.
+      sdlen (optional, int): Dlfault length of built-in short() domains
+      ldlen (optional, int): Default length of built-in long() domains
+
+    Note:
+      short() and long() domain lengths can also be changed at each assignment,
+      e.g. short(7) is a toehold of length 7, long(10) is a branch-migration
+      domain of length 10.
     """
     self._name = name
     self._env = [{}]
 
     # Setup the builtin functions. 
     self._env, self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
-    #print self._bfunc_Obj._long_domain_length 
 
   def _init_builtin_functions(self, sdlen, ldlen):
-    """Initialization of builtin functions of the nuskell environment
-
-    **TODO** this is where we want to discribe what: tail, complement, infty,
-    short, long, unique, flip, empty, rev_reactions, irrev_reactions, ... do!
-    """
     self._create_binding("print", Function(["s"], "print"))
     self._create_binding("abort", Function(["s"], "abort"))
     self._create_binding("tail", Function(["l"], "tail"))
@@ -679,66 +647,63 @@ class Environment(builtin_expressions):
     return self._env, builtin_functions(sdlen, ldlen)
 
   def _create_binding(self, name, value):
-    """Create a binding for a new nuskell function in the top level
+    """ Create binding of a Nuskell function.
 
-    :param name: Function name
-    :param value: Some built-in data type to be adressed (Function, Solution,
-    Species, Domain, Reaction, Structure), either as single value or list
+    Args:
+      name (str): Name of the function.
+      value (...): A built-in data type (Function, Solution, Species,
+        Domain, Reaction, Structure, etc ...), either as single value or list
 
-    :return: updated environment
+    Returns: 
+      An updated environment inclding the function binding in the top-level.
     """
 
     bindings = (Function, Solution, Species, NusDomain, Reaction, Structure, 
         void, int, list)
-    #print 'n:', name, 'v:', type(value), value
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)
     else :
       assert isinstance(value, bindings)
 
-    #print "create binding:", len(self._env), name, value
-
     self._env[-1][name] = value
     return self._env
 
   # Private environment modification functions #
-  def _create_level(self): # _create_env_level
-    """Private: Create a new level for function bindings.
-    It is commonly triggered by a 'where' statement or during the evaluation of
-    a non-built-in function call.
+  def _create_level(self): 
+    # Create a new level for function bindings.
+    # It is commonly triggered by a 'where' statement or during the evaluation
+    # of a non-built-in function call.
 
-    interpret_expr -> _where
-    interpret_expr -> _trailer -> _apply -> _eval_func
-    """
+    # interpret_expr -> _where
+    # interpret_expr -> _trailer -> _apply -> _eval_func
     self._env.append({})
     return self._env
   
-  def _destroy_level(self): # _destroy_env_level_
-    """Private: Revert to the old level for function bindings.
-    It is commonly triggered after a 'where' statement or after the evaluation
-    of a non-built-in function call.
+  def _destroy_level(self):
+    # Revert to the old level for function bindings.
+    # It is commonly triggered by a 'where' statement or after the evaluation
+    # of a non-built-in function call.
 
-    interpret_expr -> _where
-    interpret_expr -> _trailer -> _apply -> _eval_func
-    """
+    # interpret_expr -> _where
+    # interpret_expr -> _trailer -> _apply -> _eval_func
     self._env.pop()
     return self._env
 
   def _ref_binding(self, name):
-    """Get the reference to an exisiting function binding, by searching all
-    levels.
+    # Search levels from last to first to find a reference to an exisiting
+    # function binding.
 
-    :param name: Function name
+    # Args: 
+    #   name (str) : Name of a function
 
-    :return: Function binding (self._env[?][name])
-    """
+    # Return: 
+    #   Function binding (self._env[?][name])
     for level in reversed(self._env):
       if name in level.keys():
         return level[name]
     raise RuntimeError("Cannot find a binding for `" + name + "'.")
     return None
 
-  ### documentation ends here ... ###
   def _eval_func(self, f, args):
     if type(f.body) == str: # the function is a built-in function
       return self._env, self._bfunc_Obj.eval_builtin_functions(f.body, args)
@@ -767,15 +732,20 @@ class Environment(builtin_expressions):
     self._destroy_level()
     return self._env, value
 
+  # Public functions #
   def interpret(self, code):
-    """Creates bindings for variables and functions defined in the body of the
-    code. Returns the environment (the final namespace).
+    """ Returns the Environment (the final namespace).
+    
+    Creates bindings for variables and functions defined in the body of the
+    translation scheme. 
 
     Note: 
-      This function creates bindings for every function in the nuskell code.
       At this point all keywords (class, function, macro, module) are treated
       exactly the same, only the **global** keyword is special, because the 
       global expressions are **interpreted first** and then bound.
+
+    Returns:
+      self.env: An updated Environment
     """
     for stmt in code:
       kwd = stmt[0]
@@ -795,15 +765,21 @@ class Environment(builtin_expressions):
         # create binding to the function, without interpretation
         # e.g. kwd = module; id = 'rxn'; args = ['r']; body_ = [where...]
         assert body[0][0] == "id"
-        #print "k:", kwd, "b:", body
         id = body[0][1]
         args = map(lambda x: x[1], body[1]) # remove 'id' tags from args
         body_ = body[2] # the ['where' [...]] part
-        #print "id:", id, 'a', args, 'b2', body_
         self._create_binding(id, Function(args, body_))
     return self._env
 
   def translate_formal_species(self, fs_list):
+    """ Apply the formal() function to the formal species in the input CRN.
+
+    First, the bindings for formal species are created, then the formal()
+    function is applied to every formal species in the input CRN.
+
+    Returns:
+      self.formal_species_dict : A dictionary of {fs:Structure()}.
+    """
     formal_species_objects = map(Species, fs_list)
 
     # compile the formal species
@@ -819,19 +795,19 @@ class Environment(builtin_expressions):
     for i in range(len(fs_list)):
       self.formal_species_dict[fs_list[i]] = fs_result[i]
 
-    return self._env, self.formal_species_dict
+    return self.formal_species_dict
 
   def translate_reactions(self, crn_parsed):
     """Execute the main() function of the translation scheme.
     
-    The crn is combined with the compiled formal species.
+    The input CRN is replaced with previously initialized formal species objects.
 
     Args:
       crn_paresed (List[Lists]): A crn in crn_parser format.
 
     Returns:
-      self.env : The updated environment
-      self.main_solution (Solution) : The final Solution object
+      self.main_solution (Solution) : The Solution object with all constant
+      species
 
     Raises:
       RuntimeError: If the compiled formal species cannot be found
@@ -839,9 +815,10 @@ class Environment(builtin_expressions):
     """
     if not self.formal_species_dict :
       raise RuntimeError('Could not find the compiled formal species!')
+
+    # replace every fs (str) with fs(Structure())
     crn_remap = map(
-        lambda x: [x[0]] + map(
-          lambda y: map(
+        lambda x: [x[0]] + map( lambda y: map(
             lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
     crn_object = map(
         lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
@@ -851,19 +828,7 @@ class Environment(builtin_expressions):
     self._env, self.constant_species_solution = self.interpret_expr( 
         ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
 
-    return self._env, self.constant_species_solution
-
-  # Public functions #
-  @property
-  def name(self) :
-    return self._name
-
-  @property
-  def env(self) :
-    return self._env
-
-  # TODO: A method that prints the environment in some human readable way.
-  # def __str__(): pass
+    return self.constant_species_solution
 
 def asgn_pattern_match(id, value):
   """Does the pattern matching for list assignments.

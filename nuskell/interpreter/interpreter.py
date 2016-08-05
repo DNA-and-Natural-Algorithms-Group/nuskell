@@ -156,14 +156,15 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   ts_env.interpret(ts_parsed)
 
   # translate formal species list using the formal() function 
-  ts_env.translate_formal_species(fs_list)
+  fs_result = ts_env.translate_formal_species(fs_list)
   # translate the crn using the main() function 
-  ts_env.translate_reactions(crn_parsed)
+  cs_result = ts_env.translate_reactions(crn_parsed)
 
-  # get the results in form of a dictionary d={fs:Object}
-  fs_result = ts_env.formal_species_dict
-  # get the final solution object
-  cs_result = ts_env.constant_species_solution
+  # # Alternative way to extract data at the end.
+  # # get the results in form of a dictionary d={fs:Object}
+  # fs_result = ts_env.formal_species_dict
+  # # get the final solution object
+  # cs_result = ts_env.constant_species_solution
 
   return post_process(fs_result, cs_result)
 
