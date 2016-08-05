@@ -10,4 +10,3 @@ from reaction import Reaction, RestingSetReaction
 from constraints import Constraints
 from structure import Structure
 import utils
-#import io_PIL, io_Multistrand, io_Peppercorn

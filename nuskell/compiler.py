@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #
-#
-# Copyright (c) 2010 Caltech. All rights reserved.
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-#
+#            Stefan Badelt (badelt@dna.caltech.edu)
 #
 # Compiler module.
 #
@@ -12,21 +11,30 @@ import os
 import sys
 
 from nuskell.parser import parse_crn_string, parse_ts_file
-from nuskell.parser import parse_dom_file
-
 from nuskell.interpreter.interpreter import interpret
+from nuskell.enumeration import enumerate_crn, enumerate_crn_old
 from nuskell.verifier.verifier import verify
 
-def compile(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15):
-  """A formal chemical reaction network (CRN) is compiled into domain level
+from nuskell.include.peppercorn.enumerator import get_peppercorn_args
+
+def translate(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15):
+  """A formal chemical reaction network (CRN) is translated into domain level
   representation (DOM) of a DNA strand displacement circuit (DSD).  The
   translation-scheme has to be formulated using the nuskell programming
   language. 
 
-  :param input_crn: An input string representation of the formal CRN
-  :param ts_file: The input file name of a translation scheme
-  :param pilfile: The output file name of a DOM-level cirucit in .pil format
-  :param pilfile: The output file name of a DOM-level cirucit in .dom format
+  Args: 
+    input_crn: An input string representation of the formal CRN
+    is_file: The input file name of a translation scheme
+    pilfile: The output file name of a DOM-level cirucit in .pil format
+    domfile: The output file name of a DOM-level cirucit in .dom format
+
+  Returns:
+    domains: A list of Domain objects (see DNAObjects)
+    strands: A list of Strand objects (see DNAObjects)
+    formal_species: A list of Complex objects (see DNAObjects)
+    constant_species: A list of Complex objects (see DNAObjects)
+
   """
 
   ts = parse_ts_file(ts_file)
@@ -43,13 +51,14 @@ def compile(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15):
   return domains, strands, formal_species, constant_species
 
 def print_as_PIL(outfile, domains, strands, formal_species, constant_species):
-  """ Print a compiled circuit in the pepper internal language (PIL) file format. 
-
-  :param outfile: filename of the PIL file
-  :param domains: array of *domain* objects (see DNAObjects)
-  :param strands: array of *strand* objects (see DNAObjects)
-  :param formal_species: array of *complex* objects (see DNAObjects)
-  :param constant_species: array of *complex* objects (see DNAObjects)
+  """ Print an implementation CRN in the pepper internal language (PIL) file format. 
+    
+  Args:
+    outfile: filename of the PIL file
+    domains: array of Domain objects (see DNAObjects)
+    strands: array of Strand objects (see DNAObjects)
+    formal_species: A list of Complex objects (see DNAObjects)
+    constant_species: A list of Complex objects (see DNAObjects)
   """
   F = open(outfile, 'w')
   for x in domains:
@@ -86,13 +95,14 @@ def print_as_PIL(outfile, domains, strands, formal_species, constant_species):
   return
 
 def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
-  """ Print a compiled circuit in the domain (DOM) file format. 
+  """ Print an implementation CRN in the domain (DOM) file format. 
 
-  :param outfile: filename of the DOM file
-  :param domains: array of *domain* objects (see DNAObjects)
-  :param strands: array of *strand* objects (see DNAObjects)
-  :param formal_species: array of *complex* objects (see DNAObjects)
-  :param constant_species: array of *complex* objects (see DNAObjects)
+  Args:
+    outfile: filename of the DOM file
+    domains: array of Domain objects (see DNAObjects)
+    strands: array of Strand objects (see DNAObjects)
+    formal_species: A list of Complex objects (see DNAObjects)
+    constant_species: A list of Complex objects (see DNAObjects)
   """
   F = open(outfile, 'w')
   for x in domains:
@@ -157,64 +167,62 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
   return
 
 def main() :
-  """Standard interface to the nuskell compiler.  Commandline-parameters are
-  collected in order to compile and/or verify CRNs using DNA strand
-  displacement translation-schemes.  Domain-level DSD circuits are printed in
-  the .pil or .dom fileformat, verbose information, as well as results for
-  verification are printed to STDOUT.
+  """ The Nuskell compiler.  
+  
+  Commandline-parameters are collected in order to 
+    - translate formal CRNs into implementation CRNs. 
+    - verify the equivalence between fCRN and iCRN.
+
+  Output:
+    - Domain-level DSD circuits printed into .pil and/or .dom files
+    - Verbose information during verification
+    - Result of verification
+    
   """
   import sys
   import argparse
-  import nuskell.include.peppercorn.enumerator as pepen
+
   def get_nuskell_args(parser) :
-    """ A collection of arguments for nuskell 
+    """ A collection of arguments for Nuskell 
     nuskell reads and processes chemical reaction networks (CRNs). Three
     different modes are supported to process this CRN:
       
-      Compile a formal CRN to a domain-level (DOM) implementation CRN 
+      Translate a formal CRN to a domain-level (DOM) implementation CRN 
         - requires a translation scheme file
 
       Compare a formal CRN to an implementation CRN using bisimulation
         - requires an implementation CRN file 
         - optionally reads an interpretation CRN 
 
-      Verify that the formal CRN is implemented by an implementation CRN using
-      pathway decomposition
-        - requires a translation scheme file
-
+      .. Complain if both a translation scheme and an iCRN are specified.
     """
-    parser.add_argument("--compile", action = 'store',
-        help="Specify path to the translation scheme")
-  
-    parser.add_argument("--compare", action = 'store',
-        help="Specify path to the translation scheme")
-
+    # Enter the translation mode of Nuskell
     parser.add_argument("--ts", required=True, action = 'store',
         help="Specify path to the translation scheme")
+
+    # Enter the verification-only mode of Nuskell (Robert's mode)
+    parser.add_argument("--compare", nargs="+", action = 'store',
+        help="Specify path to an implementation CRN and (optionally) \
+        also to an interpretation CRN.")
+
+    # Choose a verification method.
+    parser.add_argument("--verify", default='', action = 'store',
+        help="Specify name a verification method: \
+            (standard, wolfe, ...)")
+
+    # Convenience options 
     parser.add_argument("-o", "--output", default='', action = 'store',
         help="Specify name of output file")
-
     parser.add_argument("--dom_short", type=int, default=6,
         help="Length of short domains when using the short() built-in function")
     parser.add_argument("--dom_long", type=int, default=15,
         help="Length of long domains when using the long() built-in function")
-
-    # could make it an array of methods: 
-    #   [bisimulation, pathway-equivalence]
-    parser.add_argument("--verify", default='', action = 'store',
-        help="Specify name a verification method: \
-            (standard, wolfe, ...)")
-    #parser.add_argument("--verfy_condense", action = 'store_true',
-    #    help="Verify the equivalence between detailed semantics and " +
-    #    "condensed semantics for DOMFILE or for CRNFILE compiled " + 
-    #    "using TSFILE."
-
     return parser
 
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser = get_nuskell_args(parser)
-  parser = pepen.get_peppercorn_args(parser)
+  parser = get_peppercorn_args(parser)
   args = parser.parse_args()
 
   # Parse the input CRN 
@@ -226,75 +234,30 @@ def main() :
 
   pilfile = args.output + '.pil'
   domfile = args.output + '.dom'
-  d, s, f, c = compile(input_crn, args.ts,
+  d, s, f, c = translate(input_crn, args.ts,
           pilfile=pilfile, 
           domfile=domfile, 
           sdlen = args.dom_short,
           ldlen = args.dom_long)
-  
 
-  if args.verify :
-    print "Compilation done. enumerating pathways ... "
-    import nuskell.include.peppercorn.input as pepin
-    import nuskell.include.peppercorn.output as pepout
-    import nuskell.include.peppercorn.reactions as reactions
-
-    import nuskell.verifier.verifier as nv
-
-    # TODO: need to check *ignoring* of history domains in the pil-file 
+  # Determine if we need the enumerator, at this point, we only need it for
+  # verification, but in the future, we need it also for simulation,
+  # optimization, etc.
+  if True and args.verify :
+    print "Translation done. Enumerating species of the implementation CRN:"
+    
+    # TODO: need to check *ignoring* of history domains in the pil-file before 
+    # switching to the new method. Also, the idea is to get rid of the domfile,
+    # so as long as we need to pass on the domfile to the new method, the old
+    # method is good enough.
     old = True
     if old :
-      dom = parse_dom_file(domfile)
-      efile, ctmp = nv.enumerator_input(dom)
-      enum = pepin.input_enum(efile)
+      enum_crn, cplxs, slow_cplxs = enumerate_crn_old(args, domfile)
     else :
-      enum = pepin.input_pil(pilfile)
-    nv.set_enumargs(enum, args)
-    enum.enumerate()
+      enum_crn, cplxs, slow_cplxs = enumerate_crn(args, pilfile, domfile)
 
-    print '- enumeration done.'
-
-    # Write the output of peppercorn into the enumfile
-    enumfile = args.output + '.enum'
-    pepout.output_crn(enum, enumfile, output_condensed = True)
-
-    # Post-process enumerator results to extract the condensed crn
-    enum_crn = []
-    with open(enumfile, 'r') as enu :
-      for line in enu :
-        react = line.split('->')
-        react[0] = sorted([x.strip() for x in react[0].split('+')])
-        react[1] = sorted([x.strip() for x in react[1].split('+')])
-        enum_crn.append(react)
-
-    # TODO: this should be easier in the peppercorn/dnaobjects interface
-    # slow_cplxes = enum.resting_states.complexes().strands().domains()
-    slow_cplxs = []
-    for rs in enum.resting_states:
-      name = str(rs)
-      for cx in rs.complexes:
-        cxs = []
-        for sd in cx.strands:
-          cxs.append('+')
-          for ds in map(str, sd.domains):
-            if ds[-1] == '*':
-              cxs.append([ds[:-1], '*'])
-            else:
-              cxs.append([ds])
-        # remove the first '+' again
-        if len(cxs)>0: cxs = cxs[1:]
-        cx = [name, cxs, list(cx.dot_paren_string())]
-        slow_cplxs.append(cx)
-
-    dom = parse_dom_file(domfile)
-    cplxs = dom[1] if len(dom)==2 else dom[0] # else: no sequence information
-
-    print 'ec', enum_crn
-    print 'sc', slow_cplxs
-    print 'ic', input_crn
-    print 'cp', cplxs
-
-    print "Enumeration done. Verification using:", args.verify
+  if args.verify :
+    print "Verification using:", args.verify
     # --pathway --bisimulation --integrated
     v = verify(input_crn, enum_crn, cplxs, slow_cplxs, 
         method = args.verify, verbose = True)

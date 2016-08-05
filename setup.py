@@ -21,9 +21,10 @@ setup(
     author_email='winfree@caltech.edu',
     #url='http://www.dna.caltech.edu/nuskell/',
     license=license,
-    install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1', 'peppercorn==0.4.0'],
+    install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1'],
     test_suite='tests',
-    packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
+    packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier', 
+        'nuskell.include', 'nuskell.include.peppercorn', 'nuskell.include.dnaobjects'],
     scripts=['scripts/nuskell']
 )
 
