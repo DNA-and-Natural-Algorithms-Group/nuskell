@@ -15,9 +15,9 @@ version = __import__('nuskell').__version__
 setup(
     name='nuskell',
     version=version,
-    description='DNA strand displacement compiler (CRN <=> DOM)',
+    description='Nucleic acid strand displacement compiler',
     long_description=readme,
-    author='Seung Woo Shin, Stefan Badelt, Robert Johnson, Erik Winfree',
+    author='Seung Woo Shin, Qing Dong, Robert Johnson, Stefan Badelt, Erik Winfree',
     author_email='winfree@caltech.edu',
     #url='http://www.dna.caltech.edu/nuskell/',
     license=license,
