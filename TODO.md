@@ -7,15 +7,14 @@
 
 ### Clarify:
   - history domains
-  - naming conventions: 
-    * Nuskell compiler, nuskell executable/library
-    * CRN is programming language
-    * translation schemes are instructrions written in ...?
-    * CRN-to-DSD, DOM, DNA, TSD?
-
   - commandline calls
-  - Authors in setup and licence, choice of licence, ...
-  - how *independent* shall `Nuskell` be? 
+  - naming conventions: 
+    * Nuskell CRN-to-DSD verifying compiler
+      - i.e. it compiles CRNs into the Peppercorn DSD language
+    * programming languages:
+      - CRN is a programming language
+      - Domain-level strand displacement (DSD) programming language
+      - Nuskell translation scheme language
 
 ## Publication/Release 1.0:
   - add crn-simulation

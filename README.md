@@ -1,4 +1,4 @@
-# Nuskell -- A verifying and optimizing comiler for toehold-mediated strand displacement circuits.
+# Nuskell -- A verifying and optimizing compiler for toehold-mediated strand displacement circuits.
 
 **Nuskell** is a compiler written in python2.7. It translates formal chemical
 reaction networks (CRNs) into a domain-level specification using a translation
@@ -38,7 +38,7 @@ Do not forget to set your environment variables when using local installations:
 ## Version
 0.2.0
 
-### Devolment / Unittests
+### Development / Unittests
 ```
   python setup.py test
 ```
