@@ -1,23 +1,128 @@
 #/usr/bin/env python
 
-from os import listdir
+import os
 import sys
+import string
 import argparse
-import nuskell
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from pyparsing import ParseException
-from nuskell.interpreter.environment import RuntimeError
 
-def builtin_schemes():
-  schemes = ({ 
-    soloveichick2010 : 'share/ts/soloveichick.ts',
-    lakin2011: 'share/ts/lakin.ts',
-    })
+from nuskell.compiler import translate
+from nuskell.enumeration import enumerate_crn
+from nuskell.include.peppercorn.enumerator import get_peppercorn_args
+
+def test_scheme_directory(input_crn, ts_dir, args, normalize = ''):
+  rawdata = [] # all data, but not in Pandas format
+  norm_values = []
+  if normalize : # then do the respective scheme first
+    crn_string = input_crn.replace('\n','; ')
+    print 'Scheme:', normalize, 'CRN:', crn_string
+    circuit_objects = try_to_compile(input_crn, ts_dir + normalize, args)
+
+    if circuit_objects == []:
+      raise SystemExit('Scheme for normalization failed!')
+    else :
+      plot_vars = [normalize, crn_string]
+      plot_values = num_circuit_properties(*circuit_objects)
+      # normalize everything to 1
+      norm_values = plot_values
+      plot_values = [float(x)/y for x,y in zip(plot_values, norm_values)]
+      rawdata.append(plot_vars + plot_values)
+
+  for scheme in os.listdir(ts_dir) :
+    #if len(rawdata) > 5 : break # testing
+    if scheme[-3:] != '.ts' : continue
+    if scheme == normalize : continue
+
+    crn_string = input_crn.replace('\n','; ')
+    print 'Scheme:', scheme, 'CRN:', crn_string
+    circuit_objects = try_to_compile(input_crn, ts_dir + scheme, args)
+
+    plot_vars = [scheme, crn_string]
+    if circuit_objects == []:
+      plot_values = [None, None, None, None]
+    else :
+      plot_values = num_circuit_properties(*circuit_objects)
+      # normalize everything to 1
+      if normalize :
+        plot_values = [float(x)/y for x,y in zip(plot_values, norm_values)]
+      
+      # Only append if it worked, but you can change the indnet to include NaNs
+      rawdata.append(plot_vars + plot_values)
+  return rawdata
+
+def num_circuit_properties(domains, strands, fs, cs):
+  init = [None, None, None, None, None]
+
+  #print '# Number of Domains:', len(domains)
+  init[0] = len(domains) 
+  #print '# Lengths of Domains', [d.length for d in domains]
+ 
+  #print '# Number of Strands:', len(strands)
+  init[1] = len(strands)
+  #print '# Lengths of Strands:', [s.length for s in strands]
+
+  #print '# Number of formal species:', len(fs)
+  #print '# Strands in each formal complex:', [len(clx.strands) for clx in fs]
+
+  print '# Strands in each constant complex:', [len(clx.strands) for clx in cs]
+  init[2] = max([len(clx.strands) for clx in cs])
+
+  clen = 0
+  for clx in cs :
+    for snd in clx.strands :
+      clen += snd.length
+  print '# Lenth of nucleotides in complexes:',clen
+  init[3] = clen
+
+
+  init[4] = 55
+
+  # print '# Number of constant species:', len(cs)
+  #init[2] = len(cs)
+  #init[3] = 500
+  # size of enumerated network
+  # total number of nucleotides
+  return init
+
+def try_to_compile(input_crn, scheme, args):
+  from nuskell.interpreter.environment import RuntimeError
+
+  try :
+    args.output = 'test'
+    pil = args.output+'.pil'
+    dom = args.output+'.dom'
+    domains, strands, fs, cs = translate(input_crn, scheme, pilfile=pil, domfile=dom)
+
+    enum_crn, cplxs, slow_cplxs = enumerate_crn(args, pil, dom)
+
+    return [domains, strands, fs, cs]
+  except ParseException as e:
+    print 'cannot parse the translation scheme'
+    return []
+  except RuntimeError as e:
+    print 'cannot translate the CRN using this scheme'
+    return []
+  except SystemExit as e:
+    print 'Scheme exits with:', e
+    return []
+
 
 def main():
+  """Compare different Tranlation schemes for different CRNs.
+
+  A number of descriptors are gathered in the main loop, stored in a DataFrame
+  and then plotted.
+  """
   parser = argparse.ArgumentParser()
-  parser.add_argument("--ts_dir", action = 'store', default = "$PEPPERHOME", 
+  parser.add_argument("--ts_dir", action = 'store', default = "examples/ts/",
       help="Specify directory that contains translation schemes" + \
         "files that has a *.ts ending will be interpreted as translation scheme")
+
+  parser = get_peppercorn_args(parser)
+
   args = parser.parse_args()
 
   ts_list = args.ts_dir
@@ -25,31 +130,48 @@ def main():
   # read CRN from STDIN
   input_crn = sys.stdin.readlines()
   input_crn = "".join(input_crn)
+  cols = ['Scheme', 'CRN', 
+      '# of Domains', '# of Strands', 
+      'max(Strand in Complex)', 
+      '# of Nucleotides in all Complexes', 
+      '# of Nucleotides']
 
-  for scheme in listdir(args.ts_dir) :
-    if scheme[-3:] != '.ts' : continue
-    print 'Scheme:', scheme
 
-    try :
-      domains, strands, fs, cs = nuskell.compile(input_crn, args.ts_dir+scheme)
-    except ParseException as e:
-      print 'cannot parse the translation scheme'
-    #except RuntimeError as e:
-    #  print 'cannot translate the CRN using this scheme'
-    except SystemExit as e:
-      print 'Scheme exits with:', e
+  crn_list = ['A -> ', '-> B', 'A -> B', 
+      'A <=> B', 'A -> B + C', 'A+B -> X+Y', 
+      'A+B ->B+B' ]
 
-    else : # It worked? ... print the numbers:
-      print '# Number of Domains:', len(domains)
-      print '# Lengths of Domains', [d.length for d in domains]
-      print '# Number of Strands:', len(strands)
-      print '# Lengths of Strands', [s.length for s in strands]
-      print '# Number of formal species:', len(fs)
-      print '# Strands in each formal complex:', [len(clx.strands) for clx in fs]
-      print '# Number of constant species:', len(cs)
-      print '# Strands in each constant complex:', [len(clx.strands) for clx in cs]
+  crn_list.extend(['A <=> B \n A -> B + C \n A+B -> X+Y \n A+B ->B+B' ])
 
-    print 
+  rawdata = []
+  for crn in crn_list:
+    rawdata.extend(
+        test_scheme_directory(crn, args.ts_dir, args, normalize='srinivas2015.ts')) 
+
+  print rawdata
+
+  df = pd.DataFrame(rawdata, columns=cols)
+  #print df
+
+  sns.set(style="ticks", color_codes=True)
+
+  g = sns.PairGrid(data=df, hue='Scheme', size=4,
+      x_vars=["# of Domains"], 
+      y_vars=["# of Strands"])
+
+  #g = sns.PairGrid(data=df, hue='Scheme', size=4,
+  #    x_vars=["max(Strand in Complex)"], 
+  #    y_vars=["# of Nucleotides in all Complexes"])
+
+  #for ax in g.axes.flat: 
+  #  ax.set_ylim(0,2)
+  #  ax.set_xlim(0,2)
+ 
+  g = g.map(plt.scatter)
+  g = g.add_legend()
+
+  pfile = 'compare.svg'
+  plt.savefig(pfile)
 
 if __name__ == '__main__':
   main()
