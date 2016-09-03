@@ -11,8 +11,8 @@
 
 class formal(s) = "f m s" | ". . ."
   where {
-    f = short(top:'WHHHHW', bottom:'WDDDDW');
-    m = long(len:2);
+    f = short();
+    m = long();
     s = short() };
 
 macro prodg(s) =
@@ -21,7 +21,7 @@ macro prodg(s) =
     "fy* hy*" | ") )",
     "hy fy" | ". ."]
   where {
-   hy = long(tag:'history');
+   hy = long();
    fy = s.f;
    my = s.m;
    sy = s.s };

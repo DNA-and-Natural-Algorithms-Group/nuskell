@@ -213,7 +213,7 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
   inter, enum_crn, fsp = pre_process(
       enum_crn, 
       input_fs, 
-      complexes, # need these! (cs = compelexes - input_fs)
+      complexes, # need these! (cs = complexes - input_fs)
       slow_cplxs)
 
   # fs = formal species; cs = fuels or constant species

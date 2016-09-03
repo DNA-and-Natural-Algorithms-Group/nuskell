@@ -24,7 +24,7 @@ def enumerate_crn_old(args, domfile):
   return get_enum_data(args, enum, domfile)
 
 def enumerate_crn(args, pilfile, domfile):
-  # The idea of the new crn_enumeator is that we do not need the domfile
+  # The idea of the new crn_enumerator is that we do not need the domfile
   # anymore, however, at this point we still need to pass it on to get data,
   # which is likely to change...
   enum = pepin.input_pil(pilfile)
@@ -78,7 +78,7 @@ def set_enumargs(enum, args):
   Set Nuskell-defaults here.
   """
 
-  enum.MAX_COMPLEX_COUNT  = 10000
+  enum.MAX_COMPLEX_COUNT  = 1000
   enum.MAX_REACTION_COUNT = 50000
   enum.MAX_COMPLEX_SIZE   = 100
   #enum.k_fast = 2.0
@@ -89,14 +89,14 @@ def set_enumargs(enum, args):
   if args.k_fast is not None:
     enum.k_fast = args.k_fast
 
-  if args.MAX_REACTION_COUNT is not None:
-    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
+  #if args.MAX_REACTION_COUNT is not None:
+  #  enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
 
-  if args.MAX_COMPLEX_COUNT is not None:
-    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
+  #if args.MAX_COMPLEX_COUNT is not None:
+  #  enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
 
-  if args.MAX_COMPLEX_SIZE is not None:
-    enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
+  #if args.MAX_COMPLEX_SIZE is not None:
+  #  enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
 
   if args.RELEASE_CUTOFF is not None:
     enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
