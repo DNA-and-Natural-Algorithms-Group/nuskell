@@ -78,9 +78,9 @@ def set_enumargs(enum, args):
   Set Nuskell-defaults here.
   """
 
-  enum.MAX_COMPLEX_COUNT  = 1000
-  enum.MAX_REACTION_COUNT = 50000
-  enum.MAX_COMPLEX_SIZE   = 100
+  enum.MAX_COMPLEX_COUNT  = 100000
+  enum.MAX_REACTION_COUNT = 5000000
+  enum.MAX_COMPLEX_SIZE   = 1000
   #enum.k_fast = 2.0
   #enum.REJECT_REMOTE = True
 

@@ -93,6 +93,6 @@ module reaction(r) =
     else if len(r.reactants) == 0 then
       abort('reaction type not implemented')
     else
-        nmmodule(r.reactants, r.products);
+      nmmodule(r.reactants, r.products);
 
 module main(crn) = sum(map(reaction, irrev_reactions(crn)))

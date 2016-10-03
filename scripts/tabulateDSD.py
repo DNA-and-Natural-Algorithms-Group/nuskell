@@ -99,10 +99,10 @@ def try_to_compile(input_crn, scheme, args):
     domains, strands, fs, cs = translate(
         input_crn, scheme, pilfile=pil, domfile=dom)
 
-    if scheme[-12:] == 'lakin2011.ts' :
-      args.ignore_branch_4way = True
-    else :
-      args.ignore_branch_4way = False
+    #if scheme[-12:] == 'lakin2011.ts' :
+    #  args.ignore_branch_4way = True
+    #else :
+    #  args.ignore_branch_4way = False
 
     print input_crn, scheme
 
@@ -111,9 +111,9 @@ def try_to_compile(input_crn, scheme, args):
     elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
         and scheme[-12:] == 'lakin2011.ts':
       return []
-    elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
-        and scheme[-18:] == 'soloveichik2010.ts':
-      return []
+    #elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
+    #    and scheme[-18:] == 'soloveichik2010.ts':
+    #  return []
     elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
         and scheme[-15:] == 'srinivas2015.ts':
       return []
@@ -176,7 +176,7 @@ def main():
   for crn in crn_list:
     rawdata.extend(
         test_scheme_directory(
-          crn, args.ts_dir, args, normalize='qian2010.ts')) 
+          crn, args.ts_dir, args, normalize='qian2011.ts')) 
     print 
 
   print rawdata

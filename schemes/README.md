@@ -30,7 +30,7 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
-  * `qian2010.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2010)]
+  * `qian2011.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
   
     **NOTE:** There are currently three versions: qian.ts, qian_rev.ts and
     qian_fixed.ts. Both *fixed* and *rev* differ independently. I chose *fixed*
@@ -131,7 +131,7 @@ July, 27th, 2016
 [Turberfield et al. (2003)]: <http://dx.doi.org/10.1103/PhysRevLett.90.118102>
 [Zhang et al. (2007)]: <http://dx.doi.org/10.1126/science.1148532>
 [Soloveichik et al. (2010)]: <http://dx.doi.org/10.1073/pnas.0909380107>
-[Qian et al. (2010)]: <http://dx.doi.org/10.1007/978-3-642-18305-8_12>
+[Qian et al. (2011)]: <http://dx.doi.org/10.1007/978-3-642-18305-8_12>
 [Qian & Winfree (2011)]: <http://dx.doi.org/10.1126/science.1200520>
 [Lakin et al. (2011)]: <http://dx.doi.org/10.1098/rsif.2011.0343>
 [Cardelli (2011)]: <http://dx.doi.org/10.1007/s11047-010-9236-7>
