@@ -112,7 +112,9 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
   Coded by: Stefan Badelt (badelt@caltech.edu).
 
-  * `zhang2007-autocatalyst.ts` Figure 4 of [Zhang et al. (2007)] **missing**
+  * `zhang2007-autocatalyst.ts` Figure 4 of [Zhang et al. (2007)]
+
+  Coded by: Stefan Badelt (badelt@caltech.edu).
 
   * `song2016-add.ts` Figure 3-5 of [Song et al. (2016)] **missing**
 

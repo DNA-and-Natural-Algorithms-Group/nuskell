@@ -10,7 +10,7 @@
 # -----------------------------------------
 # C + S + F -> C + SB + OB + W
 # OB + OR -> RQ + ROX
-# formal = {C, ROX}
+# formal = {C, ROX, SB, OB}
 # constant = {S, F, OR}
 # -----------------------------------------
 
@@ -26,6 +26,8 @@ global d6  = long(len:16);
 class formal(s) = 
   if s.name == 'C' then C(s)
   else if s.name == 'ROX' then ROX(s)
+  else if s.name == 'SB' then SB(s)
+  else if s.name == 'OB' then OB(s)
   else empty() ;
     #where void = print('ignoring formal species:', s.name);
 
@@ -37,6 +39,10 @@ class constant(s) =
     #where void = print('ignoring constant species:', s.name);
  
 class C(s) = "d4 d5" | ". .";
+
+class SB(s) = "d6 d3 d4" | ". . .";
+
+class OB(s) = "d1 d2a d2b d2c" | ". . . .";
 
 class F(s) = "d2a d2b d2c d3 d4" | ". . . . .";
 
