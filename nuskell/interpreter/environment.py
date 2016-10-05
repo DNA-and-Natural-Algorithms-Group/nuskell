@@ -574,7 +574,7 @@ class builtin_functions(object):
     for r in crn:
       if r in removed:
         continue
-      reversible = False
+      reversible = r.reversible
       for r2 in crn: 
         if sorted(r.reactants) == sorted(r2.products) and \
             sorted(r.products) == sorted(r2.reactants):
