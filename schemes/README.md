@@ -32,21 +32,16 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
   * `qian2011.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
   
-    **NOTE:** There are currently three versions: qian.ts, qian_rev.ts and
-    qian_fixed.ts. Both *fixed* and *rev* differ independently. I chose *fixed*
-    here, but maybe *ref* would be better?
-
-    This is the corrected version of the scheme which was provided to us by the
-    authors of the paper. It is conceptually very similar to the slightly
-    simplified version that appears in the Journal of the Royal Society
-    Interface revision of Qian et al.
+    **NOTE:** This scheme implements the reactions from the above paper, and it
+    does not verify correct for irreversible reactions. There are also *fixed*
+    versions of this scheme, which are unpublished. 
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
   * `cardelli2011.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
     
     **NOTE**: There is also a scheme w.o. garbage collection. This is useful to point out
-    problems with pathway verification. But I don't see the point of distributing it.
+    problems with pathway verification.
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
