@@ -1,4 +1,7 @@
 *pyc
 *~
 *.swp
+build/
+dist/
+nuskell.egg-info/
 

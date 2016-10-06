@@ -509,8 +509,8 @@ def searchc(crn1, crn2, fs, unknown, inter, d):
     return False
 
 def test(c1, c2, verbose = True, inter = [[],[]]):
-    (crn1, fs1) = c1
-    (crn2, fs2) = c2
+    (crn1, fs1) = c1[:2]
+    (crn2, fs2) = c2[:2]
     global fcrn, icrn, intr, max_depth, permissive_failure
     fcrn = crn1
     icrn = crn2
@@ -560,7 +560,7 @@ if __name__ == "__main__":
     crn1 = [[['a'],['b']]]
     fs1 = []
     cs1 = []
-    crn2 = [[['a'],['b']],[['x'],['a']],[['x'],['b']],[['y'],['b']],[['y'],['a']],[['x'],['a0']],[['a0'],['a']]]
+    crn2 = [[['a1'],['b1']],[['x'],['a1']],[['x'],['b1']],[['y'],['b1']],[['y'],['a1']],[['x'],['a0']],[['a0'],['a1']]]
     fs2 = ['a','b']
     cs2 = []
     v = test((crn1, fs1, cs1), (crn2, fs2, cs2))
