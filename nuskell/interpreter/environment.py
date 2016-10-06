@@ -105,6 +105,8 @@ class NusDomain(dnaobjects.Domain):
   def __str__(self):
     if self.tag == 'toehold':
       return "t" + str(self.id)
+    elif self.tag =='wildcard':
+      return "?"
     else:
       return "d" + str(self.id)
 

@@ -11,6 +11,7 @@ import sys
 from copy import copy
 
 import nuskell.include.dnaobjects as DNAObjects
+from nuskell.interpreter.environment import NusDomain
 
 from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure
@@ -220,7 +221,8 @@ def post_process(fs_result, solution, cs_result={}):
     strands.append(new_strand)
     return new_strand
 
-  wildcard_domain = DNAObjects.Domain(name = "?", constraints = 'N' * 15)
+  wildcard_domain = NusDomain(domaintag='wildcard', name = "?", 
+      constraints = 'N' * 15)
 
   # convert formal species
   for fs_name in fs_result:

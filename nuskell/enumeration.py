@@ -21,21 +21,18 @@ def enumerate_crn_old(args, domfile):
   set_enumargs(enum, args)
   enum.enumerate()
 
-  return get_enum_data(args, enum, domfile)
+  return get_enum_data(args, enum)
 
-def enumerate_crn(args, pilfile, domfile):
-  # The idea of the new crn_enumerator is that we do not need the domfile
-  # anymore, however, at this point we still need to pass it on to get data,
-  # which is likely to change...
+def enumerate_crn(args, pilfile):
+  # A new interface that requires a pilfile rather than a domfile.
   enum = pepin.input_pil(pilfile)
 
   set_enumargs(enum, args)
   enum.enumerate()
   
-  return get_enum_data(args, enum, domfile)
+  return get_enum_data(args, enum)
 
-
-def get_enum_data(args, enum, domfile):
+def get_enum_data(args, enum):
   # Write the output of peppercorn into the enumfile
   enumfile = args.output + '.enum'
   pepout.output_crn(enum, enumfile, output_condensed = True)
@@ -49,8 +46,25 @@ def get_enum_data(args, enum, domfile):
       react[1] = sorted([x.strip() for x in react[1].split('+')])
       enum_crn.append(react)
 
-  # TODO: extraction of slow_complexes should be easier in the
-  # peppercorn/dnaobjects interface
+  # Extraction of complexes in the implementation CRN:
+  init_cplxs = []
+  for cx in enum.initial_complexes :
+    cxs = []
+    for sd in cx.strands:
+      cxs.append('+')
+      for ds in map(str, sd.domains):
+        if ds == 'dummy' : 
+          cxs.append('?')
+        elif ds[-1] == '*':
+          cxs.append([ds[:-1], '*'])
+        else:
+          cxs.append([ds])
+    # remove the first '+' again
+    if len(cxs)>0: cxs = cxs[1:]
+    cx = [cx.name, cxs, list(cx.dot_paren_string())]
+    init_cplxs.append(cx)
+
+  # Extraction of complexes in the enumerated CRN:
   slow_cplxs = []
   for rs in enum.resting_states:
     name = str(rs)
@@ -68,19 +82,22 @@ def get_enum_data(args, enum, domfile):
       cx = [name, cxs, list(cx.dot_paren_string())]
       slow_cplxs.append(cx)
 
-  dom = parse_dom_file(domfile)
-  cplxs = dom[1] if len(dom)==2 else dom[0] # else: no sequence information
-  return enum_crn, cplxs, slow_cplxs
+  # Alternative way to parse the dom-file for implementation complexes
+  #dom = parse_dom_file(domfile)
+  #cplxs = dom[1] if len(dom)==2 else dom[0] # else: no sequence information
+  return enum_crn, init_cplxs, slow_cplxs
 
 def set_enumargs(enum, args):
   """Transfer options to Enumerator Object. 
   
-  Set Nuskell-defaults here.
+  Do NOT set Nuskell-defaults here. Defaults are set with the argparse object
+  of peppercorn: nuskell/include/peppercorn/enumerator.py 
+  
   """
 
-  enum.MAX_COMPLEX_COUNT  = 100000
-  enum.MAX_REACTION_COUNT = 5000000
-  enum.MAX_COMPLEX_SIZE   = 1000
+  #enum.MAX_REACTION_COUNT = 5000000
+  #enum.MAX_COMPLEX_COUNT  = 100000
+  #enum.MAX_COMPLEX_SIZE   = 1000
   #enum.k_fast = 2.0
   #enum.REJECT_REMOTE = True
 
@@ -89,14 +106,14 @@ def set_enumargs(enum, args):
   if args.k_fast is not None:
     enum.k_fast = args.k_fast
 
-  #if args.MAX_REACTION_COUNT is not None:
-  #  enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
+  if args.MAX_REACTION_COUNT is not None:
+    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
 
-  #if args.MAX_COMPLEX_COUNT is not None:
-  #  enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
+  if args.MAX_COMPLEX_COUNT is not None:
+    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
 
-  #if args.MAX_COMPLEX_SIZE is not None:
-  #  enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
+  if args.MAX_COMPLEX_SIZE is not None:
+    enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
 
   if args.RELEASE_CUTOFF is not None:
     enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
