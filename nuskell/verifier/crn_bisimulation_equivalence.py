@@ -1,16 +1,18 @@
 # crn_bisimulation_equivalence.py written by Qing Dong <dong.qing.nju@gmail.com>
 
 #from sets import Set
-import itertools, time, string, copy
-import basis_finder
+import itertools, time, basis_finder, string, copy
 
 permissive_depth = 8
+midsearchDepth = 3
+calcMidDepth = True
 fcrn = []
 icrn = []
 intr = [[],[]]
 f = True
 max_depth = 0
 permissive_failure = [[[],[]],[]]
+printing = True
 
 def printRxn(rxn):
     first = True
@@ -45,15 +47,9 @@ def output(inter):
     print
 
 def solve(a):
-    """
-    Find a non-negative and non-trivial integer solution x of the equation
-    ax=0. Return [] when there is no such solution. This is the algorithm
-    from Contejean & Devie 1994.
-
-    :param a: A is a matrix used for ax=0
-
-    :return: x, such that ax=0
-    """
+# Find a non-negative and non-trivial integer solution x of the equation ax=0.
+# Return [] when there is no such solution.
+# (This is the algorithm from Contejean & Devie 1994.
     q = len(a[0])
     
     def multi(x, y):
@@ -119,6 +115,10 @@ def diff(x,y):
             r.remove(i) 
     return r
 
+def msleq(x,y):
+    # True if (multisets) x <= y (vector comparison)
+    return diff(x,y) == []
+
 def sdiff(mset1, mset2):
 # partitioned symmetric difference for multisets
 # ( things in mset1 but not mset2, things in mset2 but not mset1 )
@@ -134,25 +134,46 @@ def sdiff(mset1, mset2):
 def subsets(x):
 # generates all subsets of multiset x (will include duplicates if x has duplicates)
 # (would be better, and OK with rest of code, to remove the duplicates)
-    r = [[y for (j, y) in enumerate(x) if (i >> j) & 1] for i in range(2**len(x))]
-    return r
+    for i in range(2**len(x)):
+        induplicator = []
+        out = []
+        duplicated = False
+        for (j,y) in enumerate(x):
+            if (i >> j) & 1:
+                if y in induplicator:
+                    duplicated = True
+                    break
+                out.append(y)
+            else:
+                induplicator.append(y)
+
+        if not duplicated:
+            yield out
+#    r = [[y for (j, y) in enumerate(x) if (i >> j) & 1] for i in range(2**len(x))]
+#    return r
 
 def enum(n,s):
+# FIXIT: make a generator
 # partition multiset s into n ordered (possibly empty) parts.  
 # (doesn't sort, and with multisets it will have duplicates.  would be better to remove duplicates, e.g. in subsets().)
 # e.g. enum(2, [a, b]) = [ [[],[a,b]], [[a],[b]], [[b],[a]], [[a,b],[]] ]
     if n == 0:
-        return[[]]
+        yield []
+        return
+#        return [[]]
     if n == 1:
-        return [[s]]
+        yield [s]
+        return
+#        return [[s]]
     x = subsets(s)
-    r = []
+#    r = []
     for i in x:
         for j in enum(n-1, diff(s,i)):
-            j.append(i)
-            if not j in r:
-                r.append(j)
-    return r
+            yield [i] + j
+#            j.append(i)
+#            if not j in r:
+#                r.append(j)
+#    return r
 
 def subst(crn, uslist, fslist):
 # Substitute implementation species for formal species in CRN according to interpretation.
@@ -171,6 +192,16 @@ def subst(crn, uslist, fslist):
             t1.append(t2)
         r.append(t1)
     return r
+
+def interpret(s, inter):
+    # return interpretation of s according to inter
+    return reduce(lambda x, y: x+y,
+                  map(lambda x: inter[1][inter[0].index(x)] if x in inter[0]
+                      else [x], s))
+
+def interleq(x, y, inter):
+    # True if m(x) <= m(y) with m given by interpretation inter
+    return msleq(interpret(x,inter),interpret(y,inter))
        
 def checkT(T):
 # checks the table to see if there is a whole row or a whole (non-trivial) column that's all false, so we have to roll back.
@@ -229,35 +260,58 @@ def update(crn1, crn2, fs):
         r.append(rr)
     return r
 
-def perm(fs, inter):
+def perm(fcrn, icrn, fs, inter, permcheck):
 # check the permissive condition, using the global original formal crn and original implementation crn (without substitutions).
-    global intr, fcrn, icrn, f, permissive_depth, max_depth, permissive_failure
-    ist = []
+    global intr, f, permissive_depth, max_depth, permissive_failure
+    global midsearchDepth, printing, calcMidDepth
     tr = []
     fr = []
     hasht = set([])
     f = True
     crn2 = subst(icrn, inter[0], inter[1])
-    T = update(fcrn, crn2, fs)   
+    T = update(fcrn, crn2, fs)
+    nulls = [i[0] for i in inter if i[1] == []] # null species
+    now = time.clock()
 
-    def cnstr(s, c):   
-        # for n-tuple of formal reactants s, construct all implementation n-tuples of implementation species
-        # such that impl-n-tuple[i] is interpreted to a superset of formal-n-tuple[i].
-        # These implementation n-tuples are accumulated in "ist" (adding to its previous content).
-        # Note that the variables "ist" and "c" must be cleared before calling cnstr().
+    if printing:
+        print "Testing permissive condition"
+        print "Formal CRN:", fcrn
+        print "Implementation CRN:", icrn
+        print "Interpretation:", inter
+        print
+
+    # def cnstr(s, c):   
+    #     # for n-tuple of formal reactants s, construct all implementation n-tuples of implementation species
+    #     # such that impl-n-tuple[i] is interpreted to a superset of formal-n-tuple[i].
+    #     if s == []:
+    #         yield list(c)
+    #     else:
+    #         ss = list(s)
+    #         cc = list(c)
+    #         t = ss.pop()
+    #         for out in cnstr(ss,cc):
+    #             yield out
+    #         cc.append(0)
+    #         l = len(cc)-1
+    #         for i in t:
+    #             cc[l] = i
+    #             for out in cnstr(ss,cc):
+    #                 yield out
+    def cnstr(s):
+        # given formal state s, generate minimal set of impl. states which
+        #  interpret to a superset of s
+        # = concatenation of any x such that s[0] in m(x) with
+        #  all minimal implementations of s - m(x)
         if s == []:
-            ist.append(list(c))
+            yield []
         else:
-            ss = list(s)
-            cc = list(c)
-            t = ss.pop()
-            cnstr(ss,cc)
-            cc.append(0)
-            l = len(cc)-1
-            for i in t:
-                cc[l] = i
-                cnstr(ss,cc)
-        return []
+            for i in range(len(inter[0])):
+                if msleq([s[0]],inter[1][i]):
+                    for out in cnstr(diff(s,inter[1][i])):
+                        yield [inter[0][i]] + out
+
+            for out in cnstr(s[1:]):
+                yield [s[0]] + out
     
     def search(s, d):
         # s is the implementation state, d is the depth.
@@ -287,6 +341,205 @@ def perm(fs, inter):
                 if search(t, d+1):
                     return True
         return False
+
+    def genequiv(form,i0=0):
+        # generate all states (of non-null species) which interpret to
+        #  a formal state form
+        if form == []:
+            yield []
+            return
+        for i in range(i0,len(inter[0])):
+            if inter[1][i] != [] and msleq(inter[1][i],form):
+                assert len(diff(form,inter[1][i])) < len(form)
+                for rest in genequiv(diff(form,inter[1][i]),i):
+                    yield [inter[0][i]] + rest
+
+        yield form
+
+    def sgenequiv(imps):
+        # generate all states (of non-null species) which interpret to
+        #  the same as implementation state imps
+        return genequiv(interpret(imps,inter))
+
+    def midsearch(start, goal, pickup, ignore, formal, k):
+        global printing
+#        if printing:
+#            print k*" " + "Midsearching from", start, "to", goal, \
+#                "at level", k
+        # search for a path from start to goal (states of non-null species)
+        #  which produces at least pickup null species
+        #  assuming it already has infinite copies of everything in ignore
+        #  of length at most 2^k
+        # if goal is None, the goal is any reaction in fr
+        if goal is not None:
+            if all(map(lambda x: x in ignore, diff(goal,start))):
+#                if printing:
+#                    print k*" " + " Success, already there."
+                return True
+            if not interleq(goal, start, inter):
+#                if printing:
+#                    print k*" " + " Failure, non-equivalent states."
+                return False
+
+        if k == 0:
+            if goal is None:
+                for rx in fr:
+                    needs = diff(rx[0],start)
+                    if all(map(lambda x: x in ignore,needs)):
+#                        if printing:
+#                            print k*" " + " Success, reaction found."
+                        return True
+#                if printing:
+#                    print k*" " + " Failure, no reaction exists."
+                return False
+            
+            for rx in tr:
+                (left, needs) = sdiff(start,rx[0])
+                if all(map(lambda x: x in ignore, needs)):
+                    # every element of needs (multiset)
+                    #  is also an element of ignore (set)
+                    # e.g. true on needs = {|a,a,b|}, ignore = {a,b,c}
+                    after = left + rx[1]
+                    if msleq(goal, after):
+#                        if printing:
+#                            print k*" " + " Success, reaction found."
+                        return True
+
+        else:
+            if midsearch(start,goal,pickup,ignore,formal,k-1):
+                return True
+            for part in enum(2,pickup):
+                for mid in cnstr(formal):
+                    if midsearch(start,mid,part[0],ignore,formal,k-1) \
+                       and ((not interleq(start, mid, inter)) or
+                            midsearch(mid,goal,part[1],ignore,formal,k-1)):
+#                        if printing:
+#                            print k*" " + " Success, pathway found."
+                        return True
+
+#        if printing:
+#            print k*" " + " Failure, no pathway found."
+        return False
+
+    def loopsearch(start, formal):
+        global f, printing
+        if printing:
+            print "Loop-searching from", start
+            print " to any of", fr
+        # search for a path from start to any reaction in fr
+        rounds = midsearchDepth
+        if calcMidDepth:
+            nequiv = 0
+            rounds = 0
+            roundequiv = 1
+            for point in cnstr(formal):
+                nequiv += 1
+                if nequiv > roundequiv:
+                    rounds += 1
+                    roundequiv *= 2
+
+        if printing:
+            print " Will search", nequiv, "states for", rounds, "rounds"
+        for part in enum(len(nulls) + 1,nulls):
+            if any([part[i] != [] and part[i+1] == [] \
+                    for i in range(len(part) - 2)]):
+                continue # avoid redundancy
+
+            pickups = filter(None,part[:-1])
+            if printing:
+                print " Using null species partition:", pickups
+            check1 = True
+            place = start
+            ignore = []
+            for pickup in pickups:
+                check2 = False
+                for base in cnstr(formal):
+                    if midsearch(place,base,[],ignore,formal,rounds):
+                        if not interleq(place,base,inter):
+                            return True
+                        elif midsearch(base,base,pickup,ignore,formal,rounds):
+                            check2 = True
+                            place = base
+                            break
+
+                if not check2:
+                    check1 = False
+                    break
+
+                ignore.append(pickup)
+
+            if check1 and midsearch(place,None,[],ignore,formal,rounds):
+                if printing:
+                    print " Search success."
+                return True
+
+        f = False
+        if printing:
+            print " Search failure."
+        return False
+
+    def allsearch(formal):
+        # check at once whether every implementation of state "formal"
+        #  can implement the given formal reaction
+        #  by storing for each state the list of states it can reach w/o
+        #  null species (except those producible by loops)
+        points = map(lambda x: [x,set([]),[]], cnstr(formal))
+        # points[i][0] is the ith implementation state
+        # points[i][1] is all null species loopable from that state
+        # points[i][2][j] is True if points[j][0] is known to be reachable
+        #  (from state i without initial null species)
+        # exception: points[i][2] is True if a formal reaction is known to
+        #  be reachable from state i
+        l = len(points) # let's not recalculate this every time...
+        rngl = range(l) # same here...
+        for i in rngl:
+            points[i][2] = l*[False]
+
+        changed = True
+        while changed:
+            changed = False
+            for i in rngl:
+                if points[i][2] is not True:
+                    for rx in fr:
+                        if points[i][1].issuperset(diff(rx[0],points[i][0])):
+                            points[i][2] = True
+                            changed = True
+                            break
+
+                    if points[i][2] is True:
+                        continue
+
+                    for rx in tr:
+                        (left, needs) = sdiff(points[i][0],rx[0])
+                        if points[i][1].issuperset(needs):
+                            for j in rngl:
+                                if msleq(points[j][0],left + rx[1]):
+                                    if points[j][2] is True:
+                                        points[i][2] = True
+                                        changed = True
+                                        break
+
+                                    if points[j][2][i]:
+                                        s = points[j][1].union(
+                                            [x for x in left if x in nulls])
+                                        if not s <= points[i][1]:
+                                            points[i][1] |= s
+                                            changed = True
+
+                                    if not points[i][2][j]:
+                                        points[i][2][j] = True
+                                        changed = True
+
+                                    for k in rngl:
+                                        if (not points[i][2][k]) \
+                                           and points[j][2][k]:
+                                            points[i][2][k] = True
+                                            changed = True
+
+                        if points[i][2] is True:
+                            break
+
+        return all([p[2] is True for p in points])
     
     n = 0
     # build tr just once
@@ -294,48 +547,71 @@ def perm(fs, inter):
         if i.pop():
             tr.append(icrn[n])
         n += 1
+    if printing: print "Reactions to check:", len(fcrn)
     for i in range(len(fcrn)):
         # build fr for this formal reaction
+        if printing: print "Checking reaction", fcrn[i]
         fr = []
         for j in range(len(icrn)):
             if T[j][i]:
                 fr.append(icrn[j])
-        fr.append(fcrn[i])   
 
         # build a list of possible implementation species for each formal species.
         # i.e. s[k] is a list containing formal species k and each implementation species that interprets to a superset containing it.
-        s = []
-        n = 0
-        for j in fcrn[i][0]:
-            s.append([j])
-            for k in range(len(inter[0])):
-                if j in inter[1][k]:
-                    s[n].append(inter[0][k])
-            n += 1
-        ist = []
-        c = []
-        cnstr(s, c)
+        # s = []
+        # n = 0
+        # for j in fcrn[i][0]:
+        #     s.append([j])
+        #     for k in range(len(inter[0])):
+        #         if j in inter[1][k]:
+        #             s[n].append(inter[0][k])
+        #     n += 1
+
+        if printing: print "Number of states:", len(list(cnstr(fcrn[i][0])))
+        ist = cnstr(fcrn[i][0])
+
+        if permcheck == "whole":
+            if not allsearch(fcrn[i][0]):
+                if printing:
+                    watch = time.clock()
+                    print "Permissive test failed in time", watch - now
+                if max_depth == -2:
+                    return False
+                if f == True:   # global variable saying whether permissive has been tried or not
+                    max_depth = -1
+                else:
+                    max_depth = -2
+                intr = list(inter)
+                permissive_failure[0] = fcrn[i]
+                permissive_failure[1] = ["Somewhere"]
+                return False
+
+            continue
+        
         # At this point, "ist" contains an exhaustive and sufficient list of possible initial implementation states 
         # in which the current formal reaction #i must be able to fire (via a series of trivial reactions),
-        # specifically states with one implementation species per formal species, along with their subsets 
-        # (in case the a species interprets to multiple reactants).
         # Note that we will only want to test states in "ist" that interpret to a state in which #i can fire.
         
         tested = []  # to avoid testing a superset of some state that's already been tested
         for j in ist:
-            if diff(fcrn[i][0], j) == []:
-                continue
-            tmp = subst([[j,[]]], inter[0], inter[1])
-            if diff(fcrn[i][0], tmp[0][0]) == []:  # only test if reactants j interpret to allow #i to fire
+            tmp = interpret(j,inter)
+            if msleq(fcrn[i][0], tmp):  # only test if reactants j interpret to allow #i to fire
                 t = False
                 for k in tested:
                     if diff(k, j) == []:
                         t = True
+                        if printing: print "State", j, "is a superset of", k
                         break
                 if t:
                     continue
                 hasht = set([])
-                if not(search(j,0)): # didn't work, but keep track of stuff for user output
+                found = ((permcheck=="pspace") and loopsearch(j,fcrn[i][0])) \
+                        or ((not permcheck) and search(j,0))
+                if not found: # didn't work, but keep track of stuff for user output
+                    if printing:
+                        watch = time.clock()
+                        print "Permissive test failed in time", watch - now
+                    printing = False
                     if max_depth == -2:
                         return False
                     if f == True:   # global variable saying whether permissive has been tried or not
@@ -348,10 +624,16 @@ def perm(fs, inter):
                     return False
                 else:
                     tested.append(j)
+            elif printing:
+                print "Not testing", j, "with interpretation", tmp
     intr = list(inter)
+    if printing:
+        watch = time.clock()
+        print "Permissive test succeeded in time", watch - now
     return True
 
-def equations(crn1, crn2, fs, unknow, inter):
+def equations(crn1, crn2, fs, unknow, inter, permcheck):
+    global fcrn, icrn
     # All unknown implementation reactions (i.e. those with some unknown species) must be trivial.
     # Build the matrix for the the "solve" function, to see whether the interpretation can be completed as required.
     # Note that crn2 has been substituted already according to the (partial) interpretation "inter".
@@ -392,13 +674,13 @@ def equations(crn1, crn2, fs, unknow, inter):
         else:
             for j in range(len(us)):
                 itmp[1][j+l].extend([i for k in range(s[j])])
-    return perm(fs, itmp)
+    return perm(fcrn, icrn, fs, itmp, permcheck)
 
-def searchr(crn1, crn2, fs, unknown, inter, d):
+def searchr(crn1, crn2, fs, unknown, inter, d, permcheck):
 # Row search.  I.e. make sure every implementation reaction can interpret to a formal reaction (or be trivial).
     global max_depth, intr
     if unknown == []:
-        return perm(fs, inter)
+        return perm(crn1, crn2, fs, inter, permcheck)
     T = update(crn1, crn2, fs)
     if not checkT(T):
         return False
@@ -417,14 +699,14 @@ def searchr(crn1, crn2, fs, unknown, inter, d):
             min = tmp
             k = i
     if nt == len(unknown):  # all unsearched rows could be trivial -- try it!
-        if equations(crn1, crn2, fs, unknown, inter):
+        if equations(crn1, crn2, fs, unknown, inter, permcheck):
             return True
     if k < 0:
         return False
     untmp = list(unknown)
     untmp.remove(k)
     if T[k][len(crn1)] == True:  # if implementation reaction #k can be trivial, leave it that way and try more rows
-        if searchr(crn1, crn2, fs, untmp, inter, d):
+        if searchr(crn1, crn2, fs, untmp, inter, d, permcheck):
             return True
     n = 0
     for c in range(len(crn1)): # try to match implementation reaction #k with some formal reaction
@@ -449,11 +731,11 @@ def searchr(crn1, crn2, fs, unknown, inter, d):
                     itmp[0].extend(ul)
                     itmp[1] = list(inter[1])
                     itmp[1].extend(tmpi)                       
-                    if searchr(crn1, crntmp, fs, untmp, itmp, d+1):
+                    if searchr(crn1, crntmp, fs, untmp, itmp, d+1, permcheck):
                         return True
     return False
 
-def searchc(crn1, crn2, fs, unknown, inter, d):
+def searchc(crn1, crn2, fs, unknown, inter, d, permcheck):
     # Search column.  I.e. make sure every formal reaction can be implemented.
     global max_depth, intr
     T = update(crn1, crn2, fs)
@@ -477,7 +759,7 @@ def searchc(crn1, crn2, fs, unknown, inter, d):
         for i in range(len(crn2)):
             if not (set(crn2[i][0])-set(fs) == set([]) and set(crn2[i][1])-set(fs) == set([])):
                 untmp.append(i)
-        return searchr(crn1, crn2, fs, untmp, inter, d)
+        return searchr(crn1, crn2, fs, untmp, inter, d, permcheck)
     else:
         untmp = list(unknown)
         untmp.remove(c)
@@ -503,14 +785,14 @@ def searchc(crn1, crn2, fs, unknown, inter, d):
                         itmp[0] = list(inter[0])
                         itmp[0].extend(ul)
                         itmp[1] = list(inter[1])
-                        itmp[1].extend(tmpi)                                                
-                        if searchc(crn1, crntmp, fs, untmp, itmp, d+1):
+                        itmp[1].extend(tmpi)
+                        if searchc(crn1, crntmp, fs, untmp, itmp, d+1, permcheck):
                             return True
     return False
 
-def test(c1, c2, verbose = True, inter = [[],[]]):
-    (crn1, fs1) = c1[:2]
-    (crn2, fs2) = c2[:2]
+def test(c1, c2, verbose = True, inter = [[],[]], permcheck=False):
+    (crn1, fs1) = c1
+    (crn2, fs2) = c2
     global fcrn, icrn, intr, max_depth, permissive_failure
     fcrn = crn1
     icrn = crn2
@@ -529,7 +811,7 @@ def test(c1, c2, verbose = True, inter = [[],[]]):
         printRxn(rxn)
     print
     unknown = [i for i in range(len(crn1))]
-    if searchc(crn1, crn2, fs2, unknown, inter, 0):
+    if searchc(crn1, crn2, fs2, unknown, inter, 0, permcheck):
         print "Valid interpretation :"
         output(intr)
         return True
@@ -563,7 +845,7 @@ if __name__ == "__main__":
     crn2 = [[['a1'],['b1']],[['x'],['a1']],[['x'],['b1']],[['y'],['b1']],[['y'],['a1']],[['x'],['a0']],[['a0'],['a1']]]
     fs2 = ['a','b']
     cs2 = []
-    v = test((crn1, fs1, cs1), (crn2, fs2, cs2))
+    v = test((crn1, fs1), (crn2, fs2))
     if v:
         print "verify: compilation was correct."
     else:
