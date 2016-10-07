@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from pyparsing import ParseException
 
 from nuskell.compiler import translate
-from nuskell.enumeration import enumerate_crn
+from nuskell.enumeration import enumerate_crn_old
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
 def test_scheme_directory(input_crn, ts_dir, args, normalize = ''):
@@ -53,7 +53,7 @@ def test_scheme_directory(input_crn, ts_dir, args, normalize = ''):
       rawdata.append(plot_vars + plot_values)
   return rawdata
 
-def num_circuit_properties(domains, strands, fs, cs):
+def num_circuit_properties(domains, strands, fs, cs, ecrn):
   init = [None, None, None, None, None]
 
   #print '# Number of Domains:', len(domains)
@@ -67,18 +67,20 @@ def num_circuit_properties(domains, strands, fs, cs):
   #print '# Number of formal species:', len(fs)
   #print '# Strands in each formal complex:', [len(clx.strands) for clx in fs]
 
-  print '# Strands in each constant complex:', [len(clx.strands) for clx in cs]
+  #print '# Strands in each constant complex:', [len(clx.strands) for clx in cs]
   init[2] = max([len(clx.strands) for clx in cs])
 
   clen = 0
   for clx in cs :
     for snd in clx.strands :
       clen += snd.length
-  print '# Lenth of nucleotides in complexes:',clen
+  #print '# Number of nucleotides in all complexes:',clen
   init[3] = clen
 
+  #print '# Size of enum crn', len(ecrn)
+  init[4] = len(ecrn)
 
-  init[4] = 55
+  print clen, len(ecrn)
 
   # print '# Number of constant species:', len(cs)
   #init[2] = len(cs)
@@ -94,11 +96,32 @@ def try_to_compile(input_crn, scheme, args):
     args.output = 'test'
     pil = args.output+'.pil'
     dom = args.output+'.dom'
-    domains, strands, fs, cs = translate(input_crn, scheme, pilfile=pil, domfile=dom)
+    domains, strands, fs, cs = translate(
+        input_crn, scheme, pilfile=pil, domfile=dom)
 
-    enum_crn, cplxs, slow_cplxs = enumerate_crn(args, pil, dom)
+    #if scheme[-12:] == 'lakin2011.ts' :
+    #  args.ignore_branch_4way = True
+    #else :
+    #  args.ignore_branch_4way = False
 
-    return [domains, strands, fs, cs]
+    print input_crn, scheme
+
+    if input_crn == 'O1 <=> I1; O2 + I1 <=> I2 + O1; O3 + I2 + I1 <=> I3 + O2 + O1' and scheme[-12:] == 'lakin2011.ts' :
+      return []
+    elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
+        and scheme[-12:] == 'lakin2011.ts':
+      return []
+    #elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
+    #    and scheme[-18:] == 'soloveichik2010.ts':
+    #  return []
+    elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
+        and scheme[-15:] == 'srinivas2015.ts':
+      return []
+    else :
+      enum_crn, cplxs, slow_cplxs = enumerate_crn_old(args, dom)
+
+
+    return [domains, strands, fs, cs, enum_crn]
   except ParseException as e:
     print 'cannot parse the translation scheme'
     return []
@@ -128,25 +151,33 @@ def main():
   ts_list = args.ts_dir
 
   # read CRN from STDIN
-  input_crn = sys.stdin.readlines()
-  input_crn = "".join(input_crn)
+  # input_crn = sys.stdin.readlines()
+  # input_crn = "".join(input_crn)
+
+  #crn_list = []
+  crn_list = ['A + B -> B + B',
+              'A + B -> B + B; B + C -> C + C; A + C -> A + A',
+              'O1 <=> I1; O2 + I1 <=> I2 + O1; O3 + I2 + I1 <=> I3 + O2 + O1',
+              #'O1 <=> I1; I1 + O2 <=> O1 + I2; I1 + I2 + O3 <=> O1 + O2 + I3',
+              'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'
+             ]
+ 
+  crn_list.extend(['A -> ', '-> B', 'A -> B', 'A <=> B', 'A -> B + C'])
+
+  #crn_list.extend(['A <=> B \n A -> B + C \n A+B -> X+Y \n A+B ->B+B' ])
+
   cols = ['Scheme', 'CRN', 
       '# of Domains', '# of Strands', 
       'max(Strand in Complex)', 
       '# of Nucleotides in all Complexes', 
-      '# of Nucleotides']
-
-
-  crn_list = ['A -> ', '-> B', 'A -> B', 
-      'A <=> B', 'A -> B + C', 'A+B -> X+Y', 
-      'A+B ->B+B' ]
-
-  crn_list.extend(['A <=> B \n A -> B + C \n A+B -> X+Y \n A+B ->B+B' ])
+      'size of enumerated CRN']
 
   rawdata = []
   for crn in crn_list:
     rawdata.extend(
-        test_scheme_directory(crn, args.ts_dir, args, normalize='srinivas2015.ts')) 
+        test_scheme_directory(
+          crn, args.ts_dir, args, normalize='qian2011.ts')) 
+    print 
 
   print rawdata
 
@@ -156,8 +187,8 @@ def main():
   sns.set(style="ticks", color_codes=True)
 
   g = sns.PairGrid(data=df, hue='Scheme', size=4,
-      x_vars=["# of Domains"], 
-      y_vars=["# of Strands"])
+      y_vars=["# of Nucleotides in all Complexes"], 
+      x_vars=["size of enumerated CRN"])
 
   #g = sns.PairGrid(data=df, hue='Scheme', size=4,
   #    x_vars=["max(Strand in Complex)"], 
@@ -170,8 +201,16 @@ def main():
   g = g.map(plt.scatter)
   g = g.add_legend()
 
-  pfile = 'compare.svg'
+  pfile = 'compare.pdf'
   plt.savefig(pfile)
+
+  # rawdata = []
+  # for crn in crn_list:
+  #   rawdata.extend(
+  #       test_scheme_directory(crn, args.ts_dir, args))
+
+  # print r for r in rawdata
+
 
 if __name__ == '__main__':
   main()

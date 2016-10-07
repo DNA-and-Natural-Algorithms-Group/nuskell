@@ -41,7 +41,7 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15)
   (crn, formal_species, const_species) = parse_crn_string(input_crn)
 
   domains, strands, formal_species, constant_species = \
-      interpret(ts, crn, formal_species, sdlen=sdlen, ldlen=ldlen)
+      interpret(ts, crn, formal_species, const_species, sdlen=sdlen, ldlen=ldlen)
 
   if pilfile :
     print_as_PIL(pilfile, domains, strands, formal_species, constant_species)
@@ -247,19 +247,18 @@ def main() :
     print "Translation done. Enumerating species of the implementation CRN:"
     
     # TODO: need to check *ignoring* of history domains in the pil-file before 
-    # switching to the new method. Also, the idea is to get rid of the domfile,
-    # so as long as we need to pass on the domfile to the new method, the old
-    # method is good enough.
+    # switching to the new method. 
     old = True
     if old :
-      enum_crn, cplxs, slow_cplxs = enumerate_crn_old(args, domfile)
+      enum_crn, init_cplxs, enum_cplxs = enumerate_crn_old(args, domfile)
     else :
-      enum_crn, cplxs, slow_cplxs = enumerate_crn(args, pilfile, domfile)
+      enum_crn, init_cplxs, enum_cplxs = enumerate_crn(args, pilfile)
 
   if args.verify :
     print "Verification using:", args.verify
     # --pathway --bisimulation --integrated
-    v = verify(input_crn, enum_crn, cplxs, slow_cplxs, 
+
+    v = verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
         method = args.verify, verbose = True)
 
     if v:

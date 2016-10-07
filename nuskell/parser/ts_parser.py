@@ -76,8 +76,10 @@ def ts_document_setup():
               S('"'))
   dotparen = G(S('"') + OneOrMore(W("().~+", max=1)) + S('"'))
   dna = G(T(domains + S("|") + dotparen, "dna"))
+  quote = G(T(S('"') + W(alphas, alphanums + "_") + S('"'), "quote")) | \
+          G(T(S('\'') + W(alphas, alphanums + "_") + S('\''), "quote"))
   
-  atom = paren | list | identifier | number | dna
+  atom = paren | list | identifier | number | dna | quote
   
   function_call = G(T(S("(") + O(exprlist) + S(")"), "apply"))
   index = G(T(S("[") + expr + S("]"), "index"))
@@ -112,7 +114,7 @@ def ts_document_setup():
       ZeroOrMore(S("elseif") + expr + S("then") + expr) + \
       S("else") + expr)
   
-  expr << (dict_expr | if_expr | where_expr | quote_expr )
+  expr << (dict_expr | if_expr | where_expr | quote_expr)
   
   class_def    = G("class" + identifier + \
       G(S("(") + O(delimitedList(identifier)) + S(")")) + S("=") + expr)
@@ -126,7 +128,9 @@ def ts_document_setup():
   
   stmt = class_def | function_def | module_def | macro_def | global_def
   
-  document = StringStart() + O(delimitedList(stmt, ";")) + StringEnd()
+  # Make ';' also an optional delimiter for the main() statement. That will make the 
+  # documentation easier, while keeping backward-compatibility
+  document = StringStart() + stmt + ZeroOrMore( S(";") + stmt ) + O(S(";")) + StringEnd()
   document.ignore(pythonStyleComment)
   return document
 

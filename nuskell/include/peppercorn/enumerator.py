@@ -808,11 +808,11 @@ def get_peppercorn_args(parser) :
   parser.add_argument('-s', action='store_true', dest='interactive', default=False,
       help="Interactive---display new reactions after each step. (default: %(default)s)")
 
-  parser.add_argument('--max-complex-size', '--complex-size', action='store', dest='MAX_COMPLEX_SIZE', default=6, type=int, \
+  parser.add_argument('--max-complex-size', '--complex-size', action='store', dest='MAX_COMPLEX_SIZE', default=100, type=int, \
       help="Maximum number of strands allowed in a complex (used to prevent polymerization) (default: %(default)s)")
-  parser.add_argument('--max-complex-count', '--max-complexes', action='store', dest='MAX_COMPLEX_COUNT', default=200, type=int, \
+  parser.add_argument('--max-complex-count', '--max-complexes', action='store', dest='MAX_COMPLEX_COUNT', default=1000, type=int, \
       help="Maximum number of complexes that may be enumerated before the enumerator halts. (default: %(default)s)")
-  parser.add_argument('--max-reaction-count', '--max-reactions', action='store', dest='MAX_REACTION_COUNT', default=1000, type=int, \
+  parser.add_argument('--max-reaction-count', '--max-reactions', action='store', dest='MAX_REACTION_COUNT', default=10000, type=int, \
       help="Maximum number of reactions that may be enumerated before the enumerator halts. (default: %(default)s)")
 
   parser.add_argument('--release-cutoff-1-1', action='store', dest='RELEASE_CUTOFF_1_1', type=int, \

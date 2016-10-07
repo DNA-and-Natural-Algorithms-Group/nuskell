@@ -11,6 +11,7 @@ import sys
 from copy import copy
 
 import nuskell.include.dnaobjects as DNAObjects
+from nuskell.interpreter.environment import NusDomain
 
 from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure
@@ -120,7 +121,7 @@ def ts_code_snippet():
     function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
-def interpret(ts_parsed, crn_parsed, fs_list, 
+def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
     name='ts_author', sdlen=6, ldlen=15, verbose=True):
   """Interface to the nuskell environment.
 
@@ -157,23 +158,33 @@ def interpret(ts_parsed, crn_parsed, fs_list,
 
   # translate formal species list using the formal() function 
   fs_result = ts_env.translate_formal_species(fs_list)
-  # translate the crn using the main() function 
-  cs_result = ts_env.translate_reactions(crn_parsed)
+
+  if cs_list :
+    # translate a given constant species list using the constant() function 
+    cs_solution = ts_env.translate_constant_species(cs_list, crn_parsed)
+    cs_result = ts_env.constant_species_dict
+
+  else :
+    # translate the crn using the main() function 
+    cs_solution = ts_env.translate_reactions(crn_parsed)
+    cs_result = {}
 
   # # Alternative way to extract data at the end.
   # # get the results in form of a dictionary d={fs:Object}
   # fs_result = ts_env.formal_species_dict
   # # get the final solution object
-  # cs_result = ts_env.constant_species_solution
+  # cs_solution = ts_env.constant_species_solution
 
-  return post_process(fs_result, cs_result)
+  return post_process(fs_result, cs_solution, cs_result)
 
-def post_process(fs_result, solution):
+def post_process(fs_result, solution, cs_result={}):
   """Convert output to DNA Objects format.
 
   Args:
     fs_result (Dict{'FS':Species()}) : Compiled formal species
-    solution (Solution()): Compiled Solution of the DSD S
+    solution (Solution()): Compiled Solution of required constant DSD species
+    cs_result (optional: Dict{'CS':Species()}) : Compiled constant species as 
+      returned when an implementation CRN is specified
   """
 
   # flatten outputs
@@ -181,12 +192,19 @@ def post_process(fs_result, solution):
     fs_result[k] = \
         strip_consecutive_strandbreaks(flatten(fs_result[k]))
 
-  solution_as_list = list()
-  for m in solution.molecules:
-    # Hack to enable empty solution objects.. 
-    # not exactly sure if we want this
-    if flatten(m) == [] : continue
-    solution_as_list.append(strip_consecutive_strandbreaks(flatten(m)))
+  # No need to parse the solution object if we have it all in cs_result,
+  # however, at some point we might consider to allow a hybrid approach
+  if cs_result :
+    for k in cs_result.keys():
+      cs_result[k] = \
+          strip_consecutive_strandbreaks(flatten(cs_result[k]))
+  else :
+    for e, m in enumerate(solution.molecules):
+      # Hack to enable empty solution objects.
+      if flatten(m) == [] : continue
+      name = 'complex_'+ str(e)
+      cs_result[name] = \
+          strip_consecutive_strandbreaks(flatten(m))
 
   fs_list = []
   cs_list = []
@@ -203,7 +221,8 @@ def post_process(fs_result, solution):
     strands.append(new_strand)
     return new_strand
 
-  wildcard_domain = DNAObjects.Domain(name = "?", constraints = 'N' * 15)
+  wildcard_domain = NusDomain(domaintag='wildcard', name = "?", 
+      constraints = 'N' * 15)
 
   # convert formal species
   for fs_name in fs_result:
@@ -236,9 +255,9 @@ def post_process(fs_result, solution):
 
   previous = []
   # convert constant species
-  for cs in solution_as_list:
+  for cs_name in cs_result:
     # add a strand break at the end for convenience
-    complex_old_format = cs + [("+", "+")]
+    complex_old_format = cs_result[cs_name] + [("+", "+")]
     complex = []
     strand = []
     structure = ""
@@ -275,7 +294,8 @@ def post_process(fs_result, solution):
     if not seen:
       previous.append([complex, list(structure)])
       cs_list.append(
-          DNAObjects.Complex(strands = complex, structure = structure))
+        DNAObjects.Complex(name = cs_name, 
+          strands = complex, structure = structure))
 
   return domains, strands, fs_list, cs_list
 

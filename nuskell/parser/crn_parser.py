@@ -116,7 +116,8 @@ def _post_process(crn):
   if csp :
     if fsp :
       if asp != fsp | csp :
-        raise ValueError, "missing species in CRN input"
+        pass
+        #raise ValueError, "missing species in CRN input"
       elif fsp & csp :
         raise ValueError, "species declared as formal & constant"
     else :
@@ -124,7 +125,8 @@ def _post_process(crn):
   elif fsp :
     csp = asp - fsp
     if asp != fsp | csp :
-      raise ValueError, "missing species in CRN input"
+      pass
+      #raise ValueError, "missing species in CRN input"
     elif fsp & csp :
       raise ValueError, "species declared as formal & constant"
   else :
