@@ -4,6 +4,7 @@ import sys
 from nuskell.parser import parse_crn_string, parse_dom_file
 from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
+# But it doesn't import the pspace algorithm yet...
 import crn_pathway_equivalence
 
 def find(l, key):
