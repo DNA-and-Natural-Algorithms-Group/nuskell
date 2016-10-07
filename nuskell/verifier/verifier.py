@@ -220,6 +220,14 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
   if method == 'bisimulation':
     return crn_bisimulation_equivalence.test(
         (irrev_crn, input_fs), (enum_crn, input_fs), verbose)
+  elif method == 'bisim-loopsearch':
+    return crn_bisimulation_equivalence.test(
+      (irrev_crn, input_fs), (enum_crn, input_fs), verbose,
+      [[],[]], 'pspace')
+  elif method == 'bisim-wholegraph':
+    return crn_bisimulation_equivalence.test(
+      (irrev_crn, input_fs), (enum_crn, input_fs), verbose,
+      [[],[]], 'whole')
   elif method == 'pathway':
     return crn_pathway_equivalence.test(
         (irrev_crn, input_fs), 
