@@ -93,7 +93,15 @@ def remove_duplicates(l):
     return r
 
 def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
-  """ this might modify enum_crn"""
+  """Remove wildcard domains from the enumerated CRN.
+
+  Some schemes, e.g. Soloveichik et al. (2010), use wild-card history domains.
+  During enumeration, these wildcards are treated as regular unique domains,
+  but that leads to a larger network than necessary. This routine removes
+  species with wildcards from the enumerated network, which can make the CRN
+  exponentially easier to verify.
+
+  """
 
   # Extract the constant species from all complexes
   cs = map(lambda x: x[0], complexes)
@@ -103,7 +111,6 @@ def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
   dictionary = {}
   fsp = []
   rm = set()
-  #TODO why?
   for x in complexes:
     if "?" not in x[1]:
       if x[0] in input_fs:
@@ -211,11 +218,23 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
   (input_crn, input_fs, input_cs) = parse_crn_string(input_crn) 
   irrev_crn = split_reversible_reactions(input_crn)
 
+  print "=i=\n", input_crn
+  print "=c=" 
+  for c in complexes: print c
+  print "=s="
+  for s in slow_cplxs: print s
+  print "=e="
+  for e in enum_crn: print e
+
+  # TODO: pre_processing to remove wildcard domains, but there is more to it!
   inter, enum_crn, fsp = pre_process(
       enum_crn, 
       input_fs, 
       complexes, # need these! (cs = complexes - input_fs)
-      slow_cplxs)
+      slow_cplxs) # needed for wildcard domains!
+
+  print "=e2="
+  for e in enum_crn: print e
 
   # fs = formal species; cs = fuels or constant species
   if method == 'bisimulation':
@@ -234,6 +253,13 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
         (irrev_crn, input_fs), 
         (enum_crn, fsp), inter, verbose, False, interactive)
   elif method == 'integrated':
+    # TODO: integrated-hybrid -> first consider some species as formal for
+    # pathway decomposition, then do bisimulation. This is necessary for
+    # history domains in some schemes, but it can be used for more general
+    # things. E.g. if you make reversible reactions formal, then it will get
+    # accepted and bisimulation can do the rest. In any case, the current
+    # implementation does not cover the full hybrid theory, only some special
+    # cases and some kind of bisimulation.
     return crn_pathway_equivalence.test(
         (irrev_crn, input_fs), 
         (enum_crn, fsp), inter, verbose, True, interactive)

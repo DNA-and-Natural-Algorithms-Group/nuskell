@@ -8,7 +8,7 @@ extended to capture a bigger variety of CRNs
 
 Assume you want to compile the CRN {A+B <=> C+D, D+X -> Y} using the
 translation scheme from [Soloveichik et al. (2010)], then the respective
-commandline call would be:
+command line call would be:
 
 ```
 nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
@@ -18,9 +18,9 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 ### published schemes:
   * `soloveichik2010.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
 
-    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
+    A scheme for translating CRNs into DNA strand displacement systems. 
 
-    **TODO**: Check if this needs to be downgraded.
+    **TODO**: Downgrade?
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
@@ -42,7 +42,7 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
   * `qian2011.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
   
-    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
+    A generalized scheme for translating arbitrary CRNs into DNA strand displacement systems. 
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
@@ -55,14 +55,14 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 ### generalized schemes:
   * `soloveichik2010_gen.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
 
-    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
-    `soloveichik2010.ts` and `soloveichik2010_gen.ts` are identical.
+    The generalized version of soloveichik2010.ts implements instant reactions,
+    e.g. {-> A + B} that have not been discussed in the paper.
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
   * `cardelli2011_FJ_gen.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
 
-    The generalized version of `cardelli2011_FJ.ts` implements instant reactions, e.g. {-> A + B} that have not been discussed in the paper.
+    The generalized version of cardelli2011_FJ.ts implements instant reactions, e.g. {-> A + B} that have not been discussed in the paper.
     
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
       modified by Stefan Badelt (badelt@caltech.edu)
@@ -74,13 +74,14 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
     have not been discussed in the paper. Garbage collection is not implemented
     for this scheme.
 
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+    Coded by Seung Woo Shin (seungwoo.theory@gmail.com),
+      modified by Stefan Badelt (badelt@caltech.edu)
 
 
   * `qian2011_gen.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
   
-    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
-    `qian2011.ts` and `qian2011_gen.ts` are identical.
+    A generalized scheme for translating arbitrary CRNs into DNA strand displacement systems. 
+    qian2011.ts and qian2011_gen.ts are identical.
 
     **NOTE:** This scheme implements the reactions from the above paper, and it
     does not verify correct for irreversible reactions. There are also *fixed*
@@ -90,8 +91,8 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
   * `srinivas2015_gen.ts` *Programming chemical kinetics: engineering dynamic reaction networks with DNA strand displacement*. [Srinivas (2015)]
 
-    Niranjan Srinivas' adaptation of the `soloveichik2010.ts` scheme to design the "displacillator".
-    `srinivas2015.ts` and `srinivas2015_gen.ts` are identical.
+    Niranjan Srinivas' adaptation of the soloveichik2010.ts scheme to design the "displacillator".
+    srinivas2015.ts and srinivas2015_gen.ts are identical.
 
     Coded by Stefan Badelt (badelt@caltech.edu).
 
