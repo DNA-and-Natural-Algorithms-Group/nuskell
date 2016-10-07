@@ -9,6 +9,7 @@
 
 import os
 import sys
+import argparse
 
 from nuskell.parser import parse_crn_string, parse_ts_file
 from nuskell.interpreter.interpreter import interpret
@@ -166,6 +167,43 @@ def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
     print >> F
   return
 
+def get_nuskell_args(parser) :
+  """ A collection of arguments for Nuskell 
+  nuskell reads and processes chemical reaction networks (CRNs). Three
+  different modes are supported to process this CRN:
+    
+    Translate a formal CRN to a domain-level (DOM) implementation CRN 
+      - requires a translation scheme file
+
+    Compare a formal CRN to an implementation CRN using bisimulation
+      - requires an implementation CRN file 
+      - optionally reads an interpretation CRN 
+
+    .. Complain if both a translation scheme and an iCRN are specified.
+  """
+  # Enter the translation mode of Nuskell
+  parser.add_argument("--ts", required=True, action = 'store',
+      help="Specify path to the translation scheme")
+
+  # Enter the verification-only mode of Nuskell (Robert's mode)
+  parser.add_argument("--compare", nargs="+", action = 'store',
+      help="Specify path to an implementation CRN and (optionally) \
+      also to an interpretation CRN.")
+
+  # Choose a verification method.
+  parser.add_argument("--verify", default='', action = 'store',
+      help="Specify name a verification method: \
+          (bisimulation, pathway, integrated, bisim-loopsearch, bisim-wholegraph)") 
+
+  # Convenience options 
+  parser.add_argument("-o", "--output", default='', action = 'store',
+      help="Specify name of output file")
+  parser.add_argument("--dom_short", type=int, default=6,
+      help="Length of short domains when using the short() built-in function")
+  parser.add_argument("--dom_long", type=int, default=15,
+      help="Length of long domains when using the long() built-in function")
+  return parser
+
 def main() :
   """ The Nuskell compiler.  
   
@@ -179,46 +217,6 @@ def main() :
     - Result of verification
     
   """
-  import sys
-  import argparse
-
-  def get_nuskell_args(parser) :
-    """ A collection of arguments for Nuskell 
-    nuskell reads and processes chemical reaction networks (CRNs). Three
-    different modes are supported to process this CRN:
-      
-      Translate a formal CRN to a domain-level (DOM) implementation CRN 
-        - requires a translation scheme file
-
-      Compare a formal CRN to an implementation CRN using bisimulation
-        - requires an implementation CRN file 
-        - optionally reads an interpretation CRN 
-
-      .. Complain if both a translation scheme and an iCRN are specified.
-    """
-    # Enter the translation mode of Nuskell
-    parser.add_argument("--ts", required=True, action = 'store',
-        help="Specify path to the translation scheme")
-
-    # Enter the verification-only mode of Nuskell (Robert's mode)
-    parser.add_argument("--compare", nargs="+", action = 'store',
-        help="Specify path to an implementation CRN and (optionally) \
-        also to an interpretation CRN.")
-
-    # Choose a verification method.
-    parser.add_argument("--verify", default='', action = 'store',
-        help="Specify name a verification method: \
-            (bisimulation, pathway, integrated, bisim-loopsearch, bisim-wholegraph)") 
-
-    # Convenience options 
-    parser.add_argument("-o", "--output", default='', action = 'store',
-        help="Specify name of output file")
-    parser.add_argument("--dom_short", type=int, default=6,
-        help="Length of short domains when using the short() built-in function")
-    parser.add_argument("--dom_long", type=int, default=15,
-        help="Length of long domains when using the long() built-in function")
-    return parser
-
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser = get_nuskell_args(parser)
