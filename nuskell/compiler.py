@@ -208,7 +208,7 @@ def main() :
     # Choose a verification method.
     parser.add_argument("--verify", default='', action = 'store',
         help="Specify name a verification method: \
-            (standard, wolfe, ...)")
+            (bisimulation, pathway, integrated, bisim-loopsearch, bisim-wholegraph)") 
 
     # Convenience options 
     parser.add_argument("-o", "--output", default='', action = 'store',
