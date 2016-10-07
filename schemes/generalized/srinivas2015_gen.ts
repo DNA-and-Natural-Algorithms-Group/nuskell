@@ -9,7 +9,7 @@
 #   top-strand: ATC, bottom-strand ATG
 #   top:'NNNNNN', bottom:'HHHHH',
 
-class formal(s) = "f m s" | ". . ."
+class formal(s) = "? f m s" | ". . . ."
   where {
     f = short();
     m = long();

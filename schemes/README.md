@@ -15,33 +15,91 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 ```
 
 ## Schemes
-
-### generalized schemes:
+### published schemes:
   * `soloveichik2010.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
 
-    A generalized scheme for transating arbitrary CRNs into DNA strand
-    displacement systems. 
+    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
+
+    **TODO**: Check if this needs to be downgraded.
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
-  * `soloveichik2010_opt.ts`
+  * `cardelli2011_FJ.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+
+    The 2-way fork and join gates described in Figures 4-7. 
+
+    **TODO**: Garbage collection (Figure 8) is currently not implemented.
     
-    A variant of soloveichik2010.ts that reduces the number of strands for certain CRNs.
+    Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
+      modified by Stefan Badelt (badelt@caltech.edu)
+
+  * `cardelli2011_NM.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+
+    A generalization from 2-way join and fork gates to a gate with n inputs and
+    m outputs. The implementation includes garbage collection as described in the paper.
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
   * `qian2011.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
   
+    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
+
+    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+
+  * `srinivas2015_gen.ts` *Programming chemical kinetics: engineering dynamic reaction networks with DNA strand displacement*. [Srinivas (2015)]
+
+    Niranjan Srinivas' adaptation of the `soloveichik2010.ts` scheme to design the "displacillator".
+
+    Coded by Stefan Badelt (badelt@caltech.edu).
+
+### generalized schemes:
+  * `soloveichik2010_gen.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
+
+    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
+    `soloveichik2010.ts` and `soloveichik2010_gen.ts` are identical.
+
+    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+
+  * `cardelli2011_FJ_gen.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+
+    The generalized version of `cardelli2011_FJ.ts` implements instant reactions, e.g. {-> A + B} that have not been discussed in the paper.
+    
+    Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
+      modified by Stefan Badelt (badelt@caltech.edu)
+
+  * `cardelli2011_NM_gen.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+
+    A generalization from 2-way join and fork gates to a gate with n inputs and
+    m outputs. The scheme implements instant reactions, e.g. {-> A + B} that
+    have not been discussed in the paper. Garbage collection is not implemented
+    for this scheme.
+
+    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+
+
+  * `qian2011_gen.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
+  
+    A generalized scheme for transating arbitrary CRNs into DNA strand displacement systems. 
+    `qian2011.ts` and `qian2011_gen.ts` are identical.
+
     **NOTE:** This scheme implements the reactions from the above paper, and it
     does not verify correct for irreversible reactions. There are also *fixed*
     versions of this scheme, which are unpublished. 
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
-  * `cardelli2011.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+  * `srinivas2015_gen.ts` *Programming chemical kinetics: engineering dynamic reaction networks with DNA strand displacement*. [Srinivas (2015)]
+
+    Niranjan Srinivas' adaptation of the `soloveichik2010.ts` scheme to design the "displacillator".
+    `srinivas2015.ts` and `srinivas2015_gen.ts` are identical.
+
+    Coded by Stefan Badelt (badelt@caltech.edu).
+
+### work in progress:
+
+  * `soloveichik2010_opt.ts`
     
-    **NOTE**: There is also a scheme w.o. garbage collection. This is useful to point out
-    problems with pathway verification.
+    A variant of soloveichik2010.ts that reduces the number of strands for certain CRNs.
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
@@ -57,18 +115,6 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
     what is the difference?
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-
-  * `srinivas2015.ts` *Programming chemical kinetics: engineering dynamic
-    reaction networks with DNA strand displacement*. [Srinivas (2015)]
-
-    Niranjan Srinivas' adaptation of the soloveichik2010.ts scheme to design a
-    displacillator from the dynamic behavior of:
-
-      - A+B <=> B+B 
-      - B+C <=> C+C
-      - C+A <=> A+A
-
-    Coded by: Stefan Badelt (badelt@caltech.edu).
 
 ### incomplete schemes:
   * `thachuk2015.ts` *Leakless DNA strand displacement systems* [Thachuk et al. (2015)]
