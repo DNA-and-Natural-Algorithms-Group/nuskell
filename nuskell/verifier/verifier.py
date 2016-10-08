@@ -196,7 +196,7 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
     *) pathway (Seung Woo Shin's notion of pathway equivalence)
     *) pathway-integrated (Seung Woo Shin's integrated hybrid notion of pathway
     equivalence)
-    *) bisimulation (Quin Dong and Robert Johnson)
+    *) bisimulation (Qing Dong and Robert Johnson)
     ...
 
   Args: 
@@ -236,22 +236,21 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
   print "=e2="
   for e in enum_crn: print e
 
-  # fs = formal species; cs = fuels or constant species
   if method == 'bisimulation':
     return crn_bisimulation_equivalence.test(
         (irrev_crn, input_fs), (enum_crn, input_fs), verbose)
   elif method == 'bisim-loopsearch':
     return crn_bisimulation_equivalence.test(
-      (irrev_crn, input_fs), (enum_crn, input_fs), verbose,
-      [[],[]], 'pspace')
+      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, [[],[]], 'pspace')
   elif method == 'bisim-wholegraph':
     return crn_bisimulation_equivalence.test(
-      (irrev_crn, input_fs), (enum_crn, input_fs), verbose,
-      [[],[]], 'whole')
+      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, [[],[]], 'whole')
+
   elif method == 'pathway':
     return crn_pathway_equivalence.test(
         (irrev_crn, input_fs), 
         (enum_crn, fsp), inter, verbose, False, interactive)
+
   elif method == 'integrated':
     # TODO: integrated-hybrid -> first consider some species as formal for
     # pathway decomposition, then do bisimulation. This is necessary for
