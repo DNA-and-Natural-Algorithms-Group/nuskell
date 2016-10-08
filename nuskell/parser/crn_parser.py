@@ -8,7 +8,7 @@
 #
 
 from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore,
-    alphas, alphanums, delimitedList, StringStart, StringEnd, LineEnd,
+    alphas, alphanums, delimitedList, StringStart, StringEnd, LineEnd, srange,
     pythonStyleComment, ParseElementEnhance)
 
 def crn_document_setup():
@@ -46,8 +46,8 @@ def crn_document_setup():
       [x for x in ParseElementEnhance.DEFAULT_WHITE_CHARS if x != "\n"])
   ParseElementEnhance.setDefaultWhitespaceChars(crn_DWC)
   
-  identifier = W(alphas, alphanums+"_")
-
+  #identifier = W(alphas, alphanums+"_")
+  identifier = W(srange("[a-zA-Z_]"), srange("[a-zA-Z0-9_]"))
   
   reaction = T(G(O(delimitedList(identifier, "+"))) + \
              S("->") + \

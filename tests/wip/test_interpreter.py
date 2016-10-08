@@ -1,51 +1,51 @@
-import unittest
-import nuskell.interpreter as ni
-from nuskell.interpreter.environment import Domain, Structure
-
-class FunctionTesting(unittest.TestCase):
-  def setUp(self):
-    """ unit tests are run upon successful setUp """
-    pass
-  
-  def tearDown(self):
-    """ is run after the unittest (even if it was not successfull, but it
-    cleans up the *setUp* 
-    """
-    pass
-
-  def test_flatten_func(self):
-    domains = map(Domain, [5, 5, 5])
-    dotparens = ['.', '.', '.']
-    attributes = {}
-    #attributes['d0'] = domains[0]
-    #attributes['d1'] = domains[1]
-    #attributes['d2'] = domains[2]
-    [[[['id', 'k']], '+', [['id', 'x']], '+', [['id', 'y']], [['id', 'l']], [['id', 't'], '*']], ['~', '+', '~', '+', '~', '~', '.']]
-
-
-    s = Structure(domains, dotparens, attributes)
-    outF = ni.flatten(s)
-    outT = [(domains[0], dotparens[0]), (domains[1], dotparens[1]), (domains[2], dotparens[2])]
-    self.assertEqual(outF, outT, 'flatten Structure object')
-
-    outT = [('a', '('), ('b', '('), ('-a', ')')]
-    outF = ni.flatten(outT)
-    self.assertEqual(outF, outT, 'flatten flat object')
-
-  def test_strip_consecutive_strandbreaks(self):
-    flatlist = [('+', '+'), ('a', '('), ('+', '+'), ('+', '+'), ('-a', ')'),('+', '+')]
-
-    outF = ni.strip_consecutive_strandbreaks(flatlist)
-    outT = [('a', '('), ('+', '+'), ('-a', ')')]
-    self.assertEqual(outF, outT, 'strip consecutive strandbreaks')
-
-  def test_rotate(self):
-    """ requires DNAObjects.Strand """
-    pass
-
-  def test_interpret(self):
-    """ not ready yet, test environment first... """
-    pass
+# import unittest
+# import nuskell.interpreter as ni
+# from nuskell.interpreter.environment import Domain, Structure
+# 
+# class FunctionTesting(unittest.TestCase):
+#   def setUp(self):
+#     """ unit tests are run upon successful setUp """
+#     pass
+#   
+#   def tearDown(self):
+#     """ is run after the unittest (even if it was not successfull, but it
+#     cleans up the *setUp* 
+#     """
+#     pass
+# 
+#   def test_flatten_func(self):
+#     domains = map(Domain, [5, 5, 5])
+#     dotparens = ['.', '.', '.']
+#     attributes = {}
+#     #attributes['d0'] = domains[0]
+#     #attributes['d1'] = domains[1]
+#     #attributes['d2'] = domains[2]
+#     [[[['id', 'k']], '+', [['id', 'x']], '+', [['id', 'y']], [['id', 'l']], [['id', 't'], '*']], ['~', '+', '~', '+', '~', '~', '.']]
+# 
+# 
+#     s = Structure(domains, dotparens, attributes)
+#     outF = ni.flatten(s)
+#     outT = [(domains[0], dotparens[0]), (domains[1], dotparens[1]), (domains[2], dotparens[2])]
+#     self.assertEqual(outF, outT, 'flatten Structure object')
+# 
+#     outT = [('a', '('), ('b', '('), ('-a', ')')]
+#     outF = ni.flatten(outT)
+#     self.assertEqual(outF, outT, 'flatten flat object')
+# 
+#   def test_strip_consecutive_strandbreaks(self):
+#     flatlist = [('+', '+'), ('a', '('), ('+', '+'), ('+', '+'), ('-a', ')'),('+', '+')]
+# 
+#     outF = ni.strip_consecutive_strandbreaks(flatlist)
+#     outT = [('a', '('), ('+', '+'), ('-a', ')')]
+#     self.assertEqual(outF, outT, 'strip consecutive strandbreaks')
+# 
+#   def test_rotate(self):
+#     """ requires DNAObjects.Strand """
+#     pass
+# 
+#   def test_interpret(self):
+#     """ not ready yet, test environment first... """
+#     pass
 
 
 #class funky_Testing(unittest.TestCase):
