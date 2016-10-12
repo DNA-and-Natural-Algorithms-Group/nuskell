@@ -4,7 +4,6 @@ import sys
 from nuskell.parser import parse_crn_string, parse_dom_file
 from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
-# But it doesn't import the pspace algorithm yet...
 import crn_pathway_equivalence
 
 def find(l, key):
@@ -219,13 +218,13 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
 
   if method == 'bisimulation':
     return crn_bisimulation_equivalence.test(
-        (irrev_crn, input_fs), (enum_crn, input_fs), verbose)
+        (irrev_crn, input_fs), (enum_crn, input_fs), verbose, True)
   elif method == 'bisim-loopsearch':
     return crn_bisimulation_equivalence.test(
-      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, [[],[]], 'pspace')
+      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, True, 'pspace')
   elif method == 'bisim-wholegraph':
     return crn_bisimulation_equivalence.test(
-      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, [[],[]], 'whole')
+      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, True, 'whole')
 
   elif method == 'pathway':
     return crn_pathway_equivalence.test(

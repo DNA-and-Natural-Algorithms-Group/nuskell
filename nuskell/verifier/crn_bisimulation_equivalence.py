@@ -2,13 +2,14 @@
 
 #from sets import Set
 import itertools, time, basis_finder, string, copy
+# python's collections.Counter is a data type for multisets,
+#  such as states of a CRN or interpretations
+from collections import Counter
 
 permissive_depth = 8
 midsearchDepth = 3
 calcMidDepth = True
-fcrn = []
-icrn = []
-intr = [[],[]]
+intr = {}
 f = True
 max_depth = 0
 permissive_failure = [[[],[]],[]]
@@ -18,32 +19,36 @@ def printRxn(rxn):
     first = True
     for x in rxn[0]:
         if x[0] not in string.letters:
-            x = "i" + x
+            xname = "i" + x
+        else:
+            xname = x
         if not first:
             print "+",
         else:
             first = False
-        print x,
+        if rxn[0][x] > 1:
+            print rxn[0][x],
+        print xname,
     print "->",
     first = True
     for x in rxn[1]:
         if x[0] not in string.letters:
-            x = "i" + x
+            xname = "i" + x
+        else:
+            xname = x
         if not first:
             print "+",
         else:
             first = False
-        print x,
+        if rxn[1][x] > 1:
+            print rxn[1][x],
+        print xname,
     print
 
-def output(inter):
-    tmp = []
-    for i in range(len(inter[0])):
-        tmp.append([[inter[0][i]],inter[1][i]])
-    tmp.sort(key = lambda r: -len(r[1]))
-    for i in range(len(tmp)):
+def output(intrp):
+    for sp in intrp:
         print "   ",
-        printRxn(tmp[i])
+        printRxn([{sp: 1}, intrp[sp]])
     print
 
 def solve(a):
@@ -107,102 +112,93 @@ def solve(a):
                         f[i] = True
     return []
 
-def diff(x,y):
-# things in x but not y (for multisets)
-    r = list(x)
-    for i in y:
-        if i in r:
-            r.remove(i) 
-    return r
+# multiset difference is collections.Counter's '-' operator
+# note: NOT collections.Counter's 'subtract' function
+# symmetric difference is two copies of that
 
 def msleq(x,y):
     # True if (multisets) x <= y (vector comparison)
-    return diff(x,y) == []
+    for k in x:
+        if x[k] > y[k]:
+            return False
 
-def sdiff(mset1, mset2):
-# partitioned symmetric difference for multisets
-# ( things in mset1 but not mset2, things in mset2 but not mset1 )
-    r1 = list(mset1)
-    r2 = []
-    for i in range(len(mset2)):
-        if mset2[i] in r1:
-            r1.remove(mset2[i])
-        else:
-            r2.append(mset2[i])
-    return (r1, r2)
+    return True
+
+def mstimes(s, l):
+    # return l*s for integer l, multiset s
+    c = Counter()
+    for k in s:
+        c[k] = l * s[k]
+    return c
+
+def msdiv(s, l):
+    # return s/l for integer l, multiset s if l divides s, otherwise False
+    # l divides s if l divides s[k] for every key k
+    c = Counter()
+    for k in s:
+        c[k] = s[k]/l
+        if c[k] * l != s[k]:
+            return False
+    return c
 
 def subsets(x):
-# generates all subsets of multiset x (will include duplicates if x has duplicates)
-# (would be better, and OK with rest of code, to remove the duplicates)
-    for i in range(2**len(x)):
-        induplicator = []
-        out = []
-        duplicated = False
-        for (j,y) in enumerate(x):
-            if (i >> j) & 1:
-                if y in induplicator:
-                    duplicated = True
-                    break
-                out.append(y)
-            else:
-                induplicator.append(y)
+# generates all subsets of multiset x
+# Python's 'itertools.product' method works almost perfectly, and should
+#  work without duplicates
+    ks = x.keys()
+    vs = map(lambda v: xrange(v+1), x.values())
+    for prod in itertools.product(*vs):
+        # calls to keys and values with no dictionary modifications in between
+        #  should produce the keys and values in the same order,
+        #  and product should respect that order (I think)
+        yield Counter(dict(zip(ks, prod))) + Counter()
 
-        if not duplicated:
-            yield out
-#    r = [[y for (j, y) in enumerate(x) if (i >> j) & 1] for i in range(2**len(x))]
-#    return r
-
-def enum(n,s):
-# FIXIT: make a generator
+def enum(n, s, weights=None):
 # partition multiset s into n ordered (possibly empty) parts.  
-# (doesn't sort, and with multisets it will have duplicates.  would be better to remove duplicates, e.g. in subsets().)
 # e.g. enum(2, [a, b]) = [ [[],[a,b]], [[a],[b]], [[b],[a]], [[a,b],[]] ]
+# if weights are given, enumerates all lists l of n multisets
+#  such that s = sum(weights[i] * l[i])
+    if weights is None:
+        weights = [1] * n
     if n == 0:
         yield []
         return
-#        return [[]]
-    if n == 1:
-        yield [s]
+    if len(weights) < n or weights[0] < 0:
+        raise Exception
+    elif weights[0] == 0:
+        for j in enum(n-1, s, weights[1:]):
+            yield [Counter()] + j
         return
-#        return [[s]]
+    if n == 1:
+        sdivw = msdiv(s, weights[0])
+        if sdivw is not False: yield [sdivw]
+        return
     x = subsets(s)
-#    r = []
     for i in x:
-        for j in enum(n-1, diff(s,i)):
+        ss = mstimes(i, weights[0])
+        if not msleq(ss, s):
+            continue
+        for j in enum(n-1, s-ss):
             yield [i] + j
-#            j.append(i)
-#            if not j in r:
-#                r.append(j)
-#    return r
 
-def subst(crn, uslist, fslist):
-# Substitute implementation species for formal species in CRN according to interpretation.
-# uslist is a list of unknown species (i.e. not formal species yet in CRN, which has already been partially substituted).
-# fslist is a list of multisets of formal species.  fslist[i] is used to replace species uslist[i] in crn.
-    r = []
-    for i in crn:
-        t1 = []
-        for j in i:
-            t2 = []
-            for k in j:
-                if k in uslist:
-                    t2.extend(fslist[uslist.index(k)])
-                else:
-                    t2.append(k)
-            t1.append(t2)
-        r.append(t1)
-    return r
+def interpret(s, intrp):
+    # return interpretation of s according to intrp
+    ss = s.copy()
+    ks = ss.keys()
+    for k in ks:
+        if k in intrp:
+            v = ss.pop(k)
+            for i in range(v):
+                ss += intrp[k]
 
-def interpret(s, inter):
-    # return interpretation of s according to inter
-    return reduce(lambda x, y: x+y,
-                  map(lambda x: inter[1][inter[0].index(x)] if x in inter[0]
-                      else [x], s))
-
-def interleq(x, y, inter):
-    # True if m(x) <= m(y) with m given by interpretation inter
-    return msleq(interpret(x,inter),interpret(y,inter))
+def interleq(x, y, intrp):
+    # True if m(x) <= m(y) with m given by interpretation intrp
+    return msleq(interpret(x,intrp),interpret(y,intrp))
        
+def subst(crn, intrp):
+# Substitute implementation species for formal species in CRN according to interpretation.
+    return [[interpret(j,intrp) for j in rxn] for rxn in crn]
+
 def checkT(T):
 # checks the table to see if there is a whole row or a whole (non-trivial) column that's all false, so we have to roll back.
 # Returns False if we have to roll back.  (i.e. our partial interpretation fails the delimiting condition)
@@ -217,42 +213,46 @@ def checkT(T):
             return False
     return True
 
-def update(crn1, crn2, fs):
+def update(fcrn, icrn, fs):
 # the um, er, um, completely recalculates the table from scratch.
+# assumes subst has already been applied to implementation icrn
 # This should be logically equivalent to the UpdateTable in the MS thesis for compiled DNA reactions (we think).
 # WARNING:
 # If an implementation CRN has directly catalytic species, the code below may fail (though thesis psuedocode is correct).
 # E.g.  i3 + i7 --> i12 + i7 + i8
-    m = len(crn2)
+    m = len(icrn)
     r = []
-    for i in range(len(crn2)):
+    for i in range(len(icrn)):
         rr = []
-        for j in range(len(crn1)):
-            (t1, t2) = sdiff(crn1[j][0], crn2[i][0])
-            (t3, t4) = sdiff(crn1[j][1], crn2[i][1])
+        for j in range(len(fcrn)):
+            t1 = fcrn[j][0] - icrn[i][0]
+            t2 = icrn[i][0] - fcrn[j][0]
+            t3 = fcrn[j][1] - icrn[i][1]
+            t4 = icrn[i][1] - fcrn[j][1]
             if set(t2).isdisjoint(set(fs)) and set(t4).isdisjoint(set(fs)):
-                if t1 == []:
-                    if t3 == []:
+                if t1.keys() == []:
+                    if t3.keys() == []:
                         rr.append(True)
                     else:
-                        if t4 == []:
+                        if t4.keys() == []:
                             rr.append(False)
                         else:
                             rr.append(True)
                 else:
-                    if t2 == []:
+                    if t2.keys() == []:
                         rr.append(False)
                     else:
-                        if t3 == []:
+                        if t3.keys() == []:
                             rr.append(True)
                         else:
-                            if t4 == []:
+                            if t4.keys() == []:
                                 rr.append(False)
                             else:
                                 rr.append(True)
             else:
                 rr.append(False)
-        (t1, t2) = sdiff(crn2[i][0], crn2[i][1])
+        t1 = icrn[i][0] - icrn[i][1]
+        t2 = icrn[i][1] - icrn[i][0]
         if (set(t1).isdisjoint(set(fs)) or not set(t2).issubset(set(fs))) and (set(t2).isdisjoint(set(fs)) or not set(t1).issubset(set(fs))):
             rr.append(True)
         else:
@@ -260,7 +260,7 @@ def update(crn1, crn2, fs):
         r.append(rr)
     return r
 
-def perm(fcrn, icrn, fs, inter, permcheck):
+def perm(fcrn, icrn, fs, intrp, permcheck):
 # check the permissive condition, using the global original formal crn and original implementation crn (without substitutions).
     global intr, f, permissive_depth, max_depth, permissive_failure
     global midsearchDepth, printing, calcMidDepth
@@ -268,51 +268,32 @@ def perm(fcrn, icrn, fs, inter, permcheck):
     fr = []
     hasht = set([])
     f = True
-    crn2 = subst(icrn, inter[0], inter[1])
+    crn2 = subst(icrn, intrp)
     T = update(fcrn, crn2, fs)
-    nulls = [i[0] for i in inter if i[1] == []] # null species
+    nulls = [k for k in intrp if not intrp[k].keys()] # null species
     now = time.clock()
 
     if printing:
         print "Testing permissive condition"
         print "Formal CRN:", fcrn
         print "Implementation CRN:", icrn
-        print "Interpretation:", inter
+        print "Interpretation:", intrp
         print
 
-    # def cnstr(s, c):   
-    #     # for n-tuple of formal reactants s, construct all implementation n-tuples of implementation species
-    #     # such that impl-n-tuple[i] is interpreted to a superset of formal-n-tuple[i].
-    #     if s == []:
-    #         yield list(c)
-    #     else:
-    #         ss = list(s)
-    #         cc = list(c)
-    #         t = ss.pop()
-    #         for out in cnstr(ss,cc):
-    #             yield out
-    #         cc.append(0)
-    #         l = len(cc)-1
-    #         for i in t:
-    #             cc[l] = i
-    #             for out in cnstr(ss,cc):
-    #                 yield out
     def cnstr(s):
         # given formal state s, generate minimal set of impl. states which
         #  interpret to a superset of s
         # = concatenation of any x such that s[0] in m(x) with
         #  all minimal implementations of s - m(x)
-        if s == []:
-            yield []
+        if s.keys() == []:
+            yield Counter()
         else:
-            for i in range(len(inter[0])):
-                if msleq([s[0]],inter[1][i]):
-                    for out in cnstr(diff(s,inter[1][i])):
-                        yield [inter[0][i]] + out
+            s1 = s.keys()[0]
+            for k in intrp:
+                if s1 in intrp[k]:
+                    for out in cnstr(s - intrp[k]):
+                        yield Counter({k:1}) + out
 
-            for out in cnstr(s[1:]):
-                yield [s[0]] + out
-    
     def search(s, d):
         # s is the implementation state, d is the depth.
         # try to find (via trivial reactions) a state in which a reaction in fr can fire.
@@ -323,43 +304,19 @@ def perm(fcrn, icrn, fs, inter, permcheck):
         if d > permissive_depth:
             f = False
             return False
-        s.sort()
-        tmp = ''
-        for i in s:
-            tmp += i
-        if tmp in hasht:
+        if s.elements().sort() in hasht:
             return False
         else:
-            hasht.add(tmp) 
+            hasht.add(s.elements().sort()) 
         for i in fr:
-            if diff(i[0], s) == []:
+            if i[0] - s == []:
                 return True
         for i in tr:
-            if diff(i[0], s) == []:
-                t = diff(s, i[0])
-                t.extend(i[1])
+            if i[0] - s == []:
+                t = (s - i[0]) + i[1]
                 if search(t, d+1):
                     return True
         return False
-
-    def genequiv(form,i0=0):
-        # generate all states (of non-null species) which interpret to
-        #  a formal state form
-        if form == []:
-            yield []
-            return
-        for i in range(i0,len(inter[0])):
-            if inter[1][i] != [] and msleq(inter[1][i],form):
-                assert len(diff(form,inter[1][i])) < len(form)
-                for rest in genequiv(diff(form,inter[1][i]),i):
-                    yield [inter[0][i]] + rest
-
-        yield form
-
-    def sgenequiv(imps):
-        # generate all states (of non-null species) which interpret to
-        #  the same as implementation state imps
-        return genequiv(interpret(imps,inter))
 
     def midsearch(start, goal, pickup, ignore, formal, k):
         global printing
@@ -372,11 +329,11 @@ def perm(fcrn, icrn, fs, inter, permcheck):
         #  of length at most 2^k
         # if goal is None, the goal is any reaction in fr
         if goal is not None:
-            if all(map(lambda x: x in ignore, diff(goal,start))):
+            if ignore.issuperset(goal - start):
 #                if printing:
 #                    print k*" " + " Success, already there."
                 return True
-            if not interleq(goal, start, inter):
+            if not interleq(goal, start, intrp):
 #                if printing:
 #                    print k*" " + " Failure, non-equivalent states."
                 return False
@@ -384,8 +341,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
         if k == 0:
             if goal is None:
                 for rx in fr:
-                    needs = diff(rx[0],start)
-                    if all(map(lambda x: x in ignore,needs)):
+                    if ignore.issuperset(rx[0] - start):
 #                        if printing:
 #                            print k*" " + " Success, reaction found."
                         return True
@@ -394,13 +350,11 @@ def perm(fcrn, icrn, fs, inter, permcheck):
                 return False
             
             for rx in tr:
-                (left, needs) = sdiff(start,rx[0])
-                if all(map(lambda x: x in ignore, needs)):
-                    # every element of needs (multiset)
+                if ignore.issuperset(rx[0] - start):
+                    # every element of rx[0] - start (multiset)
                     #  is also an element of ignore (set)
-                    # e.g. true on needs = {|a,a,b|}, ignore = {a,b,c}
-                    after = left + rx[1]
-                    if msleq(goal, after):
+                    # e.g. true on rx[0] - start = {|a,a,b|}, ignore = {a,b,c}
+                    if msleq(goal, (start - rx[0]) + rx[1]):
 #                        if printing:
 #                            print k*" " + " Success, reaction found."
                         return True
@@ -411,7 +365,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
             for part in enum(2,pickup):
                 for mid in cnstr(formal):
                     if midsearch(start,mid,part[0],ignore,formal,k-1) \
-                       and ((not interleq(start, mid, inter)) or
+                       and ((not interleq(start, mid, intrp)) or
                             midsearch(mid,goal,part[1],ignore,formal,k-1)):
 #                        if printing:
 #                            print k*" " + " Success, pathway found."
@@ -440,7 +394,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
 
         if printing:
             print " Will search", nequiv, "states for", rounds, "rounds"
-        for part in enum(len(nulls) + 1,nulls):
+        for part in map(Counter.keys,enum(len(nulls) + 1,nulls)):
             if any([part[i] != [] and part[i+1] == [] \
                     for i in range(len(part) - 2)]):
                 continue # avoid redundancy
@@ -455,7 +409,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
                 check2 = False
                 for base in cnstr(formal):
                     if midsearch(place,base,[],ignore,formal,rounds):
-                        if not interleq(place,base,inter):
+                        if not interleq(place,base,intrp):
                             return True
                         elif midsearch(base,base,pickup,ignore,formal,rounds):
                             check2 = True
@@ -466,7 +420,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
                     check1 = False
                     break
 
-                ignore.append(pickup)
+                ignore.extend(pickup)
 
             if check1 and midsearch(place,None,[],ignore,formal,rounds):
                 if printing:
@@ -501,7 +455,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
             for i in rngl:
                 if points[i][2] is not True:
                     for rx in fr:
-                        if points[i][1].issuperset(diff(rx[0],points[i][0])):
+                        if points[i][1].issuperset(rx[0] - points[i][0]):
                             points[i][2] = True
                             changed = True
                             break
@@ -510,10 +464,11 @@ def perm(fcrn, icrn, fs, inter, permcheck):
                         continue
 
                     for rx in tr:
-                        (left, needs) = sdiff(points[i][0],rx[0])
-                        if points[i][1].issuperset(needs):
+                        if points[i][1].issuperset(rx[0] - points[i][0]):
+                            left = points[i][0] - rx[0]
+                            after = left + rx[1]
                             for j in rngl:
-                                if msleq(points[j][0],left + rx[1]):
+                                if msleq(points[j][0],after):
                                     if points[j][2] is True:
                                         points[i][2] = True
                                         changed = True
@@ -556,17 +511,6 @@ def perm(fcrn, icrn, fs, inter, permcheck):
             if T[j][i]:
                 fr.append(icrn[j])
 
-        # build a list of possible implementation species for each formal species.
-        # i.e. s[k] is a list containing formal species k and each implementation species that interprets to a superset containing it.
-        # s = []
-        # n = 0
-        # for j in fcrn[i][0]:
-        #     s.append([j])
-        #     for k in range(len(inter[0])):
-        #         if j in inter[1][k]:
-        #             s[n].append(inter[0][k])
-        #     n += 1
-
         if printing: print "Number of states:", len(list(cnstr(fcrn[i][0])))
         ist = cnstr(fcrn[i][0])
 
@@ -581,7 +525,7 @@ def perm(fcrn, icrn, fs, inter, permcheck):
                     max_depth = -1
                 else:
                     max_depth = -2
-                intr = list(inter)
+                intr = intrp.copy()
                 permissive_failure[0] = fcrn[i]
                 permissive_failure[1] = ["Somewhere"]
                 return False
@@ -593,12 +537,13 @@ def perm(fcrn, icrn, fs, inter, permcheck):
         # Note that we will only want to test states in "ist" that interpret to a state in which #i can fire.
         
         tested = []  # to avoid testing a superset of some state that's already been tested
+        spaceefficient = False # ... but only if we have space to store them
         for j in ist:
-            tmp = interpret(j,inter)
+            tmp = interpret(j,intrp)
             if msleq(fcrn[i][0], tmp):  # only test if reactants j interpret to allow #i to fire
                 t = False
                 for k in tested:
-                    if diff(k, j) == []:
+                    if msleq(k, j):
                         t = True
                         if printing: print "State", j, "is a superset of", k
                         break
@@ -618,137 +563,190 @@ def perm(fcrn, icrn, fs, inter, permcheck):
                         max_depth = -1
                     else:
                         max_depth = -2
-                    intr = list(inter)
+                    intr = list(intrp)
                     permissive_failure[0] = fcrn[i]
                     permissive_failure[1] = j
                     return False
-                else:
+                elif not spaceefficient:
                     tested.append(j)
             elif printing:
                 print "Not testing", j, "with interpretation", tmp
-    intr = list(inter)
+    intr = intrp.copy()
     if printing:
         watch = time.clock()
         print "Permissive test succeeded in time", watch - now
     return True
 
-def equations(crn1, crn2, fs, unknow, inter, permcheck):
-    global fcrn, icrn
+def equations(fcrn, icrn, fs, intrp, permcheck):
     # All unknown implementation reactions (i.e. those with some unknown species) must be trivial.
     # Build the matrix for the the "solve" function, to see whether the interpretation can be completed as required.
-    # Note that crn2 has been substituted already according to the (partial) interpretation "inter".
     # Also note that "unknow" is not used; the unknown species are recalculated here
     #  because "unknow" contains only those implementation reactions that have not been solved by the row search,
     #  but other rows (i.e. implementation reactions) may be implicitly solved by the partial interpretation.
     unknown = []
     ust = set([])
-    for i in range(len(crn2)):
-        tmp = set(crn2[i][0])-set(fs)
-        tmp |= set(crn2[i][1])-set(fs)
+    sicrn = subst(icrn, intrp)
+    for i in range(len(sicrn)):
+        tmp = set(sicrn[i][0])-set(fs)
+        tmp |= set(sicrn[i][1])-set(fs)
         ust |= tmp
         if tmp != set([]):
             unknown.append(i)  # "unknown" is the list of implementation reactions with an unknown species
     us = list(ust)  # all species that remain unknown in current (partial) interpretation
-    n = 0
-    a = []
-    for i in unknown:
-        a.append([])
-        for j in us:
-            a[n].append(crn2[i][0].count(j)-crn2[i][1].count(j))
-        a[n].append(0)
-        n += 1
-    itmp = copy.deepcopy(inter)
-    l = len(inter[0])
-    for i in us:
-        itmp[0].append(i)
-        itmp[1].append([]) 
-    for i in fs:
-        n = 0
-        for j in unknown:
-            a[n].pop()
-            a[n].append(crn2[j][0].count(i)-crn2[j][1].count(i))
-            n += 1
-        s = solve(a)
-        if s == []:
-            return False
-        else:
-            for j in range(len(us)):
-                itmp[1][j+l].extend([i for k in range(s[j])])
-    return perm(fcrn, icrn, fs, itmp, permcheck)
+    
+    # check atomic condition
+    atoms = set()
+    for k in intrp:
+        sps = intrp[k].keys()
+        if len(sps) == 1 and intrp[k][sps[0]] == 1:
+            atoms.add(sps[0])
 
-def searchr(crn1, crn2, fs, unknown, inter, d, permcheck):
+    atomsleft = list(set(fs) - atoms)
+    l = len(atomsleft)
+    for assign in itertools.permutations(us, l): # works even if l == 0
+        # each assign is a tuple of implementation species to be interpreted
+        #  as exactly one formal species, matching the order of atomsleft
+        # if l == 0 then it.permutations(us, l) == [()], a list with
+        #  element which is the zero-length tuple,
+        #  so this loop will run exactly once with no change to itmp
+        itmp = dict(intrp)
+        for i in range(l):
+            assert assign[i] not in itmp
+            itmp[assign[i]] = Counter({atomsleft[i]: 1})
+
+        sicrntmp = subst(icrn, itmp)
+        T = update(fcrn, sicrntmp, fs)
+        if (not checkT(T)) or any([not T[i][-1] for i in unknown]):
+            # either the table is bad, or a reaction we are assuming
+            #  is trivial can no longer be trivial
+            continue
+
+        ustmp = [sp for sp in us if sp not in assign]
+        n = 0
+        a = []
+        for i in unknown:
+            a.append([])
+            for j in ustmp:
+                a[n].append(sicrntmp[i][0][j]-sicrntmp[i][1][j])
+                a[n].append(0)
+
+            n += 1
+
+        for isp in ustmp:
+            itmp[isp] = Counter()
+
+        check = True
+        for fsp in fs:
+            n = 0
+            for j in unknown:
+                a[n].pop()
+                a[n].append(sicrn[j][0][fsp]-sicrn[j][1][fsp])
+                n += 1
+
+            s = solve(a)
+            if s == []:
+                check = False
+                break
+            else:
+                for isp in us:
+                    itmp[isp][fsp] = s[j]
+
+        if check:
+            out = perm(fcrn, icrn, fs, itmp, permcheck)
+            if out:
+                return out
+            else:
+                continue
+
+    return False
+
+def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, nontriv=False):
 # Row search.  I.e. make sure every implementation reaction can interpret to a formal reaction (or be trivial).
     global max_depth, intr
     if unknown == []:
-        return perm(crn1, crn2, fs, inter, permcheck)
-    T = update(crn1, crn2, fs)
+        return perm(fcrn, icrn, fs, intrp, permcheck)
+    sicrn = subst(icrn, intrp)
+    T = update(fcrn, sicrn, fs)
     if not checkT(T):
         return False
     if max_depth >= 0 and d > max_depth:
-        intr = list(inter)
+        intr = copy.deepcopy(intrp)
         max_depth = d
-    min = len(crn1)+1
+    min = len(fcrn)+1
     k = -1  # next row reaction we will solve
     nt = 0  # number of possibly trivial reactions according to table
     for i in unknown:
         tmp = T[i].count(True)
-        if T[i][len(crn1)] == True:
+        if T[i][-1] == True:
             nt += 1
             tmp -= 1
         if tmp < min and tmp > 0:
             min = tmp
             k = i
-    if nt == len(unknown):  # all unsearched rows could be trivial -- try it!
-        if equations(crn1, crn2, fs, unknown, inter, permcheck):
+    if nt == len(unknown) and not nontriv:  # all unsearched rows could be trivial -- try it!
+        if equations(fcrn, icrn, fs, intrp, permcheck):
             return True
+        else:
+            # if we just tried equations and it didn't work, then we
+            #  shouldn't try again unless something changes
+            nontriv = True
     if k < 0:
         return False
     untmp = list(unknown)
     untmp.remove(k)
-    if T[k][len(crn1)] == True:  # if implementation reaction #k can be trivial, leave it that way and try more rows
-        if searchr(crn1, crn2, fs, untmp, inter, d, permcheck):
+    if T[k][-1] == True:  # if implementation reaction #k can be trivial, leave it that way and try more rows
+        if searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck, nontriv):
             return True
     n = 0
-    for c in range(len(crn1)): # try to match implementation reaction #k with some formal reaction
+    for c in range(len(fcrn)): # try to match implementation reaction #k with some formal reaction
         if T[k][c]:        
-            ul = diff(crn2[k][0], crn1[c][0])
-            nl = len(ul)
-            sl = diff(crn1[c][0], crn2[k][0])
-            tmpl = enum(nl, sl)
-            ur = diff(crn2[k][1], crn1[c][1])
-            nr = len(ur)
-            sr = diff(crn1[c][1], crn2[k][1])
-            tmpr = enum(nr, sr)
-            ul.extend(ur)
-            nl += nr
+            ul = sicrn[k][0] - fcrn[c][0]
+            kl = ul.keys()
+            nl = len(kl)
+            sl = fcrn[c][0] - sicrn[k][0]
+            tmpl = enum(nl, sl, ul.values())
+            ur = sicrn[k][1] - fcrn[c][1]
+            kr = ur.keys()
+            nr = len(kr)
+            sr = fcrn[c][1] - sicrn[k][1]
+            tmpr = enum(nr, sr, ur.values())
             for i in tmpl:
+                intrpleft = Counter(zip(kl, i))
                 for j in tmpr:
-                    tmpi = list(i)
-                    tmpi.extend(j)
-                    crntmp = subst(crn2, ul, tmpi)
-                    itmp = [[],[]]
-                    itmp[0] = list(inter[0])
-                    itmp[0].extend(ul)
-                    itmp[1] = list(inter[1])
-                    itmp[1].extend(tmpi)                       
-                    if searchr(crn1, crntmp, fs, untmp, itmp, d+1, permcheck):
+                    intrpright = Counter(zip(kr, j))
+                    checkCompatible = True
+                    for key in intrpleft:
+                        if key in intrpright and \
+                           any([intrpright[key][fsp] != intrpleft[key][fsp]
+                                for fsp in fs]):
+                            checkCompatible = False
+                            break
+
+                    if not checkCompatible:
+                        continue
+
+                    itmp = copy.deepcopy(intrp)
+                    itmp.update(intrpleft)
+                    itmp.update(intrpright)
+                    if searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck):
                         return True
     return False
 
-def searchc(crn1, crn2, fs, unknown, inter, d, permcheck):
+def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
     # Search column.  I.e. make sure every formal reaction can be implemented.
     global max_depth, intr
-    T = update(crn1, crn2, fs)
+    sicrn = subst(icrn, intrp)
+    T = update(fcrn, sicrn, fs)
     if not checkT(T):
         return False
     if max_depth >= 0 and d > max_depth:
-        intr = list(inter)
+        intr = copy.deepcopy(intrp)
         max_depth = d
-    min = len(crn2)+1
+    min = len(icrn)+1
     c = -1  # this will be the next column to solve, if possible
     for i in unknown:
         tmp = 0
-        for j in range(len(crn2)):
+        for j in range(len(icrn)):
             if T[j][i]:
                 tmp += 1
         if tmp < min:
@@ -756,62 +754,81 @@ def searchc(crn1, crn2, fs, unknown, inter, d, permcheck):
             c = i
     if c < 0:  # done with column search.  transition to row search!
         untmp = []
-        for i in range(len(crn2)):
-            if not (set(crn2[i][0])-set(fs) == set([]) and set(crn2[i][1])-set(fs) == set([])):
+        for i in range(len(icrn)):
+            if not (set(sicrn[i][0])-set(fs) == set([]) and \
+                    set(sicrn[i][1])-set(fs) == set([])):
                 untmp.append(i)
-        return searchr(crn1, crn2, fs, untmp, inter, d, permcheck)
+        return searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck)
     else:
         untmp = list(unknown)
         untmp.remove(c)
         n = 0
-        for k in range(len(crn2)):
+        for k in range(len(icrn)):
             if T[k][c]:
-                ul = diff(crn2[k][0], crn1[c][0])
-                nl = len(ul)
-                sl = diff(crn1[c][0], crn2[k][0])
-                tmpl = enum(nl, sl)
-                ur = diff(crn2[k][1], crn1[c][1])
-                nr = len(ur)
-                sr = diff(crn1[c][1], crn2[k][1])
-                tmpr = enum(nr, sr)
-                ul.extend(ur)
-                nl += nr
+                ul = icrn[k][0] - fcrn[c][0]
+                kl = ul.keys()
+                nl = len(kl)
+                sl = fcrn[c][0] - icrn[k][0]
+                tmpl = enum(nl, sl, ul.values())
+                ur = icrn[k][1] - fcrn[c][1]
+                kr = ur.keys()
+                nr = len(kr)
+                sr = fcrn[c][1] - icrn[k][1]
+                tmpr = enum(nr, sr, ur.values())
                 for i in tmpl:
+                    intrpleft = Counter(zip(kl, i))
                     for j in tmpr:
-                        tmpi = list(i)
-                        tmpi.extend(j)
-                        crntmp = subst(crn2, ul, tmpi)
-                        itmp = [[],[]]
-                        itmp[0] = list(inter[0])
-                        itmp[0].extend(ul)
-                        itmp[1] = list(inter[1])
-                        itmp[1].extend(tmpi)
-                        if searchc(crn1, crntmp, fs, untmp, itmp, d+1, permcheck):
+                        intrpright = Counter(zip(kr, j))
+
+                        checkCompatible = True
+                        for key in intrpleft:
+                            if key in intrpright and \
+                               any([intrpleft[key][fsp] != intrpright[key][fsp]
+                                    for fsp in fs]):
+                                checkCompatible = False
+                                break
+
+                        if not checkCompatible:
+                            continue
+
+                        itmp = copy.deepcopy(intrp)
+                        itmp.update(intrpleft)
+                        itmp.update(intrpright)
+                        if searchc(fcrn, icrn, fs, untmp, itmp, d+1, permcheck):
                             return True
     return False
 
-def test(c1, c2, verbose = True, inter = [[],[]], permcheck=False):
-    (crn1, fs1) = c1
-    (crn2, fs2) = c2
-    global fcrn, icrn, intr, max_depth, permissive_failure
-    fcrn = crn1
-    icrn = crn2
+def test(c1, c2, verbose = True, intrp = None, permcheck=False):
+    global printing
+    printing = printing and verbose
+    (fcrn, _) = c1
+    fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
+    (icrn, fs) = c2
+    icrn = [[Counter(part) for part in rxn] for rxn in icrn]
+    # maybe list->Counter conversion is temporary?
+
+    if intrp is None: # default 1: no interpretation information
+        intrp = {}
+    elif intrp is True: # default 2: each fsp has a canonical implementation
+        intrp = {fsp: Counter({fsp: 1}) for fsp in fs}
+
+    global intr, max_depth, permissive_failure
     print "Original CRN:"
-    for rxn in crn1:
+    for rxn in fcrn:
         print "   ",
         printRxn(rxn)
     print
-    if crn2 == []:
+    if icrn == []:
         print "Compiled CRN is empty"
         print
-        return crn1 == crn2
+        return fcrn == icrn
     print "Compiled CRN:"
-    for rxn in crn2:
+    for rxn in icrn:
         print "   ",
         printRxn(rxn)
     print
-    unknown = [i for i in range(len(crn1))]
-    if searchc(crn1, crn2, fs2, unknown, inter, 0, permcheck):
+    unknown = [i for i in range(len(fcrn))]
+    if searchc(fcrn, icrn, fs, unknown, intrp, 0, permcheck):
         print "Valid interpretation :"
         output(intr)
         return True
@@ -839,13 +856,13 @@ def test(c1, c2, verbose = True, inter = [[],[]], permcheck=False):
 if __name__ == "__main__":
     # The name of the program
     program_name = "test"
-    crn1 = [[['a'],['b']]]
+    fcrn = [[['a'],['b']]]
     fs1 = []
     cs1 = []
-    crn2 = [[['a1'],['b1']],[['x'],['a1']],[['x'],['b1']],[['y'],['b1']],[['y'],['a1']],[['x'],['a0']],[['a0'],['a1']]]
+    icrn = [[['a1'],['b1']],[['x'],['a1']],[['x'],['b1']],[['y'],['b1']],[['y'],['a1']],[['x'],['a0']],[['a0'],['a1']]]
     fs2 = ['a','b']
     cs2 = []
-    v = test((crn1, fs1), (crn2, fs2))
+    v = test((fcrn, fs1), (icrn, fs2))
     if v:
         print "verify: compilation was correct."
     else:
