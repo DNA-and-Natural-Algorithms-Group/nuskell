@@ -46,34 +46,37 @@ def rotate(complex):
         return [dom, dpr]
 
 def patternMatch(x, y):
-    if "+" in x[0]:
-        if "+" not in y[0]:
-            return False
-        px = find(x[0], "+")
-        py = find(y[0], "+")
-        return patternMatch([x[0][:px], x[1][:px]],
-                            [y[0][:py], y[1][:py]]) and \
-               patternMatch([x[0][px + 1:], x[1][px + 1:]],
-                            [y[0][py + 1:], y[1][py + 1:]])
+  # TODO: Checks if two complexes are the same, assuming one has a history
+  # domain. This function was here, as is. It needs to be checked to see if it
+  # does what it should.
+  if "+" in x[0]:
+    if "+" not in y[0]:
+      return False
+    px = find(x[0], "+")
+    py = find(y[0], "+")
+    return patternMatch([x[0][:px], x[1][:px]],
+                        [y[0][:py], y[1][:py]]) and \
+           patternMatch([x[0][px + 1:], x[1][px + 1:]],
+                        [y[0][py + 1:], y[1][py + 1:]])
 
-    if len(x[0]) == 0:
-        if len(y[0]) > 0:
-            return False
-        else:
-            return True
-
-    if x[0][0] != "?":
-        if len(y[0]) == 0 or x[0][0] != y[0][0] or x[1][0] != y[1][0]:
-            return False
-        else:
-            return patternMatch([x[0][1:], x[1][1:]],
-                                [y[0][1:], y[1][1:]])
+  if len(x[0]) == 0:
+    if len(y[0]) > 0:
+      return False
     else:
-        for i in range(len(y) + 1):
-            if patternMatch([x[0][1:], x[1][1:]],
-                            [y[0][i:], y[1][i:]]):
-                return True
-        return False
+      return True
+
+  if x[0][0] != "?":
+    if len(y[0]) == 0 or x[0][0] != y[0][0] or x[1][0] != y[1][0]:
+      return False
+    else:
+      return patternMatch([x[0][1:], x[1][1:]],
+                              [y[0][1:], y[1][1:]])
+  else:
+    for i in range(len(y) + 1):
+      if patternMatch([x[0][1:], x[1][1:]],
+                      [y[0][i:], y[1][i:]]):
+        return True
+    return False
 
 def removeFuels(crn, fuel):
     crn = [[filter(lambda s: s not in fuel, rxn[0]),
@@ -92,18 +95,71 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
-  """Remove wildcard domains from the enumerated CRN.
+def get_interpretation(input_fs, init_cplxs, enum_cplxs):
+  """Infer a partial interpretation from species names.
 
-  Some schemes, e.g. Soloveichik et al. (2010), use wild-card history domains.
-  During enumeration, these wildcards are treated as regular unique domains,
-  but that leads to a larger network than necessary. This routine removes
-  species with wildcards from the enumerated network, which can make the CRN
+  Some schemes, e.g. Soloveichik et al. (2010), use history domains.  During
+  enumeration, these are treated as regular unique domains, but that leads to a
+  larger network than necessary. This routine identifies species with wildcards
+  to remove them from the enumerated network. This can make the CRN
   exponentially easier to verify.
 
-  """
+  Args:
+    input_fs: A list of formal species
+    init_cplxs: All complexes initially present in a DSD system (formal+constant)
+    enum_cplxs: List of enumerated complexes.
 
-  # Extract the constant species from all complexes
+  Returns:
+    enum_to_formal (dict): A mapping between enumerated species and their formal
+                           interpretation, e.g. enum_to_formal['A_1']=['A']
+    enum_rename (dict):    A list of names in the enumerated network that are to
+                           be replaced with names of formal species 
+                           e.g. enum_rename['i86'] = ['A_1']
+  """
+  enum_to_formal = {}
+  enum_rename = {}
+  remove_ihist = set()
+  for x in init_cplxs :
+    # x = ['A', ['?', ['t0'], ['d2']], ['.', '.', '.']]
+    if '?' in x[1] :
+      cnt = 0
+      for y in enum_cplxs :
+        if x[0] == y[0]: # formal species!
+          enum_rename[y[0]] = x[0] + "_i"
+          if x[0] in input_fs :
+            enum_to_formal[x[0]+"_i"]=[x[0]]
+          else :
+            # this is just because I want to observe a case, 
+            # should be save to remove this else statement.
+            raise ValueError('Unexpected constant species')
+        else :
+          # TODO: patternMatch is untested, also there might be cases where one
+          # has to use the 'rotate' function, which was used previously.
+          if patternMatch(x[1:], y[1:]) :
+            cnt += 1
+            enum_rename[y[0]] = x[0] + "_" + str(cnt)
+            if x[0] in input_fs :
+              enum_to_formal[x[0]+"_"+str(cnt)] = [x[0]]
+              remove_ihist.add(x[0]+"_i")
+            else :
+              # this is just because I want to observe a case, 
+              # should be save to remove this else statement.
+              raise ValueError('Unexpected constant species')
+    else :
+      if x[0] in input_fs :
+        enum_to_formal[x[0]]=[x[0]]
+
+  # removing initial history species, if replaceable
+  map(lambda x: enum_to_formal.pop(x), remove_ihist)
+
+  return enum_to_formal, enum_rename
+
+def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
+  ##DEPRICATED: This is the original preprocessing routine.
+  # Some things are implemented different than in the new version. Needs some
+  # testing to see if the new version is actually doing the exact same thing.
+  # There might be differences in patternMatching
+
   cs = map(lambda x: x[0], complexes)
   cs = filter(lambda x: x not in input_fs, cs)
 
@@ -169,6 +225,7 @@ def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
     if x in inter.keys(): del inter[x]
     if x in fsp: fsp.remove(x)
   norm = set(fsp)-rm
+
   flag = None
   while flag != norm:
     flag = set(list(norm))
@@ -179,62 +236,72 @@ def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
 
   return inter, enum_crn, fsp
 
-def verify(input_crn, enum_crn, complexes, slow_cplxs, 
+def verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
     method = 'bisimulation', verbose = True):
-  """ Initialize the verification of a translation scheme.
+  """Wrapper-function to speed up the verification of a CRN translation.
 
-  This function prepares the:
-
-    *) formal CRN
-    *) implementation CRN (formal and constant species)
-    *) enumerated implementation CRN (formal, constant and enumerated species)
-    *) interpretation CRN (a mapping from implementation to the formal CRN)
-
-  ... and then calls the verification method chosen by the user in order to 
-  compute whether an implementation CRN is equivalent to the formal CRN:
-
-    *) pathway (Seung Woo Shin's notion of pathway equivalence)
-    *) pathway-integrated (Seung Woo Shin's integrated hybrid notion of pathway
-    equivalence)
-    *) bisimulation (Qing Dong and Robert Johnson)
-    ...
+  This function serves two purposes: First, it finds a mapping between species
+  in the formal CRN and species in the enumerated CRN based on species names.
+  Second, it reduces the size of the enumerated CRN. First of all, fuel and
+  waste species are ignored for verification and duplicate species are removed.
+  Some translation schemes use history domains, which are only specified for
+  products, but not for reactants. This function removes all species with
+  unspecified history domains, given the same species with a specified history
+  domain exists in the system. For schemes with history domains, the
+  interpretation may map multiple species of the enumerated CRN to one formal
+  species.
 
   Args: 
     input_crn: formal input CRN
-    enum_crn: peppercorn-enumerated implementation CRN
-    complexes: all complexes in the (non-enumerated) implementation CRN
-    slow_cplxs: resting states in the enumerated implementation CRN
-    method: chose equivalence notion
-    verbose: print more information to STDOUT
+    enum_crn: peppercorn-enumeration of the initial complexes 
+    init_cplxs: formal and complex species that are initially present
+    enum_cplxs: resting states of the enumerated CRN
+    method: equivalence notion
+    verbose: print status information during verification
 
   Returns:
     True: formal and implementation CRN are equivalent
     False: formal and implementation CRN are not equivalent
-  
   """
   interactive = False
 
-  # Parse the CRN
   (input_crn, input_fs, input_cs) = parse_crn_string(input_crn) 
   irrev_crn = split_reversible_reactions(input_crn)
 
-  print "=i=\n", input_crn
-  print "=c=" 
-  for c in complexes: print c
-  print "=s="
-  for s in slow_cplxs: print s
-  print "=e="
-  for e in enum_crn: print e
+  # TODO: The format of interpret may change for a new verification interface
+  # NOTE: enum_rename is empty for schemes without history domains
+  interpret, enum_rename = get_interpretation(input_fs, init_cplxs, enum_cplxs)
 
-  # TODO: pre_processing to remove wildcard domains, but there is more to it!
-  inter, enum_crn, fsp = pre_process(
-      enum_crn, 
-      input_fs, 
-      complexes, # need these! (cs = complexes - input_fs)
-      slow_cplxs) # needed for wildcard domains!
+  if enum_rename :
+    for i in range(len(enum_crn)):
+      [reactants, products] = enum_crn[i]
+      def get_name(x):
+        if x in enum_rename.keys():
+          x = enum_rename[x]
+        return x
+      reactants = map(get_name, reactants)
+      products = map(get_name, products)
+      enum_crn[i] = [reactants, products]
 
-  print "=e2="
-  for e in enum_crn: print e
+  # Reduce the enumerated CRN, 
+  cs = map(lambda x: x[0], init_cplxs)
+  cs = filter(lambda x: x not in input_fs, cs)
+
+  enum_crn = removeFuels(enum_crn, cs)
+  enum_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], enum_crn))
+  enum_crn = remove_duplicates(enum_crn) # TODO: WHAT FOR?
+
+  # Get rid of all reactions that start with an *initial* history domain but
+  # then later can get replaced by a produce molecule.
+  if enum_rename:
+    [prev, total] = [set(), set(interpret.keys())]
+    while prev != total:
+      prev = set(list(total))
+      for [r,p] in enum_crn:
+        if set(r).intersection(total) == set(r):
+          total = total.union(set(p))
+    enum_crn = filter(
+        lambda x: set(x[0]).intersection(total) == set(x[0]), enum_crn)
 
   if method == 'bisimulation':
     return crn_bisimulation_equivalence.test(
@@ -245,12 +312,10 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
   elif method == 'bisim-wholegraph':
     return crn_bisimulation_equivalence.test(
       (irrev_crn, input_fs), (enum_crn, input_fs), verbose, [[],[]], 'whole')
-
   elif method == 'pathway':
     return crn_pathway_equivalence.test(
         (irrev_crn, input_fs), 
-        (enum_crn, fsp), inter, verbose, False, interactive)
-
+        (enum_crn, interpret.keys()), interpret, verbose, False, interactive)
   elif method == 'integrated':
     # TODO: integrated-hybrid -> first consider some species as formal for
     # pathway decomposition, then do bisimulation. This is necessary for
@@ -261,7 +326,7 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
     # cases and some kind of bisimulation.
     return crn_pathway_equivalence.test(
         (irrev_crn, input_fs), 
-        (enum_crn, fsp), inter, verbose, True, interactive)
+        (enum_crn, interpret.keys()), interpret, verbose, True, interactive)
   else:
     print "Verification method unknown."
     return False
