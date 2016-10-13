@@ -622,6 +622,13 @@ def equations(fcrn, icrn, fs, intrp, permcheck):
             continue
 
         ustmp = [sp for sp in us if sp not in assign]
+        if not ustmp:
+            out = perm(fcrn, icrn, fs, itmp, permcheck)
+            if out:
+                return out
+            else:
+                continue
+
         n = 0
         a = []
         for i in unknown:
@@ -711,9 +718,9 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, nontriv=False):
             sr = fcrn[c][1] - sicrn[k][1]
             tmpr = enum(nr, sr, ur.values())
             for i in tmpl:
-                intrpleft = Counter(zip(kl, i))
+                intrpleft = dict(zip(kl, i))
                 for j in tmpr:
-                    intrpright = Counter(zip(kr, j))
+                    intrpright = dict(zip(kr, j))
                     checkCompatible = True
                     for key in intrpleft:
                         if key in intrpright and \
@@ -776,9 +783,9 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
                 sr = fcrn[c][1] - icrn[k][1]
                 tmpr = enum(nr, sr, ur.values())
                 for i in tmpl:
-                    intrpleft = Counter(zip(kl, i))
+                    intrpleft = dict(zip(kl, i))
                     for j in tmpr:
-                        intrpright = Counter(zip(kr, j))
+                        intrpright = dict(zip(kr, j))
 
                         checkCompatible = True
                         for key in intrpleft:
@@ -800,6 +807,7 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
 
 def test(c1, c2, verbose = True, intrp = None, permcheck=False):
     global printing
+    global intr, max_depth, permissive_failure
     printing = printing and verbose
     (fcrn, _) = c1
     fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
@@ -810,46 +818,51 @@ def test(c1, c2, verbose = True, intrp = None, permcheck=False):
     if intrp is None: # default 1: no interpretation information
         intrp = {}
     elif intrp is True: # default 2: each fsp has a canonical implementation
-        intrp = {fsp: Counter({fsp: 1}) for fsp in fs}
+        intrp = {fsp: Counter({fsp: 1}) for fsp in fs
+                 if any([fsp in rxn[0] or fsp in rxn[1] for rxn in icrn])}
 
-    global intr, max_depth, permissive_failure
-    print "Original CRN:"
-    for rxn in fcrn:
-        print "   ",
-        printRxn(rxn)
-    print
-    if icrn == []:
-        print "Compiled CRN is empty"
+    if verbose:
+        print "Original CRN:"
+        for rxn in fcrn:
+            print "   ",
+            printRxn(rxn)
+            print
+        if icrn == []:
+            print "Compiled CRN is empty"
+            print
+            return fcrn == []
+        print "Compiled CRN:"
+        for rxn in icrn:
+            print "   ",
+            printRxn(rxn)
         print
-        return fcrn == icrn
-    print "Compiled CRN:"
-    for rxn in icrn:
-        print "   ",
-        printRxn(rxn)
-    print
+    elif icrn == []:
+        return fcrn == []
     unknown = [i for i in range(len(fcrn))]
     if searchc(fcrn, icrn, fs, unknown, intrp, 0, permcheck):
-        print "Valid interpretation :"
-        output(intr)
+        if verbose:
+            print "Valid interpretation :"
+            output(intr)
         return True
     else:
-        if max_depth >= 0:
-            print "Delimiting condition cannot be satisfied."
-            if max_depth >= len(fcrn):
-                print "There is implementation reaction not in formal CRN."
+        if verbose:
+            if max_depth >= 0:
+                print "Delimiting condition cannot be satisfied."
+                if max_depth >= len(fcrn):
+                    print "There is implementation reaction not in formal CRN."
+                else:
+                    print "There is formal reaction not implemented."
+                print "Max search depth reached :", max_depth
+                print "with interpretation :"
+                output(intr)
             else:
-                print "There is formal reaction not implemented."
-            print "Max search depth reached :", max_depth
-            print "with interpretation :"
-            output(intr)
-        else:
-            print "Fail in permissive test with interpretation :"
-            output(intr)
-            print "at formal reaction :",
-            printRxn(permissive_failure[0])
-            print "on implementation status :", permissive_failure[1]
-            if max_depth == -2:
-                print "with max trivial reaction chain length", permissive_depth, "reached."
+                print "Fail in permissive test with interpretation :"
+                output(intr)
+                print "at formal reaction :",
+                printRxn(permissive_failure[0])
+                print "on implementation status :", permissive_failure[1]
+                if max_depth == -2:
+                    print "with max trivial reaction chain length", permissive_depth, "reached."
             print
         return False
 
