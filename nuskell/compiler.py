@@ -260,7 +260,10 @@ def main() :
   # as c + f but in a different format, enum_cplxs is only needed for
   # history-domain-schemes. It would be more flexible to make enum_cplxs
   # optional, but that means we should change the format such that init does
-  # not depend on enumeration!
+  # not depend on enumeration! 
+  # NOTE: It would make sense to have a unified interface of how a complex
+  # should be represented. One way would be to use DNAObjects.Complex, however,
+  # it turns out that the structure used here is just cleaner...
   if args.verify :
     print "Verification using:", args.verify
 

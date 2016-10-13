@@ -14,36 +14,54 @@ def find(l, key):
   return None
 
 def rotate(complex):
-    def hardcopyList(l):
-        if type(l) != list:
-            return l
-        return map(hardcopyList, l)
+  def hardcopyList(l):
+    if type(l) != list:
+      return l
+    return map(hardcopyList, l)
+  complex = hardcopyList(complex)
 
-    complex = hardcopyList(complex)
+  if "+" not in complex[0]:
+    return complex        
+  else:
+    p = find(complex[0], "+")
+    dom = complex[0][p + 1:] + ["+"] + complex[0][:p]
 
-    if "+" not in complex[0]:
-        return complex        
-    else:
-        p = find(complex[0], "+")
-        dom = complex[0][p + 1:] + ["+"] + complex[0][:p]
+    # change parentheses appropriately
+    dpr = complex[1]
+    stack = []
+    for i in range(p):
+        if dpr[i] == "(": stack.append(i)
+        elif dpr[i] == ")": stack.pop()
+    for i in stack:
+        dpr[i] = ")"
+    stack = []
+    for i in reversed(range(p + 1, len(dpr))):
+        if dpr[i] == ")": stack.append(i)
+        elif dpr[i] == "(": stack.pop()
+    for i in stack:
+        dpr[i] = "("
+    
+    dpr = dpr[p + 1:] + ["+"] + dpr[:p]
+    return [dom, dpr]
 
-        # change parentheses appropriately
-        dpr = complex[1]
-        stack = []
-        for i in range(p):
-            if dpr[i] == "(": stack.append(i)
-            elif dpr[i] == ")": stack.pop()
-        for i in stack:
-            dpr[i] = ")"
-        stack = []
-        for i in reversed(range(p + 1, len(dpr))):
-            if dpr[i] == ")": stack.append(i)
-            elif dpr[i] == "(": stack.pop()
-        for i in stack:
-            dpr[i] = "("
-        
-        dpr = dpr[p + 1:] + ["+"] + dpr[:p]
-        return [dom, dpr]
+def pM2(original,target):
+  if len(original[0]) != len(target[0]): 
+    return False
+  p = rotate(target)
+  while True:
+    flag = True
+    for i in range(len(original[0])):
+      if not (
+          (original[0][i] == p[0][i] and original[1][i] == p[1][i]) or 
+          (original[0][i] == "?" and p[1][i] == ".")):
+        flag = False
+    if flag:
+      return True
+    if p == target:
+      return False
+    p = rotate(p)
+  raise SystemExit('wtf')
+
 
 def patternMatch(x, y):
   # TODO: Checks if two complexes are the same, assuming one has a history
