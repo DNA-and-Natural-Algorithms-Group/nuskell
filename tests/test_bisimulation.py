@@ -53,10 +53,8 @@ class BisimulationTests(unittest.TestCase):
       partial['A'] = c.Counter(A=1)
       partial['B'] = c.Counter(B=1)
 
-      # Since the interpretation maps species of eCRN to species of fCRN, I
-      # would prefer to have that order in the arguments.
-      self.assertTrue(bisimulation.test(ecrn, fcrn, iterpretation=partial, 
-            method='pspace', verbose=False))
+      self.assertTrue(bisimulation.test(fcrn, ecrn, iterpretation=partial, 
+              formal_species=None, method='pspace', verbose=False))
 
       # A function that does not say so, should not modify its arguments:
       argcheck = c.defaultdict(c.Counter)
