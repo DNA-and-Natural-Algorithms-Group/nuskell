@@ -150,9 +150,11 @@ class Domain(iupac_translator):
     if constraints and not subdomains :
       assert all(isinstance(c, str) for c in constraints)
       self._constraints = constraints
+      self._subdomains = None
     elif subdomains and not constraints :
       assert all(isinstance(d, Domain) for d in subdomains)
       self._subdomains = subdomains
+      self._constraints = None
     else:
       raise ValueError("Must pass one of 'constraints' or 'subdomains' \
           keyword argument.")
@@ -189,8 +191,7 @@ class Domain(iupac_translator):
     """Breaks down the domain into non-composite domains."""
     if self._constraints :
       return self._constraints
-    else :
-      return sum([d.base_sequence() for d in self._subdomains])
+    return list(''.join(map(lambda x: ''.join(x.base_sequence), self._subdomains)))
 
   def update_constraints(self, con):
     """ Unify new and old constraint """
@@ -235,6 +236,10 @@ class Domain(iupac_translator):
   def __eq__(self, other):
     # Needs to have the same ID
     if isinstance(other, Domain): 
+      if type(other) == ComplementDomain :
+        # NOTE: ComplementDomain is an instance of Domain, removing this line
+        # breaks a test case when the class is inherited elsewhere.
+        return False
       return self.id == other.id
     else :
       return False
