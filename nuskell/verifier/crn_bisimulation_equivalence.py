@@ -49,7 +49,10 @@ def printRxn(rxn):
 def output(intrp):
     for sp in intrp:
         print "   ",
-        printRxn([{sp: 1}, intrp[sp]])
+        k = sp
+        if k[0:4] == 'impl':
+            k = k[4:]
+        printRxn([{k: 1}, intrp[sp]])
     print
 
 def solve(a):
@@ -294,6 +297,11 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             s1 = s.keys()[0]
             for k in intrp:
                 if s1 in intrp[k]:
+                    if (s - intrp[k])[s1] >= s[s1]:
+                        print s, s1, k
+                        print intrp
+                        print intrp[k]
+                        assert False
                     for out in cnstr(s - intrp[k]):
                         yield Counter({k:1}) + out
 
@@ -303,7 +311,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         # fr is a particular formal reaction along with all implementation reactions that interpret to it. 
         # tr is the list of all trivial reactions in the implementation.
         # fail if depth d of trivial reaction steps is exceeded without firing a reaction in fr.
-        global f
+        global f, printing
         if d > permissive_depth:
             f = False
             return False
@@ -312,10 +320,10 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         else:
             hasht.add(list(s.elements()).sort()) 
         for i in fr:
-            if i[0] - s == []:
+            if (i[0] - s).keys() == []:
                 return True
         for i in tr:
-            if i[0] - s == []:
+            if (i[0] - s).keys() == []:
                 t = (s - i[0]) + i[1]
                 if search(t, d+1):
                     return True
@@ -497,7 +505,10 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             if T[j][i]:
                 fr.append(icrn[j])
 
-        if printing: print "Number of states:", len(list(cnstr(fcrn[i][0])))
+        if printing:
+            lstates = list(cnstr(fcrn[i][0]))
+            print "Number of states:", len(lstates)
+            print lstates
         ist = cnstr(fcrn[i][0])
 
         if permcheck == "whole":
@@ -523,7 +534,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         # Note that we will only want to test states in "ist" that interpret to a state in which #i can fire.
         
         tested = []  # to avoid testing a superset of some state that's already been tested
-        spaceefficient = False # ... but only if we have space to store them
+        spaceefficient = True # ... but only if we have space to store them
         for j in ist:
             tmp = interpret(j,intrp)
             if msleq(fcrn[i][0], tmp):  # only test if reactants j interpret to allow #i to fire
@@ -549,7 +560,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                         max_depth = -1
                     else:
                         max_depth = -2
-                    intr = list(intrp)
+                    intr = intrp.copy()
                     permissive_failure[0] = fcrn[i]
                     permissive_failure[1] = j
                     return False
@@ -645,6 +656,8 @@ def equations(fcrn, icrn, fs, intrp, permcheck):
                     itmp[isp][fsp] = s[j]
 
         if check:
+            for isp in ustmp:
+                itmp[isp] = itmp[isp] + Counter()
             out = perm(fcrn, icrn, fs, itmp, permcheck)
             if out:
                 return out
@@ -745,6 +758,8 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
         if tmp < min:
             min = tmp
             c = i
+    if debug:
+        print "Solving column", c
     if c < 0:  # done with column search.  transition to row search!
         untmp = []
         for i in range(len(icrn)):
@@ -758,15 +773,15 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
         n = 0
         for k in range(len(icrn)):
             if T[k][c]:
-                ul = icrn[k][0] - fcrn[c][0]
+                ul = sicrn[k][0] - fcrn[c][0]
                 kl = ul.keys()
                 nl = len(kl)
-                sl = fcrn[c][0] - icrn[k][0]
+                sl = fcrn[c][0] - sicrn[k][0]
                 tmpl = enum(nl, sl, ul.values())
-                ur = icrn[k][1] - fcrn[c][1]
+                ur = sicrn[k][1] - fcrn[c][1]
                 kr = ur.keys()
                 nr = len(kr)
-                sr = fcrn[c][1] - icrn[k][1]
+                sr = fcrn[c][1] - sicrn[k][1]
                 tmpr = enum(nr, sr, ur.values())
                 for i in tmpl:
                     intrpleft = dict(zip(kl, i))
@@ -787,6 +802,8 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
                         itmp = copy.deepcopy(intrp)
                         itmp.update(intrpleft)
                         itmp.update(intrpright)
+                        if debug:
+                            print itmp
                         if searchc(fcrn, icrn, fs, untmp, itmp, d+1, permcheck):
                             return True
     return False
@@ -799,6 +816,16 @@ def test(c1, c2, verbose = True, intrp = None, permcheck=False):
     fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
     (icrn, fs) = c2
     icrn = [[Counter(part) for part in rxn] for rxn in icrn]
+    icrn = copy.deepcopy(icrn)
+    for rxn in icrn:
+        for k in rxn[0]:
+            if k in fs:
+                v = rxn[0].pop(k)
+                rxn[0]['impl'+k] = v
+        for k in rxn[1]:
+            if k in fs:
+                v = rxn[1].pop(k)
+                rxn[1]['impl'+k] = v
     # maybe list->Counter conversion is temporary?
 
     if intrp is None: # default 1: no interpretation information
