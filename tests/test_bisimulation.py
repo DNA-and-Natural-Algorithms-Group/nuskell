@@ -48,6 +48,8 @@ class BisimulationTests(unittest.TestCase):
     old = True
     if old :
       self.assertTrue(bisimulation.test((fcrn,fs), (ecrn,fs), verbose=False))
+      self.assertTrue(bisimulation.test((fcrn,fs), (ecrn,fs), verbose=False, permcheck='pspace'))
+      self.assertTrue(bisimulation.test((fcrn,fs), (ecrn,fs), verbose=False, permcheck='whole'))
     else :
       partial = c.defaultdict(c.Counter)
       partial['A'] = c.Counter(A=1)

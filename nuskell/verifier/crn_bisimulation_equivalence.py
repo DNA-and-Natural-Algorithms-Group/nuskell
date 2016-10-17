@@ -388,7 +388,8 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
 
         if printing:
             print " Will search", nequiv, "states for", rounds, "rounds"
-        for part in map(Counter.keys,enum(len(nulls) + 1,nulls)):
+        for parti in enum(len(nulls) + 1,Counter(nulls)):
+            part = map(set,parti)
             if any([part[i] != [] and part[i+1] == [] \
                     for i in range(len(part) - 2)]):
                 continue # avoid redundancy
@@ -398,7 +399,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                 print " Using null species partition:", pickups
             check1 = True
             place = start
-            ignore = []
+            ignore = set()
             for pickup in pickups:
                 check2 = False
                 for base in cnstr(formal):
@@ -414,7 +415,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                     check1 = False
                     break
 
-                ignore.extend(pickup)
+                ignore |= pickup
 
             if check1 and midsearch(place,None,[],ignore,formal,rounds):
                 if printing:
