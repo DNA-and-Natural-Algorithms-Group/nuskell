@@ -44,6 +44,8 @@ class DomainObjectTest(unittest.TestCase):
     self.assertTrue(foo == ~bar, "foo is complement of bar")
     self.assertFalse(moo == ~bar, "moo is not complement of bar")
     self.assertFalse(foo == bar)
+    self.assertTrue(bar.is_ComplementDomain, "bar is complement")
+    self.assertFalse(foo.is_ComplementDomain, "foo is complement")
 
   def test_NusDomain(self):
     nus = objects.NusDomain(constraints=list('Y'*5), domaintag='toehold')
@@ -58,6 +60,8 @@ class DomainObjectTest(unittest.TestCase):
     self.assertTrue(nus == ~cus)
     # The following line revealed an unexpected bug.
     self.assertFalse(nus == ~mus)
+    self.assertTrue(cus.is_ComplementDomain, "cus is complement")
+    self.assertFalse(nus.is_ComplementDomain, "nus is complement")
 
   def test_domains_of_domains(self):
     d1aa = objects.Domain(constraints='N') 

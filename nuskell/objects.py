@@ -171,6 +171,10 @@ class Domain(iupac_translator):
       self.add_complements(complements)
 
   @property
+  def name(self):
+    return self._name
+
+  @property
   def length(self):
     return len(self.sequence)
 
@@ -206,7 +210,6 @@ class Domain(iupac_translator):
     return con
 
   def get_ComplementDomain(self, constraints=[], subdomains=[]):
-    #TODO: This ignores the 
     if not self._ComplementDomain :
       if constraints :
         if len(constraints) != len(self._constraints) :
@@ -220,6 +223,10 @@ class Domain(iupac_translator):
       self._ComplementDomain = ComplementDomain(self, 
           constraints=constraints, subdomains=subdomains)
     return self._ComplementDomain
+
+  @property
+  def is_ComplementDomain(self):
+    return self._name[-1:] == '*'
 
   # def add_complements(self, other):
   #   # TODO: Check if constraints or subdomains are really complementary!

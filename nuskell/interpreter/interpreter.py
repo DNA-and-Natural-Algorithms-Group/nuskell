@@ -11,7 +11,7 @@ import sys
 from copy import copy
 
 import nuskell.include.dnaobjects as DNAObjects
-from nuskell.interpreter.environment import NusDomain
+from nuskell.objects import NusDomain
 
 from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure
@@ -209,6 +209,23 @@ def post_process(fs_result, solution, cs_result={}):
   fs_list = []
   cs_list = []
 
+
+  def get_domain(x):
+      domain_name = str(x)
+      starred = False
+      if domain_name[-1] == "*":
+          domain_name = domain_name[:-1]
+          starred = True
+      for d in domains:
+          if d.name == domain_name:
+              if starred: return d.complement
+              return d
+      new_dom = DNAObjects.Domain(name = domain_name, 
+          constraints = 'N' * x.length)
+      domains.append(new_dom)
+      if starred: new_dom = new_dom.complement
+      return new_dom
+
   domains = []
 
   # list of (DNAObject.Strand) strands in the system, modified by get_strand
@@ -221,8 +238,10 @@ def post_process(fs_result, solution, cs_result={}):
     strands.append(new_strand)
     return new_strand
 
-  wildcard_domain = NusDomain(domaintag='wildcard', name = "?", 
-      constraints = 'N' * 15)
+  wildcard_domain = DNAObjects.Domain(name = "?", constraints = 'NN')
+  # NOTE: Temporary change back to DNAObjects.
+  #wildcard_domain = NusDomain(domaintag='wildcard', name = "?", 
+  #    constraints = list('N' * 15))
 
   # convert formal species
   for fs_name in fs_result:
@@ -240,15 +259,13 @@ def post_process(fs_result, solution, cs_result={}):
         continue
       if x == "?":
         x = wildcard_domain
-      elif x.is_complement or x in domains :
-        pass
       else :
-        x.name = str(x)
-        domains.append(x)
+        x = get_domain(x)
       strand.append(x)
 
     # remove the strand break that was added at the beginning
     structure = structure[:-1]
+
     fs_list.append(
         DNAObjects.Complex(name = fs_name, 
           strands = complex, structure = structure))
@@ -270,11 +287,8 @@ def post_process(fs_result, solution, cs_result={}):
         continue
       if x == "?":
         x = wildcard_domain
-      elif x.is_complement or x in domains :
-        pass
       else :
-        x.name = str(x)
-        domains.append(x)
+        x = get_domain(x)
       strand.append(x)
     # remove the strand break that was added at the beginning
     structure = structure[:-1]
