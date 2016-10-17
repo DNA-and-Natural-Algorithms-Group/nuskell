@@ -14,6 +14,7 @@ f = True
 max_depth = 0
 permissive_failure = [[[],[]],[]]
 printing = True
+debug = False
 
 def printRxn(rxn):
     first = True
@@ -191,6 +192,8 @@ def interpret(s, intrp):
             for i in range(v):
                 ss += intrp[k]
 
+    return ss
+
 def interleq(x, y, intrp):
     # True if m(x) <= m(y) with m given by interpretation intrp
     return msleq(interpret(x,intrp),interpret(y,intrp))
@@ -304,10 +307,10 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         if d > permissive_depth:
             f = False
             return False
-        if s.elements().sort() in hasht:
+        if list(s.elements()).sort() in hasht:
             return False
         else:
-            hasht.add(s.elements().sort()) 
+            hasht.add(list(s.elements()).sort()) 
         for i in fr:
             if i[0] - s == []:
                 return True
@@ -320,9 +323,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
 
     def midsearch(start, goal, pickup, ignore, formal, k):
         global printing
-#        if printing:
-#            print k*" " + "Midsearching from", start, "to", goal, \
-#                "at level", k
         # search for a path from start to goal (states of non-null species)
         #  which produces at least pickup null species
         #  assuming it already has infinite copies of everything in ignore
@@ -330,23 +330,15 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         # if goal is None, the goal is any reaction in fr
         if goal is not None:
             if ignore.issuperset(goal - start):
-#                if printing:
-#                    print k*" " + " Success, already there."
                 return True
             if not interleq(goal, start, intrp):
-#                if printing:
-#                    print k*" " + " Failure, non-equivalent states."
                 return False
 
         if k == 0:
             if goal is None:
                 for rx in fr:
                     if ignore.issuperset(rx[0] - start):
-#                        if printing:
-#                            print k*" " + " Success, reaction found."
                         return True
-#                if printing:
-#                    print k*" " + " Failure, no reaction exists."
                 return False
             
             for rx in tr:
@@ -355,8 +347,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                     #  is also an element of ignore (set)
                     # e.g. true on rx[0] - start = {|a,a,b|}, ignore = {a,b,c}
                     if msleq(goal, (start - rx[0]) + rx[1]):
-#                        if printing:
-#                            print k*" " + " Success, reaction found."
                         return True
 
         else:
@@ -367,12 +357,8 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                     if midsearch(start,mid,part[0],ignore,formal,k-1) \
                        and ((not interleq(start, mid, intrp)) or
                             midsearch(mid,goal,part[1],ignore,formal,k-1)):
-#                        if printing:
-#                            print k*" " + " Success, pathway found."
                         return True
 
-#        if printing:
-#            print k*" " + " Failure, no pathway found."
         return False
 
     def loopsearch(start, formal):
@@ -806,9 +792,9 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
     return False
 
 def test(c1, c2, verbose = True, intrp = None, permcheck=False):
-    global printing
+    global printing, debug
     global intr, max_depth, permissive_failure
-    printing = printing and verbose
+    printing = printing and (verbose or debug)
     (fcrn, _) = c1
     fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
     (icrn, fs) = c2
