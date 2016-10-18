@@ -45,23 +45,36 @@ class BisimulationTests(unittest.TestCase):
     (ecrn, w1, w2) = parse_crn_string(ecrn) 
     ecrn = split_reversible_reactions(ecrn)
 
-    old = True
+    old = False
     if old :
       self.assertTrue(bisimulation.test((fcrn,fs), (ecrn,fs), verbose=False))
       self.assertTrue(bisimulation.test((fcrn,fs), (ecrn,fs), verbose=False, permcheck='pspace'))
       self.assertTrue(bisimulation.test((fcrn,fs), (ecrn,fs), verbose=False, permcheck='whole'))
     else :
-      partial = c.defaultdict(c.Counter)
+      partial = dict()
       partial['A'] = c.Counter(A=1)
       partial['B'] = c.Counter(B=1)
 
+      fcrn = [[c.Counter(part) for part in rxn] for rxn in fcrn]
+      ecrn = [[c.Counter(part) for part in rxn] for rxn in ecrn]
+
       # Since the interpretation maps species of eCRN to species of fCRN, I
       # would prefer to have that order in the arguments.
-      self.assertTrue(bisimulation.test(ecrn, fcrn, iterpretation=partial, 
-            method='pspace', verbose=False))
+      out = bisimulation.test(fcrn, ecrn, fs,
+            interpretation=partial, permissive='loop-search',
+                              verbose=False)
+      self.assertTrue(out[0])
+      out = bisimulation.test(fcrn, ecrn, fs,
+            interpretation=partial, permissive='whole-graph',
+            verbose=False)
+      self.assertTrue(out[0])
+      out = bisimulation.test(fcrn, ecrn, fs,
+            interpretation=partial, permissive='depth-first',
+                              permissive_depth=8, verbose=False)
+      self.assertTrue(out[0])
 
       # A function that does not say so, should not modify its arguments:
-      argcheck = c.defaultdict(c.Counter)
+      argcheck = dict()
       argcheck['A'] = c.Counter(A=1)
       argcheck['B'] = c.Counter(B=1)
       self.assertDictEqual(partial, argcheck)

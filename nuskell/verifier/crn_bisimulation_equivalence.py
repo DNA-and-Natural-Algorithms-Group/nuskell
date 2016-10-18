@@ -1,19 +1,13 @@
 # crn_bisimulation_equivalence.py written by Qing Dong <dong.qing.nju@gmail.com>
 
 #from sets import Set
-import itertools, time, basis_finder, string, copy
+import itertools, time, basis_finder, string, copy, math
 # python's collections.Counter is a data type for multisets,
 #  such as states of a CRN or interpretations
 from collections import Counter
 
-permissive_depth = 8
-midsearchDepth = 3
-calcMidDepth = True
-intr = {}
 f = True
-max_depth = 0
-permissive_failure = [[[],[]],[]]
-printing = True
+printing = False
 debug = False
 
 def printRxn(rxn):
@@ -266,16 +260,22 @@ def update(fcrn, icrn, fs):
         r.append(rr)
     return r
 
-def perm(fcrn, icrn, fs, intrp, permcheck):
+def perm(fcrn, icrn, fs, intrp, permcheck, state):
 # check the permissive condition, using the global original formal crn and original implementation crn (without substitutions).
-    global intr, f, permissive_depth, max_depth, permissive_failure
-    global midsearchDepth, printing, calcMidDepth
+    if len(permcheck) == 2:
+        permissive_depth = permcheck[1]
+        permcheck = permcheck[0]
+    else:
+        permissive_depth = None
+    intr, max_depth, permissive_failure = state
+    global printing
     tr = []
     fr = []
     hasht = set([])
-    f = True
     crn2 = subst(icrn, intrp)
     T = update(fcrn, crn2, fs)
+    if not checkT(T):
+        return [False, state]
     nulls = [k for k in intrp if not intrp[k].keys()] # null species
     now = time.clock()
 
@@ -311,23 +311,26 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         # fr is a particular formal reaction along with all implementation reactions that interpret to it. 
         # tr is the list of all trivial reactions in the implementation.
         # fail if depth d of trivial reaction steps is exceeded without firing a reaction in fr.
-        global f, printing
-        if d > permissive_depth:
-            f = False
-            return False
-        if list(s.elements()).sort() in hasht:
+        global printing
+        if permissive_depth and d > permissive_depth:
+            return None
+        if "@@@".join(sorted(s.elements())) in hasht:
             return False
         else:
-            hasht.add(list(s.elements()).sort()) 
+            hasht.add("@@@".join(sorted(s.elements())))
         for i in fr:
             if (i[0] - s).keys() == []:
                 return True
+        ret = False
         for i in tr:
             if (i[0] - s).keys() == []:
                 t = (s - i[0]) + i[1]
-                if search(t, d+1):
+                out = search(t, d+1)
+                if out:
                     return True
-        return False
+                elif out is None:
+                    ret = None
+        return ret
 
     def midsearch(start, goal, pickup, ignore, formal, k):
         global printing
@@ -360,11 +363,12 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         else:
             if midsearch(start,goal,pickup,ignore,formal,k-1):
                 return True
-            for part in enum(2,pickup):
+            for part in subsets(Counter(pickup)):
                 for mid in cnstr(formal):
-                    if midsearch(start,mid,part[0],ignore,formal,k-1) \
+                    if midsearch(start,mid,set(part),ignore,formal,k-1) \
                        and ((not interleq(start, mid, intrp)) or
-                            midsearch(mid,goal,part[1],ignore,formal,k-1)):
+                            midsearch(mid,goal,pickup-set(part),ignore,
+                                      formal,k-1)):
                         return True
 
         return False
@@ -375,8 +379,9 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             print "Loop-searching from", start
             print " to any of", fr
         # search for a path from start to any reaction in fr
-        rounds = midsearchDepth
-        if calcMidDepth:
+        if permissive_depth:
+            rounds = math.ceil(math.log(permissive_depth, 2))
+        else:
             nequiv = 0
             rounds = 0
             roundequiv = 1
@@ -390,7 +395,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             print " Will search", nequiv, "states for", rounds, "rounds"
         for parti in enum(len(nulls) + 1,Counter(nulls)):
             part = map(set,parti)
-            if any([part[i] != [] and part[i+1] == [] \
+            if any([part[i] != set() and part[i+1] == set() \
                     for i in range(len(part) - 2)]):
                 continue # avoid redundancy
 
@@ -403,7 +408,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             for pickup in pickups:
                 check2 = False
                 for base in cnstr(formal):
-                    if midsearch(place,base,[],ignore,formal,rounds):
+                    if midsearch(place,base,set(),ignore,formal,rounds):
                         if not interleq(place,base,intrp):
                             return True
                         elif midsearch(base,base,pickup,ignore,formal,rounds):
@@ -417,15 +422,14 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
 
                 ignore |= pickup
 
-            if check1 and midsearch(place,None,[],ignore,formal,rounds):
+            if check1 and midsearch(place,None,set(),ignore,formal,rounds):
                 if printing:
                     print " Search success."
                 return True
 
-        f = False
         if printing:
             print " Search failure."
-        return False
+        return False if not permissive_depth else None
 
     def allsearch(formal):
         # check at once whether every implementation of state "formal"
@@ -444,9 +448,13 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
         for i in rngl:
             points[i][2] = l*[False]
 
+        if permissive_depth:
+            d = 0
         changed = True
-        while changed:
+        while changed and ((not permissive_depth) or d < permissive_depth):
             changed = False
+            if permissive_depth:
+                d = d + 1
             for i in rngl:
                 if points[i][2] is not True:
                     for rx in fr:
@@ -489,6 +497,8 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                         if points[i][2] is True:
                             break
 
+        if permissive_depth and changed:
+            return None
         return all([p[2] is True for p in points])
     
     n = 0
@@ -512,21 +522,22 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             print lstates
         ist = cnstr(fcrn[i][0])
 
-        if permcheck == "whole":
-            if not allsearch(fcrn[i][0]):
+        if permcheck == "whole-graph":
+            out = allsearch(fcrn[i][0])
+            if not out:
                 if printing:
                     watch = time.clock()
                     print "Permissive test failed in time", watch - now
                 if max_depth == -2:
-                    return False
-                if f == True:   # global variable saying whether permissive has been tried or not
+                    return [False, [intr, max_depth, permissive_failure]]
+                if out is False: # proven unreachable
                     max_depth = -1
-                else:
+                else: # arbitrarily specified max search depth reached
                     max_depth = -2
-                intr = intrp.copy()
+                intr = copy.deepcopy(intrp)
                 permissive_failure[0] = fcrn[i]
                 permissive_failure[1] = ["Somewhere"]
-                return False
+                return [False, [intr, max_depth, permissive_failure]]
 
             continue
         
@@ -541,6 +552,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
             if msleq(fcrn[i][0], tmp):  # only test if reactants j interpret to allow #i to fire
                 t = False
                 for k in tested:
+                    # will be a 0-length loop if spaceefficient
                     if msleq(k, j):
                         t = True
                         if printing: print "State", j, "is a superset of", k
@@ -548,23 +560,24 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
                 if t:
                     continue
                 hasht = set([])
-                found = ((permcheck=="pspace") and loopsearch(j,fcrn[i][0])) \
-                        or ((not permcheck) and search(j,0))
+                found = ((permcheck=="loop-search") \
+                         and loopsearch(j,fcrn[i][0])) \
+                        or ((permcheck=="depth-first") and search(j,0))
                 if not found: # didn't work, but keep track of stuff for user output
                     if printing:
                         watch = time.clock()
                         print "Permissive test failed in time", watch - now
                     printing = False
                     if max_depth == -2:
-                        return False
-                    if f == True:   # global variable saying whether permissive has been tried or not
+                        return [False, [intr, max_depth, permissive_failure]]
+                    if found is False: # reaction proven unreachable
                         max_depth = -1
-                    else:
+                    else: # arbitrarily specified max search depth reached
                         max_depth = -2
                     intr = intrp.copy()
                     permissive_failure[0] = fcrn[i]
                     permissive_failure[1] = j
-                    return False
+                    return [False, [intr, max_depth, permissive_failure]]
                 elif not spaceefficient:
                     tested.append(j)
             elif printing:
@@ -573,9 +586,9 @@ def perm(fcrn, icrn, fs, intrp, permcheck):
     if printing:
         watch = time.clock()
         print "Permissive test succeeded in time", watch - now
-    return True
+    return [True, intr]
 
-def equations(fcrn, icrn, fs, intrp, permcheck):
+def equations(fcrn, icrn, fs, intrp, permcheck, state):
     # All unknown implementation reactions (i.e. those with some unknown species) must be trivial.
     # Build the matrix for the the "solve" function, to see whether the interpretation can be completed as required.
     # Also note that "unknow" is not used; the unknown species are recalculated here
@@ -621,10 +634,11 @@ def equations(fcrn, icrn, fs, intrp, permcheck):
 
         ustmp = [sp for sp in us if sp not in assign]
         if not ustmp:
-            out = perm(fcrn, icrn, fs, itmp, permcheck)
-            if out:
+            out = perm(fcrn, icrn, fs, itmp, permcheck, state)
+            if out[0]:
                 return out
             else:
+                state = out[1]
                 continue
 
         n = 0
@@ -633,8 +647,8 @@ def equations(fcrn, icrn, fs, intrp, permcheck):
             a.append([])
             for j in ustmp:
                 a[n].append(sicrntmp[i][0][j]-sicrntmp[i][1][j])
-                a[n].append(0)
 
+            a[n].append(0)
             n += 1
 
         for isp in ustmp:
@@ -653,29 +667,40 @@ def equations(fcrn, icrn, fs, intrp, permcheck):
                 check = False
                 break
             else:
-                for isp in us:
-                    itmp[isp][fsp] = s[j]
+                for j in range(len(ustmp)):
+                    itmp[ustmp[j]][fsp] = s[j]
 
         if check:
             for isp in ustmp:
                 itmp[isp] = itmp[isp] + Counter()
-            out = perm(fcrn, icrn, fs, itmp, permcheck)
-            if out:
+            out = perm(fcrn, icrn, fs, itmp, permcheck, state)
+            if out[0]:
                 return out
             else:
+                state = out[1]
                 continue
 
-    return False
+    return [False, state]
 
-def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, nontriv=False):
+def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
 # Row search.  I.e. make sure every implementation reaction can interpret to a formal reaction (or be trivial).
-    global max_depth, intr
-    if unknown == []:
-        return perm(fcrn, icrn, fs, intrp, permcheck)
+    intr, max_depth = state[0:2]
     sicrn = subst(icrn, intrp)
     T = update(fcrn, sicrn, fs)
     if not checkT(T):
-        return False
+        # delimiting condition is not satisfied
+        return [False, state]
+    if unknown == []:
+        for fsp in fs:
+            checkFs = False
+            for isp in intrp:
+                if intrp[isp] and not intrp[isp] - Counter([isp]):
+                    checkFs = True
+                    break
+            if not checkFs:
+                # atomic condition is not satisfied
+                return [False, state]
+        return perm(fcrn, icrn, fs, intrp, permcheck, state)
     if max_depth >= 0 and d > max_depth:
         intr = copy.deepcopy(intrp)
         max_depth = d
@@ -691,19 +716,28 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, nontriv=False):
             min = tmp
             k = i
     if nt == len(unknown) and not nontriv:  # all unsearched rows could be trivial -- try it!
-        if equations(fcrn, icrn, fs, intrp, permcheck):
-            return True
+        out = equations(fcrn, icrn, fs, intrp, permcheck,
+                        [intr, max_depth] + state[2:])
+        if out[0]:
+            return out
         else:
             # if we just tried equations and it didn't work, then we
             #  shouldn't try again unless something changes
             nontriv = True
+            state = out[1]
+            intr, max_depth = state[0:2]
     if k < 0:
-        return False
+        return [False, [intr, max_depth] + state[2:]]
     untmp = list(unknown)
     untmp.remove(k)
     if T[k][-1] == True:  # if implementation reaction #k can be trivial, leave it that way and try more rows
-        if searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck, nontriv):
-            return True
+        out = searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck,
+                      [intr, max_depth] + state[2:], nontriv)
+        if out[0]:
+            return out
+        else:
+            state = out[1]
+            intr, max_depth = state[0:2]
     n = 0
     for c in range(len(fcrn)): # try to match implementation reaction #k with some formal reaction
         if T[k][c]:        
@@ -735,17 +769,22 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, nontriv=False):
                     itmp = copy.deepcopy(intrp)
                     itmp.update(intrpleft)
                     itmp.update(intrpright)
-                    if searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck):
-                        return True
-    return False
+                    out = searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck,
+                                  [intr, max_depth] + state[2:])
+                    if out[0]:
+                        return out
+                    else:
+                        state = out[1]
+                        intr, max_depth = state[0:2]
+    return [False, [intr, max_depth] + state[2:]]
 
-def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
+def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
     # Search column.  I.e. make sure every formal reaction can be implemented.
-    global max_depth, intr
+    intr, max_depth = state[0:2]
     sicrn = subst(icrn, intrp)
     T = update(fcrn, sicrn, fs)
     if not checkT(T):
-        return False
+        return [False, state]
     if max_depth >= 0 and d > max_depth:
         intr = copy.deepcopy(intrp)
         max_depth = d
@@ -759,15 +798,14 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
         if tmp < min:
             min = tmp
             c = i
-    if debug:
-        print "Solving column", c
     if c < 0:  # done with column search.  transition to row search!
         untmp = []
         for i in range(len(icrn)):
             if not (set(sicrn[i][0])-set(fs) == set([]) and \
                     set(sicrn[i][1])-set(fs) == set([])):
                 untmp.append(i)
-        return searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck)
+        return searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck,
+                       [intr, max_depth] + state[2:])
     else:
         untmp = list(unknown)
         untmp.remove(c)
@@ -803,21 +841,20 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck):
                         itmp = copy.deepcopy(intrp)
                         itmp.update(intrpleft)
                         itmp.update(intrpright)
-                        if debug:
-                            print itmp
-                        if searchc(fcrn, icrn, fs, untmp, itmp, d+1, permcheck):
-                            return True
-    return False
+                        out = searchc(fcrn, icrn, fs, untmp, itmp, d+1,
+                                      permcheck, [intr, max_depth] + state[2:])
+                        if out[0]:
+                            return out
+                        else:
+                            state = out[1]
+                            intr, max_depth = state[0:2]
+    return [False, [intr, max_depth] + state[2:]]
 
-def test(c1, c2, verbose = True, intrp = None, permcheck=False):
+def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
+         permissive_depth=None, verbose=False):
     global printing, debug
-    global intr, max_depth, permissive_failure
     printing = printing and (verbose or debug)
-    (fcrn, _) = c1
-    fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
-    (icrn, fs) = c2
-    icrn = [[Counter(part) for part in rxn] for rxn in icrn]
-    icrn = copy.deepcopy(icrn)
+    icrn = copy.deepcopy(ic)
     for rxn in icrn:
         for k in rxn[0]:
             if k in fs:
@@ -827,13 +864,23 @@ def test(c1, c2, verbose = True, intrp = None, permcheck=False):
             if k in fs:
                 v = rxn[1].pop(k)
                 rxn[1]['impl'+k] = v
-    # maybe list->Counter conversion is temporary?
 
-    if intrp is None: # default 1: no interpretation information
+    if interpretation is None: # default 1: no interpretation information
         intrp = {}
-    elif intrp is True: # default 2: each fsp has a canonical implementation
-        intrp = {fsp: Counter({fsp: 1}) for fsp in fs
-                 if any([fsp in rxn[0] or fsp in rxn[1] for rxn in icrn])}
+    elif interpretation is True: # default 2: each fsp has a canonical implementation
+        intrp = {'impl'+fsp: Counter({fsp: 1}) for fsp in fs
+                 if any(['impl'+fsp in rxn[0] or 'impl'+fsp in rxn[1]
+                         for rxn in icrn])}
+    else:
+        intrp = {}
+        for isp in interpretation:
+            if isp in fs:
+                intrp['impl'+isp] = interpretation[isp]
+            else:
+                intrp[isp] = interpretation[isp]
+
+    if permissive_depth:
+        permissive = [permissive, permissive_depth]
 
     if verbose:
         print "Original CRN:"
@@ -841,25 +888,26 @@ def test(c1, c2, verbose = True, intrp = None, permcheck=False):
             print "   ",
             printRxn(rxn)
             print
-        if icrn == []:
+        if ic == []:
             print "Compiled CRN is empty"
             print
             return fcrn == []
         print "Compiled CRN:"
-        for rxn in icrn:
+        for rxn in ic:
             print "   ",
             printRxn(rxn)
         print
-    elif icrn == []:
+    elif ic == []:
         return fcrn == []
     unknown = [i for i in range(len(fcrn))]
-    if searchc(fcrn, icrn, fs, unknown, intrp, 0, permcheck):
-        if verbose:
+    out = searchc(fcrn, icrn, fs, unknown, intrp, 0, permissive,
+                  [{}, 0, [[Counter(),Counter()],Counter()]])
+    if verbose:
+        if out[0]:
             print "Valid interpretation :"
-            output(intr)
-        return True
-    else:
-        if verbose:
+            output(out[1])
+        else:
+            intr, max_depth, permissive_failure = out[1]
             if max_depth >= 0:
                 print "Delimiting condition cannot be satisfied."
                 if max_depth >= len(fcrn):
@@ -870,15 +918,16 @@ def test(c1, c2, verbose = True, intrp = None, permcheck=False):
                 print "with interpretation :"
                 output(intr)
             else:
-                print "Fail in permissive test with interpretation :"
+                print "Fail in permissive test with interpretation:"
                 output(intr)
-                print "at formal reaction :",
+                print "for formal reaction:",
                 printRxn(permissive_failure[0])
-                print "on implementation status :", permissive_failure[1]
+                print "from implementation state:", permissive_failure[1]
                 if max_depth == -2:
                     print "with max trivial reaction chain length", permissive_depth, "reached."
             print
-        return False
+
+    return out
 
 if __name__ == "__main__":
     # The name of the program
@@ -889,8 +938,8 @@ if __name__ == "__main__":
     icrn = [[['a1'],['b1']],[['x'],['a1']],[['x'],['b1']],[['y'],['b1']],[['y'],['a1']],[['x'],['a0']],[['a0'],['a1']]]
     fs2 = ['a','b']
     cs2 = []
-    v = test((fcrn, fs1), (icrn, fs2))
-    if v:
+    v = test(fcrn, icrn, fs2)
+    if v[0]:
         print "verify: compilation was correct."
     else:
         print "verify: compilation was incorrect."
