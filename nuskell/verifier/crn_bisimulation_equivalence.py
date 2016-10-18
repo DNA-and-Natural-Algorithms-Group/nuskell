@@ -852,6 +852,35 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
 
 def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
          permissive_depth=None, verbose=False):
+    '''Check whether an interpretation which is a bisimulation exists.
+
+    Arguments:
+    fcrn, ic: formal and implementation CRN, respectively (Counter format)
+      format: [ [reactants, products]* ]
+        reactants, products each = Counter({('species_name': count)*})
+    fs: list of all formal species in fcrn
+    interpretation: partial interpretation which output must respect
+      format: {('implementation_species_name': formal_multiset)*}
+        where formal_multiset := Counter({('formal_species_name': count)*})
+      default None: initial partial interpretation is empty
+      semi-default True: function will find each formal species for which a species of the same name appears in ic, and set the initial partial interpretation of that implementation species to one copy of its counterpart
+    permissive: method to check the permissive condition
+      'whole-graph': construct a reachability graph for each formal reaction.  Uses poly(n^k) space and time, where n is size of CRN and k is number of reactants in formal reaction.
+      'loop-search': search for productive loops with space-efficient algorithm.  Uses poly(n,k) space and poly(2^n,2^k) time.
+      'depth-first': depth-first search for a path to implement each formal reaction.  Space and time bounds not known, but probably worse.
+    permissive_depth: a bound on a quantity which is approximately the length of a path to search for, depending on which algorithm is used.
+
+    Outputs:
+    if implementation is correct, return [True, intrp]
+    otherwise, return [False, [intrp, max_depth, permissive_failure]]
+      intrp: correct interpretation or "best" incorrect interpretation
+      max_depth: if > 0, search depth in Qing's algorithm at which intrp was found
+                 if -1, permissive condition was proven false for intrp
+                 if -2, permissive condition could not be proven true for intrp with specified permissive_depth
+      permissive_failure: if max_depth < 0, permissive_failure[0] is formal reaction for which permissive condition failed
+                          if so and method was not 'whole-graph', permissive_failure[1] is implementation state which could not implement the reaction
+    '''
+
     global printing, debug
     printing = printing and (verbose or debug)
     icrn = copy.deepcopy(ic)
