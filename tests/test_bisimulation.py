@@ -79,3 +79,35 @@ class BisimulationTests(unittest.TestCase):
       argcheck['B'] = c.Counter(B=1)
       self.assertDictEqual(partial, argcheck)
 
+  def test_example(self):
+    '''A simple example of finding a bisimulation from group meeting.'''
+
+    fcrn = "A + B -> C + D ; A + C -> B + D"
+    icrn = "x1 -> x2 ; x3 + x4 <=> x5 ; x2 -> x6 + x8 ; x5 -> x7 ; " + \
+           "x3 <=> x6 ; x9 <=> x10 ; x10 + x4 <=> x1 ; x7 -> x9 + x8"
+
+    (fcrn, fs, _) = parse_crn_string(fcrn)
+    fcrn = split_reversible_reactions(fcrn)
+    fcrn = [[c.Counter(part) for part in rxn] for rxn in fcrn]
+
+    (icrn, _, _) = parse_crn_string(icrn)
+    icrn = split_reversible_reactions(icrn)
+    icrn = [[c.Counter(part) for part in rxn] for rxn in icrn]
+
+    out = bisimulation.test(fcrn, icrn, fs)
+    self.assertTrue(out[0])
+
+    partial = dict()
+    partial['x2'] = c.Counter(['B','D'])
+    partial['x3'] = c.Counter(['C'])
+
+    out = bisimulation.test(fcrn, icrn, fs, interpretation=partial,
+                            permissive='loop-search', verbose=False)
+    self.assertTrue(not out[0])
+    self.assertTrue(out[1][1] >= 0)
+
+    del partial['x3']
+
+    out = bisimulation.test(fcrn, icrn, fs, permissive='loop-search',
+                            interpretation=partial, verbose=False)
+    self.assertTrue(out[0])

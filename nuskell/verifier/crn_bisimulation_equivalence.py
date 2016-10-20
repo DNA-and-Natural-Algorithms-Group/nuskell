@@ -49,7 +49,7 @@ def output(intrp):
         printRxn([{k: 1}, intrp[sp]])
     print
 
-def solve(a):
+def solve_contejean_devie(a):
 # Find a non-negative and non-trivial integer solution x of the equation ax=0.
 # Return [] when there is no such solution.
 # (This is the algorithm from Contejean & Devie 1994.
@@ -109,6 +109,23 @@ def solve(a):
                         frozen.append(list(f))
                         f[i] = True
     return []
+
+def solve_domenjoud(a):
+    # find a non-negative non-zero integer solution x for ax = 0
+    # algorithm from Domenjoud
+    # where len(a) = m, len(a[i]) = n+1, require x[n] == 1
+    #  (since we're actually solving for a[:,:-1] x = b, and a[:,-1] = b)
+    m = len(a)
+    n = len(a[0])
+    rank = min(m,n)
+    for comb in itertools.combinations(xrange(n), rank):
+        #
+        asub = [[row[j] for j in comb] for row in a]
+        
+
+def solve(a):
+    # wrapper method to solve a system of equations with method of choice
+    return solve_contejean_devie(a)
 
 # multiset difference is collections.Counter's '-' operator
 # note: NOT collections.Counter's 'subtract' function
@@ -194,7 +211,7 @@ def interpret(s, intrp):
 def interleq(x, y, intrp):
     # True if m(x) <= m(y) with m given by interpretation intrp
     return msleq(interpret(x,intrp),interpret(y,intrp))
-       
+
 def subst(crn, intrp):
 # Substitute implementation species for formal species in CRN according to interpretation.
     return [[interpret(j,intrp) for j in rxn] for rxn in crn]
@@ -659,7 +676,7 @@ def equations(fcrn, icrn, fs, intrp, permcheck, state):
             n = 0
             for j in unknown:
                 a[n].pop()
-                a[n].append(sicrn[j][0][fsp]-sicrn[j][1][fsp])
+                a[n].append(sicrntmp[j][0][fsp]-sicrntmp[j][1][fsp])
                 n += 1
 
             s = solve(a)
