@@ -5,6 +5,7 @@ from nuskell.parser import parse_crn_string, parse_dom_file
 from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
+from collections import Counter
 
 def find(l, key):
   for i in range(len(l)):
@@ -216,15 +217,23 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
       complexes, # need these! (cs = complexes - input_fs)
       slow_cplxs)
 
+  fcrn = [[Counter(part) for part in rxn] for rxn in irrev_crn]
+  ecrn = [[Counter(part) for part in rxn] for rxn in enum_crn]
+
+  # Passing on a partial interpretation for bisimulation will be enabled when
+  # the verify_cleanup branch gets merged
+
   if method == 'bisimulation':
-    return crn_bisimulation_equivalence.test(
-        (irrev_crn, input_fs), (enum_crn, input_fs), verbose, True)
+    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+        permissive='whole-graph', verbose=True) # interpretation = ...
+
   elif method == 'bisim-loopsearch':
-    return crn_bisimulation_equivalence.test(
-      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, True, 'pspace')
-  elif method == 'bisim-wholegraph':
-    return crn_bisimulation_equivalence.test(
-      (irrev_crn, input_fs), (enum_crn, input_fs), verbose, True, 'whole')
+    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+        permissive='loop-search', verbose=True) # interpretation = ...
+
+  elif method == 'bisim-depthfirst':
+    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+        permissive='depth-first', verbose=True) # interpretation = ...
 
   elif method == 'pathway':
     return crn_pathway_equivalence.test(
