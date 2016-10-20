@@ -7,15 +7,8 @@ from nuskell.parser import parse_crn_file
 import nuskell.verifier.verifier as verifier
 
 class VerificationPreprocessingTests(unittest.TestCase):
-  #"""Bisimulation Testing Class:
+  #Tests the processing of enumerated CRNs prior to verification.
 
-  #Compares *formal* CRNs with *enumerated* CRNs.
-
-  #Note: Translation and enumeration are not part of this testing class. The
-  #      correct translation/enumeration has to be checked elsewhere! It is not
-  #      necessary to refer to translation schemes here at all, but it does make
-  #      sense for reproducability.
-  #"""
   def setUp(self):
     # preprocessing for unittesting
     pass 
@@ -25,10 +18,9 @@ class VerificationPreprocessingTests(unittest.TestCase):
     pass
 
   def test_rotate(self):
-    """Test the patterMatch function
-    """
+    pass
 
-  def test_patternMatch(self):
+  def dont_test_patternMatch(self):
     """Test the patterMatch function
     """
     x = [['?', ['t0'], ['d2']], ['.', '.', '.']]

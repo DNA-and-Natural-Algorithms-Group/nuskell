@@ -21,7 +21,7 @@ together with the input CRN.
 """
 
 import sys
-from nuskell.objects import NusDomain
+from nuskell.objects import Domain
 from copy import copy
 
 class RuntimeError(Exception):
@@ -333,11 +333,11 @@ class builtin_functions(object):
       kwargs['len'] = self._long_domain_length
 
     # Nuskell Defaults: 
-    tag = kwargs['tag'] if 'tag' in kwargs else 'branch-migration'
+    tag = kwargs['tag'] if 'tag' in kwargs else 'd'
     uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
     lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    upper = NusDomain(constraints = list(uppercon), domaintag=tag)
+    upper = Domain(constraints = list(uppercon), prefix=tag)
     lower = upper.get_ComplementDomain(constraints = list(lowercon))
     return upper
 
@@ -359,11 +359,11 @@ class builtin_functions(object):
       kwargs['len'] = self._short_domain_length
 
     # Nuskell Defaults: 
-    tag = kwargs['tag'] if 'tag' in kwargs else 'toehold'
+    tag = kwargs['tag'] if 'tag' in kwargs else 't'
     uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
     lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    upper = NusDomain(constraints = list(uppercon), domaintag=tag)
+    upper = Domain(constraints = list(uppercon), prefix=tag)
     lower = upper.get_ComplementDomain(constraints = list(lowercon))
     return upper
 
@@ -449,7 +449,7 @@ class builtin_functions(object):
       # args[0] forces us to introduce additional lists ...
       for i in range(len(x)) : x[i] = [x[i]]
       return reversed(map(self._complement, x))
-    elif isinstance(x, NusDomain):
+    elif isinstance(x, Domain):
       print 'Untested:', ~x
       return ~x
     elif isinstance(x, Structure):
@@ -560,7 +560,7 @@ class Environment(builtin_expressions):
       An updated environment inclding the function binding in the top-level.
     """
 
-    bindings = (Function, Solution, Species, NusDomain, Reaction, Structure, 
+    bindings = (Function, Solution, Species, Domain, Reaction, Structure, 
         void, int, list)
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)

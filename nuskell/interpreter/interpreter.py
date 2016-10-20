@@ -11,7 +11,7 @@ import sys
 from copy import copy
 
 import nuskell.include.dnaobjects as DNAObjects
-from nuskell.objects import NusDomain
+#from nuskell.objects import Domain
 
 from nuskell.parser import parse_ts_string
 from nuskell.interpreter.environment import Environment, Structure

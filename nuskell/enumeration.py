@@ -5,6 +5,9 @@ import nuskell.include.peppercorn.input as pepin
 import nuskell.include.peppercorn.output as pepout
 import nuskell.include.peppercorn.reactions as reactions
 
+from nuskell.objects import Domain, Complex, TestTube
+
+
 # Once peppercorn is its own package, we import it as depencency.
 # try :
 #   import peppercorn
@@ -47,44 +50,68 @@ def get_enum_data(args, enum):
       enum_crn.append(react)
 
   # Extraction of complexes in the implementation CRN:
-  init_cplxs = []
+  # Very specific to the output of Nuskell!
+  init_cplxs = TestTube()
   for cx in enum.initial_complexes :
     cxs = []
     for sd in cx.strands:
       cxs.append('+')
-      for ds in map(str, sd.domains):
-        if ds == 'dummy' : 
-          cxs.append('?')
-        elif ds[-1] == '*':
-          cxs.append([ds[:-1], '*'])
-        else:
-          cxs.append([ds])
+      for ds in sd.domains:
+        seq = ds.sequence
+        if ds.name == 'dummy':
+          dname = '?'
+        elif ds.name[-1]=='*':
+          dname = ds.name[:-1] + 'p' + '*'
+        else :
+          dname = ds.name + 'p'
+
+        if dname[0] == 't':
+          if seq == None: seq = 'N' * 5
+          init_cplxs.add_domain_by_name(dname, list(seq))
+        elif dname[0] == 'd' or dname[0] == '?':
+          if seq == None: seq = 'N' * 15
+          init_cplxs.add_domain_by_name(dname, list(seq))
+        else :
+          print ds, ds.name, ds.sequence
+          raise NotImplementedError
+        cxs.append(dname)
     # remove the first '+' again
     if len(cxs)>0: cxs = cxs[1:]
-    cx = [cx.name, cxs, list(cx.dot_paren_string())]
-    init_cplxs.append(cx)
+    cname = cx.name +'p' if cx.name[-1].isdigit() else cx.name
+    init_cplxs.add_complex_by_name(cname, cxs, list(cx.dot_paren_string()))
 
   # Extraction of complexes in the enumerated CRN:
-  slow_cplxs = []
+  slow_cplxs = TestTube()
   for rs in enum.resting_states:
     name = str(rs)
     for cx in rs.complexes:
       cxs = []
       for sd in cx.strands:
         cxs.append('+')
-        for ds in map(str, sd.domains):
-          if ds[-1] == '*':
-            cxs.append([ds[:-1], '*'])
-          else:
-            cxs.append([ds])
+        for ds in sd.domains:
+          seq = ds.sequence
+          if ds.name == 'dummy':
+            dname = '?'
+          elif ds.name[-1]=='*':
+            dname = ds.name[:-1] + 'p' + '*'
+          else :
+            dname = ds.name + 'p'
+
+          if dname[0] == 't':
+            if seq == None: seq = 'N' * 5
+            slow_cplxs.add_domain_by_name(dname, list(seq))
+          elif dname[0] == 'd' or dname[0] == '?':
+            if seq == None: seq = 'N' * 15
+            slow_cplxs.add_domain_by_name(dname, list(seq))
+          else :
+            print ds, ds.name, ds.sequence
+            raise NotImplementedError
+          cxs.append(dname)
+
       # remove the first '+' again
       if len(cxs)>0: cxs = cxs[1:]
-      cx = [name, cxs, list(cx.dot_paren_string())]
-      slow_cplxs.append(cx)
-
-  # Alternative way to parse the dom-file for implementation complexes
-  #dom = parse_dom_file(domfile)
-  #cplxs = dom[1] if len(dom)==2 else dom[0] # else: no sequence information
+      cname = cx.name +'p' if cx.name[-1].isdigit() else cx.name
+      slow_cplxs.add_complex_by_name(cname, cxs, list(cx.dot_paren_string()))
   return enum_crn, init_cplxs, slow_cplxs
 
 def set_enumargs(enum, args):
