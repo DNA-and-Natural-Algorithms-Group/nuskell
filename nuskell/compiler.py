@@ -18,7 +18,7 @@ from nuskell.verifier.verifier import verify
 
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
-def translate(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15):
+def translate(input_crn, ts_file, pilfile=None, domfile=None):
   """A formal chemical reaction network (CRN) is translated into domain level
   representation (DOM) of a DNA strand displacement circuit (DSD).  The
   translation-scheme has to be formulated using the nuskell programming
@@ -42,7 +42,7 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, sdlen=6, ldlen=15)
   (crn, formal_species, const_species) = parse_crn_string(input_crn)
 
   domains, strands, formal_species, constant_species = \
-      interpret(ts, crn, formal_species, const_species, sdlen=sdlen, ldlen=ldlen)
+      interpret(ts, crn, formal_species, const_species)
 
   if pilfile :
     print_as_PIL(pilfile, domains, strands, formal_species, constant_species)
@@ -209,13 +209,13 @@ def main() :
   
   Commandline-parameters are collected in order to 
     - translate formal CRNs into implementation CRNs. 
-    - verify the equivalence between fCRN and iCRN.
+    - verify the equivalence between formal CRN and enumerated CRN.
 
   Output:
     - Domain-level DSD circuits printed into .pil and/or .dom files
     - Verbose information during verification
     - Result of verification
-    
+
   """
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -232,15 +232,17 @@ def main() :
 
   pilfile = args.output + '.pil'
   domfile = args.output + '.dom'
-  d, s, f, c = translate(input_crn, args.ts,
-          pilfile=pilfile, 
-          domfile=domfile, 
-          sdlen = args.dom_short,
-          ldlen = args.dom_long)
 
-  # Determine if we need the enumerator, at this point, we only need it for
-  # verification, but in the future, we need it also for simulation,
-  # optimization, etc.
+  # NOTE: Specification of a translation scheme is the only entry into nuskell.
+  # This might change in the future. For example, a CRN + .pil file would be
+  # enough to verify a given implementation. Alternatively, one may just want
+  # to compare two CRNs, but then it is probably easier to write a script that 
+  # does exactly that using the 'Nuskell' libary
+  d, s, f, c = translate(input_crn, args.ts,
+          pilfile=pilfile, domfile=domfile)
+
+  # NOTE: At this point, we only need the enumerator for verification, but in
+  # the future, it will also be used for simulation, optimization, etc.
   if True and args.verify :
     print "Translation done. Enumerating species of the implementation CRN:"
     
@@ -252,12 +254,22 @@ def main() :
     else :
       enum_crn, init_cplxs, enum_cplxs = enumerate_crn(args, pilfile)
 
+  # TODO: verify depends on init_cplxes and enum_cplxs. init_cplxs is the same
+  # as c + f but in a different format, enum_cplxs is only needed for
+  # history-domain-schemes. It would be more flexible to make enum_cplxs
+  # optional, but that means we should change the format such that init does
+  # not depend on enumeration! 
+  # NOTE: It would make sense to have a unified interface of how a complex
+  # should be represented. One way would be to use DNAObjects.Complex, however,
+  # it turns out that the structure used here is just cleaner...
   if args.verify :
     print "Verification using:", args.verify
-    # --pathway --bisimulation --integrated
 
+    # NOTE: In principle, one could make 'verify' an optional preprocessing, but
+    # then again, it just makes sense for what 'nuskell' is written to do. If you 
+    # want other input, write your own script using the library!
     v = verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
-        method = args.verify, verbose = True)
+        method = args.verify, verbose = args.verbose)
 
     if v:
       print "verify: compilation was correct."

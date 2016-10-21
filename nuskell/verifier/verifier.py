@@ -1,79 +1,67 @@
 
 import os
 import sys
+import string # printRxn
+from collections import Counter
+
 from nuskell.parser import parse_crn_string, parse_dom_file
 from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 from collections import Counter
 
-def find(l, key):
-  for i in range(len(l)):
-    if l[i] == key:
-      return i
-  return None
-
-def rotate(complex):
-    def hardcopyList(l):
-        if type(l) != list:
-            return l
-        return map(hardcopyList, l)
-
-    complex = hardcopyList(complex)
-
-    if "+" not in complex[0]:
-        return complex        
-    else:
-        p = find(complex[0], "+")
-        dom = complex[0][p + 1:] + ["+"] + complex[0][:p]
-
-        # change parentheses appropriately
-        dpr = complex[1]
-        stack = []
-        for i in range(p):
-            if dpr[i] == "(": stack.append(i)
-            elif dpr[i] == ")": stack.pop()
-        for i in stack:
-            dpr[i] = ")"
-        stack = []
-        for i in reversed(range(p + 1, len(dpr))):
-            if dpr[i] == ")": stack.append(i)
-            elif dpr[i] == "(": stack.pop()
-        for i in stack:
-            dpr[i] = "("
-        
-        dpr = dpr[p + 1:] + ["+"] + dpr[:p]
-        return [dom, dpr]
+def printRxn(rxn, inter={}):
+  # First, replace every Instance of a variable by its interpretation
+  # Second, print it
+  react = map(lambda x: ' + '.join(
+    sorted(inter[x].elements())) if x in inter else x, rxn[0])
+  produ = map(lambda x: ' + '.join(
+    sorted(inter[x].elements())) if x in inter else x, rxn[1])
+  print ' + '.join(react), '->', ' + '.join(produ)
 
 def patternMatch(x, y):
-    if "+" in x[0]:
-        if "+" not in y[0]:
-            return False
-        px = find(x[0], "+")
-        py = find(y[0], "+")
-        return patternMatch([x[0][:px], x[1][:px]],
-                            [y[0][:py], y[1][:py]]) and \
-               patternMatch([x[0][px + 1:], x[1][px + 1:]],
-                            [y[0][py + 1:], y[1][py + 1:]])
+  """Matches two complexes if they are the same, ignoring history domains. 
 
-    if len(x[0]) == 0:
-        if len(y[0]) > 0:
-            return False
-        else:
-            return True
+  Note: The strand order of the second complex changes to the strand order of
+  the first complex, if there is a rotation under which both complexes are
+  patternMatched.
 
-    if x[0][0] != "?":
-        if len(y[0]) == 0 or x[0][0] != y[0][0] or x[1][0] != y[1][0]:
-            return False
-        else:
-            return patternMatch([x[0][1:], x[1][1:]],
-                                [y[0][1:], y[1][1:]])
-    else:
-        for i in range(len(y) + 1):
-            if patternMatch([x[0][1:], x[1][1:]],
-                            [y[0][i:], y[1][i:]]):
-                return True
-        return False
+  Args: 
+    x (Complex()) : A nuskell Complex() object.
+    y (Complex()) : A nuskell Complex() object.
+
+  Returns: True/False
+  """
+  if len(x.sequence) != len(y.sequence) :
+    return False
+
+  def pM_check(pMx, pMy):
+    """Recursively parse the current sequences and structures. 
+
+    Args: 
+      pMx [seqX,strX]: A list of two lists (sequence, structrure)
+      pMy [seqY,strY]: A list of two lists (sequence, structrure)
+
+    Returns: True/False
+    """
+    if len(pMx[0]) == 0 :
+      return True
+
+    if (pMx[0][0] != '?' and pMy[0][0] != '?') and \
+        (pMx[0][0] != pMy[0][0] or pMx[1][0] != pMy[1][0]):
+          return False
+    return pM_check([pMx[0][1:], pMx[1][1:]], [pMy[0][1:], pMy[1][1:]])
+
+  pMx = [x.sequence, x.structure]
+  pMy = [y.sequence, y.structure]
+  if pM_check(pMx,pMy) :
+    return True
+  elif '+' in x.sequence and '+' in y.sequence :
+    for yr in y.rotate :
+      pMy = [yr.sequence, yr.structure]
+      if pM_check(pMx,pMy) :
+        return True
+  return False
 
 def removeFuels(crn, fuel):
     crn = [[filter(lambda s: s not in fuel, rxn[0]),
@@ -92,130 +80,152 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def pre_process(enum_crn, input_fs, complexes, slow_cplxs):
-  """ this might modify enum_crn"""
+def get_interpretation(input_fs, init_cplxs, enum_cplxs):
+  """Infer a partial interpretation from species names.
 
-  # Extract the constant species from all complexes
-  cs = map(lambda x: x[0], complexes)
-  cs = filter(lambda x: x not in input_fs, cs)
+  Some schemes, e.g. Soloveichik et al. (2010), use history domains.  During
+  enumeration, these are treated as regular unique domains, but that leads to a
+  larger network than necessary. This routine identifies species with wildcards
+  to remove them from the enumerated network. This can make the CRN
+  exponentially easier to verify.
 
-  inter = {}
-  dictionary = {}
-  fsp = []
-  rm = set()
-  #TODO why?
-  for x in complexes:
-    if "?" not in x[1]:
-      if x[0] in input_fs:
-        inter[x[0]] = [x[0]]
-        fsp.append(x[0])
-      continue
-    cnt = 0
-    for y in slow_cplxs:
-      if x[0] == y[0]:
-        dictionary[y[0]] = x[0] + "_i"
-        if x[0] in input_fs:
-          inter[x[0]+"_i"] = [x[0]]
-          fsp.append(x[0]+"_i")
-        continue
-      original = x[1:]
-      target = y[1:]
-      if len(original[0]) != len(target[0]): continue
-      p = rotate(target)
-      while True:
-        flag = True
-        for i in range(len(original[0])):
-          if not (
-              (original[0][i] == p[0][i] and original[1][i] == p[1][i]) or 
-              (original[0][i] == "?" and p[1][i] == ".")):
-            flag = False
-        if flag:
-          cnt += 1
-          dictionary[y[0]] = x[0] + "_" + str(cnt)
-          if x[0] in input_fs:
-            inter[x[0]+"_"+str(cnt)] = [x[0]]
-            fsp.append(x[0]+"_"+str(cnt))
-            rm.add(x[0]+"_i")
-          break
-        if p == target:
-          break
-        p = rotate(p)
+  Args:
+    input_fs:   A list of formal species
+    init_cplxs: A TestTube object with all complexes initially present in a 
+                DSD system (formal+constant)
+    enum_cplxs: A TestTube object that contains enumerated complexes.
 
-  for i in range(len(enum_crn)):
-    [reactants, products] = enum_crn[i]
-    def get_name(x):
-      if x in dictionary.keys():
-        x = dictionary[x]
-      return x
-    reactants = map(get_name, reactants)
-    products = map(get_name, products)
-    enum_crn[i] = [reactants, products]
-  
-  # preprocess fuel
-  enum_crn = removeFuels(enum_crn, cs)
-  enum_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], enum_crn))
-  enum_crn = remove_duplicates(enum_crn)
+  Returns:
+    enum_to_formal (dict): A mapping between enumerated species and their formal
+                           interpretation, e.g. enum_to_formal['A_1']=['A']
+    enum_rename (dict):    A list of names in the enumerated network that are to
+                           be replaced with names of formal species 
+                           e.g. enum_rename['i86'] = ['A_1']
+  """
+  enum_to_formal = dict() # Interpretation: dict['A_i'] = Counter('A':1)
+  enum_rename = dict()    # Rename 
+  remove_ihist = set()
+  for nx, x in init_cplxs.complexes.items() :
+    if '?' in x.sequence :
+      cnt = 0
+      for ny, y in enum_cplxs.complexes.items() :
+        if nx == ny : # formal species!
+          enum_rename[ny] = nx + "_i"
+          if nx in input_fs :
+            enum_to_formal[nx+"_i"]=Counter(nx)
+          else :
+            # SB: this is just because I want to observe a case, 
+            # should be save to remove this else statement.
+            raise ValueError('Unexpected constant species')
+        else :
+          if patternMatch(x, y) :
+            cnt += 1
+            enum_rename[ny] = nx + "_" + str(cnt)
+            if nx in input_fs :
+              enum_to_formal[nx+"_"+str(cnt)] = Counter(nx)
+              remove_ihist.add(nx+"_i")
+            else :
+              # SB: this is just because I want to observe a case, 
+              # should be save to remove this else statement.
+              raise ValueError('Unexpected constant species')
+    else :
+      if nx in input_fs :
+        enum_to_formal[nx]=Counter(nx)
 
-  # removing initial signals that are unnecessary
-  fsp = set(fsp)
-  for x in rm:
-    if x in inter.keys(): del inter[x]
-    if x in fsp: fsp.remove(x)
-  norm = set(fsp)-rm
-  flag = None
-  while flag != norm:
-    flag = set(list(norm))
-    for [r,p] in enum_crn:
-      if set(r).intersection(norm) == set(r):
-        norm = norm.union(set(p))
-  enum_crn = filter(lambda x: set(x[0]).intersection(norm) == set(x[0]), enum_crn)
+  # removing initial history species, if replaceable
+  map(lambda x: enum_to_formal.pop(x), remove_ihist)
 
-  return inter, enum_crn, fsp
+  return enum_to_formal, enum_rename
 
-def verify(input_crn, enum_crn, complexes, slow_cplxs, 
-    method = 'bisimulation', verbose = True):
-  """ Initialize the verification of a translation scheme.
+def verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
+    method = 'bisimulation', verbose = False):
+  """Wrapper-function to speed up the verification of a CRN translation.
 
-  This function prepares the:
-
-    *) formal CRN
-    *) implementation CRN (formal and constant species)
-    *) enumerated implementation CRN (formal, constant and enumerated species)
-    *) interpretation CRN (a mapping from implementation to the formal CRN)
-
-  ... and then calls the verification method chosen by the user in order to 
-  compute whether an implementation CRN is equivalent to the formal CRN:
-
-    *) pathway (Seung Woo Shin's notion of pathway equivalence)
-    *) pathway-integrated (Seung Woo Shin's integrated hybrid notion of pathway
-    equivalence)
-    *) bisimulation (Qing Dong and Robert Johnson)
-    ...
+  This function serves two purposes: First, it finds a mapping between species
+  in the formal CRN and species in the enumerated CRN based on species names.
+  Second, it reduces the size of the enumerated CRN. First of all, fuel and
+  waste species are ignored for verification and duplicate species are removed.
+  Some translation schemes use history domains, which are only specified for
+  products, but not for reactants. This function removes all species with
+  unspecified history domains, given the same species with a specified history
+  domain exists in the system. For schemes with history domains, the
+  interpretation may map multiple species of the enumerated CRN to one formal
+  species.
+>>>>>>> verify_cleanup
 
   Args: 
-    input_crn: formal input CRN
-    enum_crn: peppercorn-enumerated implementation CRN
-    complexes: all complexes in the (non-enumerated) implementation CRN
-    slow_cplxs: resting states in the enumerated implementation CRN
-    method: chose equivalence notion
-    verbose: print more information to STDOUT
+    input_crn (string): formal input CRN
+    enum_crn (list of lists): peppercorn-enumeration of the initial complexes 
+    init_cplxs (TestTube()): A nuskell TestTube object with all initial species.
+    enum_cplxs (TestTube()): A nuskell TestTube object with the enumerated CRN
+    method (string): equivalence notion
+    verbose (bool): print status information during verification
 
   Returns:
     True: formal and implementation CRN are equivalent
     False: formal and implementation CRN are not equivalent
-  
   """
   interactive = False
 
-  # Parse the CRN
   (input_crn, input_fs, input_cs) = parse_crn_string(input_crn) 
   irrev_crn = split_reversible_reactions(input_crn)
 
-  inter, enum_crn, fsp = pre_process(
-      enum_crn, 
-      input_fs, 
-      complexes, # need these! (cs = complexes - input_fs)
-      slow_cplxs)
+  # TODO: The format of interpret may change for a new verification interface
+  # NOTE: enum_rename is empty for schemes without history domains
+  interpret, enum_rename = get_interpretation(input_fs, init_cplxs, enum_cplxs)
+
+  if verbose:
+    print "======================="
+    print "== CRN preprocessing =="
+    print "======================="
+    print "Original enumerated CRN:"
+    for r in enum_crn: printRxn(r)
+
+  if enum_rename :
+    for i in range(len(enum_crn)):
+      [reactants, products] = enum_crn[i]
+      def get_name(x):
+        if x in enum_rename.keys():
+          x = enum_rename[x]
+        return x
+      reactants = map(get_name, reactants)
+      products = map(get_name, products)
+      enum_crn[i] = [reactants, products]
+
+  # Reduce the enumerated CRN, 
+  cs = map(str, init_cplxs.complexes)
+  cs = filter(lambda x: x not in input_fs, cs)
+
+  if verbose:
+    print "Renamed enumerated CRN:"
+    for r in enum_crn: printRxn(r)
+ 
+  enum_crn = removeFuels(enum_crn, cs)
+  enum_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], enum_crn))
+  enum_crn = remove_duplicates(enum_crn) # TODO: WHAT FOR?
+
+  if verbose:
+    print "Processed enumerated CRN:"
+    for r in enum_crn: printRxn(r)
+ 
+  # Get rid of all reactions that start with an *initial* history domain but
+  # then later can get replaced by a produce molecule.
+  if enum_rename:
+    [prev, total] = [set(), set(interpret.keys())]
+    while prev != total:
+      prev = set(list(total))
+      for [r,p] in enum_crn:
+        if set(r).intersection(total) == set(r):
+          total = total.union(set(p))
+    enum_crn = filter(
+        lambda x: set(x[0]).intersection(total) == set(x[0]), enum_crn)
+
+  if verbose:
+    print "History-reduced enumerated CRN:"
+    for r in enum_crn: printRxn(r)
+    print "Interpreted enumerated CRN:"
+    for r in enum_crn: printRxn(r, interpret)
+    print "======================="
 
   fcrn = [[Counter(part) for part in rxn] for rxn in irrev_crn]
   ecrn = [[Counter(part) for part in rxn] for rxn in enum_crn]
@@ -236,14 +246,27 @@ def verify(input_crn, enum_crn, complexes, slow_cplxs,
         permissive='depth-first', verbose=True) # interpretation = ...
 
   elif method == 'pathway':
-    return crn_pathway_equivalence.test(
-        (irrev_crn, input_fs), 
-        (enum_crn, fsp), inter, verbose, False, interactive)
-
+    # NOTE: Adaptation to pathway interface
+    pinter = dict()
+    for k,v in interpret.items() :
+      v = sorted(v.elements())[0]
+      pinter[k]=[v]
+    return crn_pathway_equivalence.test((irrev_crn, input_fs), 
+        (enum_crn, pinter.keys()), pinter, verbose, False, interactive)
   elif method == 'integrated':
-    return crn_pathway_equivalence.test(
-        (irrev_crn, input_fs), 
-        (enum_crn, fsp), inter, verbose, True, interactive)
+    # TODO: integrated-hybrid -> first consider some species as formal for
+    # pathway decomposition, then do bisimulation. This is necessary for
+    # history domains in some schemes, but it can be used for more general
+    # things. E.g. if you make reversible reactions formal, then it will get
+    # accepted and bisimulation can do the rest. In any case, the current
+    # implementation does not cover the full hybrid theory, only some special
+    # cases and some kind of bisimulation.
+    pinter = dict()
+    for k,v in interpret.items() :
+      v = sorted(v.elements())[0]
+      pinter[k]=[v]
+    return crn_pathway_equivalence.test((irrev_crn, input_fs), 
+        (enum_crn, pinterpret), pinter, verbose, True, interactive)
   else:
     print "Verification method unknown."
     return False

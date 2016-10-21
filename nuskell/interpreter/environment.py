@@ -21,7 +21,7 @@ together with the input CRN.
 """
 
 import sys
-import nuskell.include.dnaobjects as dnaobjects
+from nuskell.objects import Domain
 from copy import copy
 
 class RuntimeError(Exception):
@@ -67,87 +67,6 @@ class Function(object):
   def __init__(self, args, body):
     self.args = args
     self.body = body
-
-class NusDomain(dnaobjects.Domain):
-  """The Nuskell Domain class, based on DNAObjects
-  
-  A DNA domain is a sequence of consecutive nucleotides. Typically, a domain,
-  (as well as its complementary domain) is present in multiple DNA strands in a
-  DSD circuit.  The domain-ID is a unique descriptor refering to all DNA
-  domains with that ID.
-
-  Args: 
-    kwargs from DNAObects.Domain
-    tag (string): Metadata at the domain-level, e.g. 'toehold',
-                  'branch-migration', or 'history'
-
-  """
- 
-  def __init__(self, domaintag='', **kwargs):
-    """ 
-    Args: 
-      domaintag: You can specify different types of domains for 
-        your sequence designer: 'toehold', 'branch-migration', etc...
-    """
-    super(NusDomain, self).__init__(**kwargs)
-    self.tag=domaintag
-
-    if 'bottom' in kwargs:
-      self.bottom = kwargs['bottom']
-    else :
-      self.bottom = 'D' * len(self.constraints)
-
-    if len(self.bottom) != len(self.constraints) :
-      print 'Warning: top and bottom constraints have unequal length' 
-      raise SystemExit ('this will conflict with later secondary structure '+
-          'constraints in the design process')
-
-  def __str__(self):
-    if self.tag == 'toehold':
-      return "t" + str(self.id)
-    elif self.tag =='wildcard':
-      return "?"
-    else:
-      return "d" + str(self.id)
-
-  def __invert__(self):
-    return NusCDomain(self)
-
-  def __eq__(self, other):
-    if not isinstance(other, NusDomain): return False
-    return self.id == other.id
-  def __ne__(self, other):
-    return not (self == other)
-
-class NusCDomain(dnaobjects.ComplementaryDomain):
-  """ Inherits from DNAObjects
-
-  It makes use of __init__() ...
-  
-  """
-  #def __init__(self, bottom=None, **kwargs):
-  #  super(NusCDomain, self).__init__(**kwargs)
-
-  def constraint(self):
-    return self._complement.bottom
-
-  def __invert__(self):
-    return self._complement
-
-  ## (In)equality
-  def __eq__(self, other):
-    """ Returns True iff their complements are equal."""
-    if not isinstance(other, NusCDomain): return False
-    return self._complement.__eq__(other.complement)
-  def __ne__(self, other):
-    """ Returns True iff they are not equal."""
-    return not self.__eq__(other)
-
-  def __str__( self ):
-    if self._complement.tag == 'toehold':
-      return "t" + str(self._complement.id) + "*"
-    else:
-      return "d" + str(self._complement.id) + "*"
 
 class Structure(object):
   """The Structure of a DNA complex.
@@ -410,33 +329,23 @@ class builtin_functions(object):
     else :
       kwargs = {'len' : self._long_domain_length}
 
-    if 'len' not in kwargs and 'top' not in kwargs:
+    if 'len' not in kwargs and 'sense' not in kwargs:
       kwargs['len'] = self._long_domain_length
 
-    if 'len' in kwargs :
-      # length is a short-cut for top + bottom in standard 3-letter alphabet
-      for x in ['constraints', 'top', 'bottom']: 
-        assert x not in kwargs
-      kwargs['constraints'] = 'H' * kwargs['len']
-      kwargs['bottom'] = 'D' * kwargs['len']
-      del kwargs['len']
-    elif 'top' in kwargs :
-      assert 'constraints' not in kwargs
-      assert 'bottom' in kwargs
-      kwargs['constraints'] = kwargs['top']
-      del kwargs['top']
+    # Nuskell Defaults: 
+    tag = kwargs['tag'] if 'tag' in kwargs else 'd'
+    uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
+    lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    if 'tag' in kwargs:
-      tag = kwargs['tag']
-    else :
-      tag = 'branch-migration'
-    return NusDomain(domaintag=tag, **kwargs)
+    upper = Domain(constraints = list(uppercon), prefix=tag)
+    lower = upper.get_ComplementDomain(constraints = list(lowercon))
+    return upper
 
   def short(self, args):
     """A function that returns toehold domains.
  
-    # supported keywords: 'len', 'top', 'bottom', 'tag'
-    # len is short for standard 'top & bottom'
+    # supported keywords: 'len', 'sense', 'antisense', 'tag'
+    # len is short for standard 'sense & antisense'
     # tag supports toehold and branch-migration which is
     # currently equal to short() and long()
    
@@ -446,28 +355,17 @@ class builtin_functions(object):
     else :
       kwargs = {'len' : self._short_domain_length}
 
-    if 'len' not in kwargs and 'top' not in kwargs:
+    if 'len' not in kwargs and 'sense' not in kwargs:
       kwargs['len'] = self._short_domain_length
 
-    if 'len' in kwargs :
-      # length is a short-cut for top + bottom in standard 3-letter alphabet
-      for x in ['constraints', 'top', 'bottom']: 
-        assert x not in kwargs
-      kwargs['constraints'] = 'H' * kwargs['len']
-      kwargs['bottom'] = 'D' * kwargs['len']
-      del kwargs['len']
-    elif 'top' in kwargs :
-      assert 'constraints' not in kwargs
-      assert 'bottom' in kwargs
-      kwargs['constraints'] = kwargs['top']
-      del kwargs['top']
+    # Nuskell Defaults: 
+    tag = kwargs['tag'] if 'tag' in kwargs else 't'
+    uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
+    lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    if 'tag' in kwargs:
-      tag = kwargs['tag']
-    else :
-      tag = 'toehold'
-
-    return NusDomain(domaintag=tag, **kwargs)
+    upper = Domain(constraints = list(uppercon), prefix=tag)
+    lower = upper.get_ComplementDomain(constraints = list(lowercon))
+    return upper
 
   def _print(self, args):
     """Print statment, primarily to debug nuskell scripts"""
@@ -551,7 +449,7 @@ class builtin_functions(object):
       # args[0] forces us to introduce additional lists ...
       for i in range(len(x)) : x[i] = [x[i]]
       return reversed(map(self._complement, x))
-    elif isinstance(x, NusDomain):
+    elif isinstance(x, Domain):
       print 'Untested:', ~x
       return ~x
     elif isinstance(x, Structure):
@@ -662,7 +560,7 @@ class Environment(builtin_expressions):
       An updated environment inclding the function binding in the top-level.
     """
 
-    bindings = (Function, Solution, Species, NusDomain, Reaction, Structure, 
+    bindings = (Function, Solution, Species, Domain, Reaction, Structure, 
         void, int, list)
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)
