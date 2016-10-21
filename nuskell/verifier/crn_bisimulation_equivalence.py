@@ -6,8 +6,8 @@ import itertools, time, basis_finder, string, copy, math
 #  such as states of a CRN or interpretations
 from collections import Counter
 
-f = True
-printing = False
+gprinting = False
+printing = gprinting
 debug = False
 
 def printRxn(rxn):
@@ -286,7 +286,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
     else:
         permissive_depth = None
     intr, max_depth, permissive_failure = state
-    global printing
     tr = []
     fr = []
     hasht = set([])
@@ -295,14 +294,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
     if not checkT(T):
         return [False, state]
     nulls = [k for k in intrp if not intrp[k].keys()] # null species
-    now = time.clock()
-
-    if printing:
-        print "Testing permissive condition"
-        print "Formal CRN:", fcrn
-        print "Implementation CRN:", icrn
-        print "Interpretation:", intrp
-        print
 
     def cnstr(s):
         # given formal state s, generate minimal set of impl. states which
@@ -329,7 +320,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         # fr is a particular formal reaction along with all implementation reactions that interpret to it. 
         # tr is the list of all trivial reactions in the implementation.
         # fail if depth d of trivial reaction steps is exceeded without firing a reaction in fr.
-        global printing
         if permissive_depth and d > permissive_depth:
             return None
         if "@@@".join(sorted(s.elements())) in hasht:
@@ -351,7 +341,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         return ret
 
     def midsearch(start, goal, pickup, ignore, formal, k):
-        global printing
         # search for a path from start to goal (states of non-null species)
         #  which produces at least pickup null species
         #  assuming it already has infinite copies of everything in ignore
@@ -392,10 +381,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         return False
 
     def loopsearch(start, formal):
-        global f, printing
-        if printing:
-            print "Loop-searching from", start
-            print " to any of", fr
         # search for a path from start to any reaction in fr
         if permissive_depth:
             rounds = math.ceil(math.log(permissive_depth, 2))
@@ -409,8 +394,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                     rounds += 1
                     roundequiv *= 2
 
-        if printing:
-            print " Will search", nequiv, "states for", rounds, "rounds"
         for parti in enum(len(nulls) + 1,Counter(nulls)):
             part = map(set,parti)
             if any([part[i] != set() and part[i+1] == set() \
@@ -418,8 +401,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                 continue # avoid redundancy
 
             pickups = filter(None,part[:-1])
-            if printing:
-                print " Using null species partition:", pickups
             check1 = True
             place = start
             ignore = set()
@@ -441,12 +422,8 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                 ignore |= pickup
 
             if check1 and midsearch(place,None,set(),ignore,formal,rounds):
-                if printing:
-                    print " Search success."
                 return True
 
-        if printing:
-            print " Search failure."
         return False if not permissive_depth else None
 
     def allsearch(formal):
@@ -525,27 +502,18 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         if i.pop():
             tr.append(icrn[n])
         n += 1
-    if printing: print "Reactions to check:", len(fcrn)
     for i in range(len(fcrn)):
         # build fr for this formal reaction
-        if printing: print "Checking reaction", fcrn[i]
         fr = []
         for j in range(len(icrn)):
             if T[j][i]:
                 fr.append(icrn[j])
 
-        if printing:
-            lstates = list(cnstr(fcrn[i][0]))
-            print "Number of states:", len(lstates)
-            print lstates
         ist = cnstr(fcrn[i][0])
 
         if permcheck == "whole-graph":
             out = allsearch(fcrn[i][0])
             if not out:
-                if printing:
-                    watch = time.clock()
-                    print "Permissive test failed in time", watch - now
                 if max_depth == -2:
                     return [False, [intr, max_depth, permissive_failure]]
                 if out is False: # proven unreachable
@@ -573,7 +541,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                     # will be a 0-length loop if spaceefficient
                     if msleq(k, j):
                         t = True
-                        if printing: print "State", j, "is a superset of", k
                         break
                 if t:
                     continue
@@ -582,10 +549,6 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                          and loopsearch(j,fcrn[i][0])) \
                         or ((permcheck=="depth-first") and search(j,0))
                 if not found: # didn't work, but keep track of stuff for user output
-                    if printing:
-                        watch = time.clock()
-                        print "Permissive test failed in time", watch - now
-                    printing = False
                     if max_depth == -2:
                         return [False, [intr, max_depth, permissive_failure]]
                     if found is False: # reaction proven unreachable
@@ -598,12 +561,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                     return [False, [intr, max_depth, permissive_failure]]
                 elif not spaceefficient:
                     tested.append(j)
-            elif printing:
-                print "Not testing", j, "with interpretation", tmp
     intr = intrp.copy()
-    if printing:
-        watch = time.clock()
-        print "Permissive test succeeded in time", watch - now
     return [True, intr]
 
 def equations(fcrn, icrn, fs, intrp, permcheck, state):
@@ -712,7 +670,7 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
         for fsp in fs:
             checkFs = False
             for isp in intrp:
-                if intrp[isp] and not intrp[isp] - Counter([isp]):
+                if intrp[isp] and not intrp[isp] - Counter([fsp]):
                     checkFs = True
                     break
             if not checkFs:
@@ -899,8 +857,8 @@ def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
                           if so and method was not 'whole-graph', permissive_failure[1] is implementation state which could not implement the reaction
     '''
 
-    global printing, debug
-    printing = printing and (verbose or debug)
+    global printing, gprinting, debug
+    printing = gprinting and (verbose or debug)
     icrn = copy.deepcopy(ic)
     for rxn in icrn:
         for k in rxn[0]:

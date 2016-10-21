@@ -164,23 +164,20 @@ class BisimulationTests(unittest.TestCase):
     self.assertTrue(v)
     self.assertDictEqual(inter1, i1)
 
-
-    # NOTE: Incorrect behavior: Correct interpretation => wrong result
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
-                            permissive='loop-serach')
-    self.assertFalse(v)
+                              permissive='loop-search', verbose=False)
+    self.assertTrue(v)
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                             permissive='whole-graph')
-    self.assertFalse(v)
+    self.assertTrue(v)
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                             permissive='depth-first')
-    self.assertFalse(v)
+    self.assertTrue(v)
 
     del inter1['x3']
-    # NOTE: Incorrect behavior: Same Input, different output.
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
-                            permissive='loop-serach')
-    self.assertFalse(v)
+                            permissive='loop-search')
+    self.assertTrue(v)
 
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                             permissive='whole-graph')
