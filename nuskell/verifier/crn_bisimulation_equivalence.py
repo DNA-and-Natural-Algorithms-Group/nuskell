@@ -91,7 +91,7 @@ def solve_contejean_devie(a):
     b = []
     while p:
         t = p.pop()
-        if sub(t) == zero and t != zero1:
+        if sub(t) == zero and any(t):
             if t[q-1] == 1:
                 return t    # just get the first solution, not all solutions (unlike C&D 1994).
             b.append(list(t))
@@ -99,7 +99,7 @@ def solve_contejean_devie(a):
         else:
             f = frozen.pop()
             for i in range(q):
-                if not f[i] and (multi(sub(t), e[i]) < 0) or t == zero1:
+                if not f[i] and (not any(t)) or (multi(sub(t), e[i]) < 0):
                     tmp = list(t)
                     tmp[i] += 1
                     if Min(b, tmp):
@@ -107,10 +107,11 @@ def solve_contejean_devie(a):
                             f[i] = True
                         p.append(tmp)
                         frozen.append(list(f))
-                        f[i] = True
+                    f[i] = True
     return []
 
 def solve_domenjoud(a):
+    # THIS METHOD IS A STUB -- DO NOT USE
     # find a non-negative non-zero integer solution x for ax = 0
     # algorithm from Domenjoud
     # where len(a) = m, len(a[i]) = n+1, require x[n] == 1
