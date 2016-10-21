@@ -176,7 +176,7 @@ def main():
   for crn in crn_list:
     rawdata.extend(
         test_scheme_directory(
-          crn, args.ts_dir, args, normalize='qian2011.ts')) 
+          crn, args.ts_dir, args, normalize='qian2011_gen.ts')) 
     print 
 
   print rawdata
