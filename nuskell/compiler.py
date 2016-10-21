@@ -271,7 +271,7 @@ def main() :
     # then again, it just makes sense for what 'nuskell' is written to do. If you 
     # want other input, write your own script using the library!
     v = verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
-        method = args.verify, verbose = True)
+        method = args.verify, verbose = args.verbose)
 
     if v:
       print "verify: compilation was correct."

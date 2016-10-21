@@ -35,6 +35,25 @@ def enumerate_crn(args, pilfile):
   
   return get_enum_data(args, enum)
 
+def enum_cplx_rename(x) :
+  # Translating enum output to be compatible with nuskell Objects.
+  x = 'e'+x if x[0].isdigit() else x
+  return x +'p' if x[-1].isdigit() else x
+
+def enum_domain_rename(x) :
+  # Translating enum output to be compatible with nuskell Objects.
+  # ... and do some weird translation of history domain names
+  x = 'e'+x if x[0].isdigit() else x
+
+  if x == 'dummy':
+    return '?'
+  elif x[-1]=='*':
+    return x[:-1] + 'p' + '*'
+  elif x[-1].isdigit() :
+    return x + 'p'
+  else :
+    return x
+
 def get_enum_data(args, enum):
   # Write the output of peppercorn into the enumfile
   enumfile = args.output + '.enum'
@@ -47,37 +66,26 @@ def get_enum_data(args, enum):
       react = line.split('->')
       react[0] = sorted([x.strip() for x in react[0].split('+')])
       react[1] = sorted([x.strip() for x in react[1].split('+')])
+      react[0] = map(enum_cplx_rename, react[0])
+      react[1] = map(enum_cplx_rename, react[1])
       enum_crn.append(react)
 
   # Extraction of complexes in the implementation CRN:
-  # Very specific to the output of Nuskell!
+  # NOTE: Very specific to the output of Nuskell!
   init_cplxs = TestTube()
   for cx in enum.initial_complexes :
     cxs = []
     for sd in cx.strands:
       cxs.append('+')
       for ds in sd.domains:
-        seq = ds.sequence
-        if ds.name == 'dummy':
-          dname = '?'
-        elif ds.name[-1]=='*':
-          dname = ds.name[:-1] + 'p' + '*'
-        else :
-          dname = ds.name + 'p'
-
-        if dname[0] == 't':
-          if seq == None: seq = 'N' * 5
-          init_cplxs.add_domain_by_name(dname, list(seq))
-        elif dname[0] == 'd' or dname[0] == '?':
-          if seq == None: seq = 'N' * 15
-          init_cplxs.add_domain_by_name(dname, list(seq))
-        else :
-          print ds, ds.name, ds.sequence
-          raise NotImplementedError
+        # NOTE: Hacks to communicate with old interface.
+        seq = ds.sequence if ds.sequence else 'N'*5
+        dname = enum_domain_rename(ds.name)
+        init_cplxs.add_domain_by_name(dname, list(seq))
         cxs.append(dname)
     # remove the first '+' again
     if len(cxs)>0: cxs = cxs[1:]
-    cname = cx.name +'p' if cx.name[-1].isdigit() else cx.name
+    cname = enum_cplx_rename(cx.name)
     init_cplxs.add_complex_by_name(cname, cxs, list(cx.dot_paren_string()))
 
   # Extraction of complexes in the enumerated CRN:
@@ -89,29 +97,18 @@ def get_enum_data(args, enum):
       for sd in cx.strands:
         cxs.append('+')
         for ds in sd.domains:
-          seq = ds.sequence
-          if ds.name == 'dummy':
-            dname = '?'
-          elif ds.name[-1]=='*':
-            dname = ds.name[:-1] + 'p' + '*'
-          else :
-            dname = ds.name + 'p'
-
-          if dname[0] == 't':
-            if seq == None: seq = 'N' * 5
-            slow_cplxs.add_domain_by_name(dname, list(seq))
-          elif dname[0] == 'd' or dname[0] == '?':
-            if seq == None: seq = 'N' * 15
-            slow_cplxs.add_domain_by_name(dname, list(seq))
-          else :
-            print ds, ds.name, ds.sequence
-            raise NotImplementedError
+          # NOTE: Hacks to communicate with old interface.
+          seq = ds.sequence if ds.sequence else 'N'*5
+          dname = enum_domain_rename(ds.name)
+          slow_cplxs.add_domain_by_name(dname, list(seq))
           cxs.append(dname)
-
       # remove the first '+' again
       if len(cxs)>0: cxs = cxs[1:]
-      cname = cx.name +'p' if cx.name[-1].isdigit() else cx.name
+      cname = enum_cplx_rename(cx.name)
       slow_cplxs.add_complex_by_name(cname, cxs, list(cx.dot_paren_string()))
+
+  #print 'i', init_cplxs.complexes
+  #print 'e', slow_cplxs.complexes
   return enum_crn, init_cplxs, slow_cplxs
 
 def set_enumargs(enum, args):
