@@ -520,7 +520,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                     max_depth = -1
                 else: # arbitrarily specified max search depth reached
                     max_depth = -2
-                intr = copy.deepcopy(intrp)
+                intr = intrp.copy()
                 permissive_failure[0] = fcrn[i]
                 permissive_failure[1] = ["Somewhere"]
                 return [False, [intr, max_depth, permissive_failure]]
@@ -678,7 +678,7 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
                 return [False, state]
         return perm(fcrn, icrn, fs, intrp, permcheck, state)
     if max_depth >= 0 and d > max_depth:
-        intr = copy.deepcopy(intrp)
+        intr = intrp.copy()
         max_depth = d
     min = len(fcrn)+1
     k = -1  # next row reaction we will solve
@@ -742,7 +742,7 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
                     if not checkCompatible:
                         continue
 
-                    itmp = copy.deepcopy(intrp)
+                    itmp = intrp.copy()
                     itmp.update(intrpleft)
                     itmp.update(intrpright)
                     out = searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck,
@@ -762,7 +762,7 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
     if not checkT(T):
         return [False, state]
     if max_depth >= 0 and d > max_depth:
-        intr = copy.deepcopy(intrp)
+        intr = intrp.copy()
         max_depth = d
     min = len(icrn)+1
     c = -1  # this will be the next column to solve, if possible
@@ -814,7 +814,7 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
                         if not checkCompatible:
                             continue
 
-                        itmp = copy.deepcopy(intrp)
+                        itmp = intrp.copy()
                         itmp.update(intrpleft)
                         itmp.update(intrpright)
                         out = searchc(fcrn, icrn, fs, untmp, itmp, d+1,

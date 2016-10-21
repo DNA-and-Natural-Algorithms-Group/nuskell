@@ -165,7 +165,7 @@ class BisimulationTests(unittest.TestCase):
     self.assertDictEqual(inter1, i1)
 
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
-                              permissive='loop-search', verbose=False)
+                              permissive='loop-search')
     self.assertTrue(v)
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                             permissive='whole-graph')
