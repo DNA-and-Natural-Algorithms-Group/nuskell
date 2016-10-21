@@ -193,7 +193,8 @@ def get_nuskell_args(parser) :
   # Choose a verification method.
   parser.add_argument("--verify", default='', action = 'store',
       help="Specify name a verification method: \
-          (bisimulation, pathway, integrated, bisim-loopsearch, bisim-wholegraph)") 
+          (bisimulation, pathway, integrated, bisim-loop-search,\
+          bisim-depth-first, bisim-whole-graph)") 
 
   # Convenience options 
   parser.add_argument("-o", "--output", default='', action = 'store',

@@ -151,7 +151,6 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
   domain exists in the system. For schemes with history domains, the
   interpretation may map multiple species of the enumerated CRN to one formal
   species.
->>>>>>> verify_cleanup
 
   Args: 
     input_crn (string): formal input CRN
@@ -230,20 +229,17 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
   fcrn = [[Counter(part) for part in rxn] for rxn in irrev_crn]
   ecrn = [[Counter(part) for part in rxn] for rxn in enum_crn]
 
-  # Passing on a partial interpretation for bisimulation will be enabled when
-  # the verify_cleanup branch gets merged
+  if method == 'bisimulation' or method == 'bisim-whole-graph' :
+    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
+        interpretation = interpret, permissive='whole-graph', verbose=True)
 
-  if method == 'bisimulation':
+  elif method == 'bisim-loop-search':
     return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        permissive='whole-graph', verbose=True) # interpretation = ...
+        interpretation = interpret, permissive='loop-search', verbose=True)
 
-  elif method == 'bisim-loopsearch':
+  elif method == 'bisim-depth-first':
     return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        permissive='loop-search', verbose=True) # interpretation = ...
-
-  elif method == 'bisim-depthfirst':
-    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        permissive='depth-first', verbose=True) # interpretation = ...
+        interpretation = interpret, permissive='depth-first', verbose=True)
 
   elif method == 'pathway':
     # NOTE: Adaptation to pathway interface
