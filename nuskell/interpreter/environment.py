@@ -21,7 +21,7 @@ together with the input CRN.
 """
 
 import sys
-from nuskell.objects import Domain
+from nuskell.objects import Domain, Complex, TestTube, flatten
 from copy import copy
 
 class RuntimeError(Exception):
@@ -68,41 +68,80 @@ class Function(object):
     self.args = args
     self.body = body
 
-class Structure(object):
-  """The Structure of a DNA complex.
+class NusComplex(Complex):
+  """Nucleic Acid Complex (Sequence, Structure) pair.
 
-  The structure is specified using a list of domains and a corresponding
-  dot-parens notation. 
+  This is an extension of nuskell.objects.Complex(), which stores an additional
+  dictionary of attributes. This dictionary maps domain names as specified in
+  the translation-scheme to the unique Domain() object.
 
   Args:
-    domains (List[str]): names of domains
-    dotparens (List[str]): A list of dot-parens characters ".(.+)."
-    attr (Dict[name]=Domain): a mapping between names and Domain objects
+    attr (Dict[name]=Domain): A mapping between names in the translation scheme
+                              and Domain objects 
+    sequence (List[str]): Domain Objects
+    structure (List[str]): A list of dot-parens characters ".(.+)."
   """
-  def __init__(self, domains, dotparens, attr):
-    self.domains = domains
-    self.dotparens = dotparens
+  def __init__(self, attr=dict(), **kwargs):
+    super(NusComplex, self).__init__(**kwargs)
     self.attributes = attr
 
-class Solution(object):
-  """A set of structure objects.
+  @property
+  def flatten_cplx(self):
+    """Resolves nested complexes and their corresponding '~' structure wildcard.
 
-  The solution object contains all species that have to be present in
-  ``infinite'' concentration in a DSD circuit.
+    This function is very specific to Nuskell translation using macros, but it
+    might be generalized to handle 'Complex of Complexes' behavior of some sort.
+    """
+    def resolve(s, c):
+      # This is a function with is very specific to nuskell. Sometimes,
+      # A complex can contain a complex structure in the sequence, and 
+      # a wildcard in the structure.
+      if isinstance(s, Domain):
+        assert (c in ['(','.',')'])
+        return s, c
+      elif s == '+' and c == '+' :
+        return s, c
+      elif isinstance(s, Complex):
+        assert (c == '~')
+        return s.sequence, s.structure
+      elif type(s) == list:
+        assert (c == '~')
+        # map returns a list of [[seq, str], ..]
+        # zip transposes this into tuples ([seq1,seq2,...]),([str1,str2,...])
+        return [list(a) for a in zip(*map(lambda i : resolve(s[i],'~'),
+          range(len(s))))]
+      elif s == '?' :
+        assert (c in ['(','.',')'])
+        return Domain(constraints=['N'], name='dummy'), c
+        #return s, c
+      else :
+        raise NotImplementedError
 
-  Args:
-    initial (set[Solution]) : A set of Solution objects
-  """
-  def __init__(self, initial):
-    assert isinstance(initial, set)
-    assert all(isinstance(s, Structure) for s in initial)
-    self.molecules = initial
+    newseq = []
+    newstr = []
+    for i in range(len(self._sequence)):
+      if self._sequence[i] == [] and self._structure[i] == '~' : 
+        continue
+      se, ss = resolve(self._sequence[i], self._structure[i])
+      newseq.append(se)
+      newstr.append(ss)
+    
+    newseq = flatten(newseq)
+    newstr = flatten(newstr)
 
-  def __add__(self, other):
-    """Returns the union of two solution objects."""
-    assert isinstance(other, Solution)
-    return Solution(self.molecules.union(other.molecules))
-  
+    start = True
+    for i in reversed(range(len(newseq))):
+      if newseq[i] == '+' and newstr[i]=='+' :
+        if start or i == 0 :
+          newseq.pop(i)
+          newstr.pop(i)
+        start = True
+      else :
+        start = False
+
+    self._sequence = newseq
+    self._structure = newstr
+    return self._sequence, self._structure
 
 class builtin_expressions(object):
   """ Builtin expressions of Nuskell translation schemes.
@@ -131,7 +170,7 @@ class builtin_expressions(object):
         'num': lambda self, content: (self._env, int(content[0])), 
         'quote': lambda self, content: (self._env, content[0]), 
         'dict': self._dict,
-        'dna': self._dna, # return self._env, Structure()
+        'dna': self._dna, # return self._env, NusComplex()
         'list': self._list, # return self._env, content
         'where': self._where, # return self._env, value
         'uminus': self._uminus, # return self._env, -value (integer only!)
@@ -213,15 +252,18 @@ class builtin_expressions(object):
     dotparen = content[1]
     attributes = {}
     for i in range(len(domains)):
+      # TODO history domains
       if domains[i] != "?" and domains[i] != "+":
         starred = (len(domains[i]) == 2)
         dom = domains[i][0]
+        # Get the binding for e.g.: ['id', 'd13']
         theenv._env, dom_value = theenv.interpret_expr(dom)        
         attributes[dom[1]] = dom_value
         if starred:
           dom_value = ~dom_value
         domains[i] = dom_value
-    return theenv._env, Structure(domains, dotparen, attributes)
+    return theenv._env, NusComplex(sequence = domains, structure = dotparen,
+        attr=attributes)
 
   def _list(self, theenv, content) :
     for i in range(len(content)):
@@ -272,7 +314,7 @@ class builtin_expressions(object):
 
   def _attribute(self, theenv, head, args):
     identifier = args[0][1] # strip the tag
-    if isinstance(head, Structure):
+    if isinstance(head, NusComplex):
       head = head.attributes[identifier]
     elif identifier in head.__dict__:
       head = head.__dict__[identifier]
@@ -370,8 +412,8 @@ class builtin_functions(object):
   def _print(self, args):
     """Print statment, primarily to debug nuskell scripts"""
     for a in args:
-      if isinstance(a, Structure) :
-        print [str(d) for d in a.domains]
+      if isinstance(a, Complex) :
+        print map(str, a.sequence)
       else :
         print str(a),
     print
@@ -420,13 +462,18 @@ class builtin_functions(object):
   @staticmethod
   def infty(args) :
     """
-    'infty' is a built-in function that takes a structure instance and puts
+    'infty' is a built-in function that takes a Complex instance and puts
     that the species is supposed to have "infinite" concentration. The
-    resulting object will be a Solution instance
+    resulting object will be a TestTube instance
     """
-    if not isinstance(args[0], Structure):
-      raise RuntimeError("The argument of `infty' should be a structure")
-    return Solution(set([args[0]]))
+    if not isinstance(args[0], Complex):
+      raise RuntimeError("The argument of `infty' should be a Complex")
+    args[0].flatten_cplx
+    return TestTube(complexes={args[0].name: args[0]})
+    # Translate NusCompex -> Complex, so that the environment returns a 
+    # Standard TestTube Object.
+    #standard = Complex(sequence=args[0].sequence, structure=args[0].structure)
+    #return TestTube(complexes={standard.name: standard})
 
   #@staticmethod
   #def unique(args) :
@@ -436,7 +483,7 @@ class builtin_functions(object):
 
   @staticmethod
   def complement(args) :
-    """ Returns the complement of a given input. It can interpret Structures, 
+    """ Returns the complement of a given input. It can interpret Complex, 
     Domains and Dot-bracket lists, as well as lists of lists.
 
     :param args: an expression in form of an array, where the first element
@@ -452,10 +499,11 @@ class builtin_functions(object):
     elif isinstance(x, Domain):
       print 'Untested:', ~x
       return ~x
-    elif isinstance(x, Structure):
-      return Structure(
-          self._complement([x.domains]),
-          self._complement([x.dotparens]),
+    elif isinstance(x, Complex):
+      raise NotImplementedError
+      return Complex(
+          self._complement([x.sequence]),
+          self._complement([x.structure]),
           dict(x.attributes))
     elif x == "(":
       return ")"
@@ -542,10 +590,10 @@ class Environment(builtin_expressions):
     self._create_binding("short", Function([], "short"))
     self._create_binding("infty", Function(["species"], "infty"))
     #self._create_binding("unique", Function(["l"], "unique"))
-    self._create_binding("complement", Function(["l"], "complement"))
+    #self._create_binding("complement", Function(["l"], "complement"))
     self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
     self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
-    self._create_binding("empty", Solution(set()))
+    self._create_binding("empty", TestTube())
     return self._env, builtin_functions(sdlen, ldlen)
 
   def _create_binding(self, name, value):
@@ -553,14 +601,14 @@ class Environment(builtin_expressions):
 
     Args:
       name (str): Name of the function.
-      value (...): A built-in data type (Function, Solution, Species,
-        Domain, Reaction, Structure, etc ...), either as single value or list
+      value (...): A built-in data type (Function, TestTube, Species,
+        Domain, Reaction, Complex, etc ...), either as single value or list
 
     Returns: 
       An updated environment inclding the function binding in the top-level.
     """
 
-    bindings = (Function, Solution, Species, Domain, Reaction, Structure, 
+    bindings = (Function, TestTube, Species, Domain, Reaction, NusComplex, 
         void, int, list)
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)
@@ -680,7 +728,7 @@ class Environment(builtin_expressions):
     function is applied to every formal species in the input CRN.
 
     Returns:
-      self.formal_species_dict : A dictionary of {fs:Structure()}.
+      self.formal_species_dict : A dictionary of {fs:NusComplex()}.
     """
     formal_species_objects = map(Species, fs_list)
 
@@ -702,7 +750,7 @@ class Environment(builtin_expressions):
   def translate_constant_species(self, cs_list, crn_parsed):
     """Implementation CRN translator function.
 
-    This function builds a solution object from species that have been declared
+    This function builds a TestTube object from species that have been declared
     as 'constant' in the input CRN. This enables to specify an implementation 
     CRN directly as input and use the translation scheme merely to describe how
     formal and constant species should look like. 
@@ -769,7 +817,7 @@ class Environment(builtin_expressions):
     if not self.formal_species_dict :
       raise RuntimeError('Could not find the compiled formal species!')
 
-    # replace every fs (str) with fs(Structure())
+    # replace every fs (str) with fs(NusComplex())
     crn_remap = map(
         lambda x: [x[0]] + map( lambda y: map(
             lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)

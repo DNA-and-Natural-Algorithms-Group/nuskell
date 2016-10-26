@@ -47,18 +47,18 @@ def patternMatch(x, y):
     if len(pMx[0]) == 0 :
       return True
 
-    if (pMx[0][0] != '?' and pMy[0][0] != '?') and \
+    if (pMx[0][0] != 'dummy' and pMy[0][0] != 'dummy') and \
         (pMx[0][0] != pMy[0][0] or pMx[1][0] != pMy[1][0]):
           return False
     return pM_check([pMx[0][1:], pMx[1][1:]], [pMy[0][1:], pMy[1][1:]])
 
-  pMx = [x.sequence, x.structure]
-  pMy = [y.sequence, y.structure]
+  pMx = [map(str, x.sequence), map(str, x.structure)]
+  pMy = [map(str, y.sequence), map(str, y.structure)]
   if pM_check(pMx,pMy) :
     return True
-  elif '+' in x.sequence and '+' in y.sequence :
+  elif '+' in map(str, x.sequence) and '+' in map(str, y.sequence) :
     for yr in y.rotate :
-      pMy = [yr.sequence, yr.structure]
+      pMy = [map(str, yr.sequence), map(str, yr.structure)]
       if pM_check(pMx,pMy) :
         return True
   return False
@@ -105,8 +105,9 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
   enum_to_formal = dict() # Interpretation: dict['A_i'] = Counter('A':1)
   enum_rename = dict()    # Rename 
   remove_ihist = set()
+
   for nx, x in init_cplxs.complexes.items() :
-    if '?' in x.sequence :
+    if 'dummy' in map(str, x.sequence) :
       cnt = 0
       for ny, y in enum_cplxs.complexes.items() :
         if nx == ny : # formal species!
@@ -169,7 +170,6 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
   (input_crn, input_fs, input_cs) = parse_crn_string(input_crn) 
   irrev_crn = split_reversible_reactions(input_crn)
 
-  # TODO: The format of interpret may change for a new verification interface
   # NOTE: enum_rename is empty for schemes without history domains
   interpret, enum_rename = get_interpretation(input_fs, init_cplxs, enum_cplxs)
 
@@ -231,15 +231,15 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
 
   if method == 'bisimulation' or method == 'bisim-whole-graph' :
     return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
-        interpretation = interpret, permissive='whole-graph', verbose=True)
+        interpretation = interpret, permissive='whole-graph', verbose=verbose)
 
   elif method == 'bisim-loop-search':
     return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        interpretation = interpret, permissive='loop-search', verbose=True)
+        interpretation = interpret, permissive='loop-search', verbose=verbose)
 
   elif method == 'bisim-depth-first':
     return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        interpretation = interpret, permissive='depth-first', verbose=True)
+        interpretation = interpret, permissive='depth-first', verbose=verbose)
 
   elif method == 'pathway':
     # NOTE: Adaptation to pathway interface

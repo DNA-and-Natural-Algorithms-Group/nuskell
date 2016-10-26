@@ -13,12 +13,12 @@ import argparse
 
 from nuskell.parser import parse_crn_string, parse_ts_file
 from nuskell.interpreter.interpreter import interpret
-from nuskell.enumeration import enumerate_crn, enumerate_crn_old
+from nuskell.enumeration import peppercorn_enumerate
 from nuskell.verifier.verifier import verify
-
+from nuskell.objects import TestTube
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
-def translate(input_crn, ts_file, pilfile=None, domfile=None):
+def translate(input_crn, ts_file, pilfile=None, verbose = False):
   """A formal chemical reaction network (CRN) is translated into domain level
   representation (DOM) of a DNA strand displacement circuit (DSD).  The
   translation-scheme has to be formulated using the nuskell programming
@@ -41,131 +41,13 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None):
   ts = parse_ts_file(ts_file)
   (crn, formal_species, const_species) = parse_crn_string(input_crn)
 
-  domains, strands, formal_species, constant_species = \
-      interpret(ts, crn, formal_species, const_species)
+  solution, constant_solution = interpret(ts, crn, 
+      formal_species, const_species)
 
   if pilfile :
-    print_as_PIL(pilfile, domains, strands, formal_species, constant_species)
-  if domfile :
-    print_as_DOM(domfile, domains, strands, formal_species, constant_species)
+    solution.write_pilfile(pilfile)
 
-  return domains, strands, formal_species, constant_species
-
-def print_as_PIL(outfile, domains, strands, formal_species, constant_species):
-  """ Print an implementation CRN in the pepper internal language (PIL) file format. 
-    
-  Args:
-    outfile: filename of the PIL file
-    domains: array of Domain objects (see DNAObjects)
-    strands: array of Strand objects (see DNAObjects)
-    formal_species: A list of Complex objects (see DNAObjects)
-    constant_species: A list of Complex objects (see DNAObjects)
-  """
-  F = open(outfile, 'w')
-  for x in domains:
-    if x.name != "?":
-      print >> F, "sequence " + x.name + " = " + "N" * x.length + " : " + str(x.length)
-  for x in strands:
-    total_length = 0
-    print >> F, "strand " + x.name + " =",
-    for d in x.domains:
-      total_length += d.length
-      print >> F, d.name,
-    print >> F, ": " + str(total_length)
-
-  print >> F, "# Formal species"
-  for x in formal_species:
-    print >> F, "structure " + x.name + " =",
-    first = True
-    for s in x.strands:
-      if first: first = False
-      else: print >> F, "+",
-      print >> F, s.name,
-    print >> F, ": "  + x.structure.to_dotparen()
-
-  print >> F, "# Constant species"
-  for x in constant_species:
-    print >> F, "structure " + x.name + " =",
-    first = True
-    for s in x.strands:
-      if first: first = False
-      else: print >> F, "+",
-      print >> F, s.name,
-    print >> F, ": "  + x.structure.to_dotparen()
-  # TODO : figure out a way to deal with the wildcards.
-  return
-
-def print_as_DOM(outfile, domains, strands, formal_species, constant_species):
-  """ Print an implementation CRN in the domain (DOM) file format. 
-
-  Args:
-    outfile: filename of the DOM file
-    domains: array of Domain objects (see DNAObjects)
-    strands: array of Strand objects (see DNAObjects)
-    formal_species: A list of Complex objects (see DNAObjects)
-    constant_species: A list of Complex objects (see DNAObjects)
-  """
-  F = open(outfile, 'w')
-  for x in domains:
-    if x.name != "?":
-      print >> F, "sequence " + x.name + " : " + str(x.length)
-
-  print >> F, "# Formal species"
-  for x in formal_species:
-    print >> F, x.name + " :"
-    first = True
-    t = []
-    for s in x.strands:
-      if first: first = False
-      else: print >> F, "+",
-      for d in s.domains:
-        print >> F, d.name,
-        t.append(d)
-    print >> F
-    i = 0
-    while i < len(x.structure.to_dotparen()):
-      if x.structure.to_dotparen()[i] == "+":
-        print >> F, "+",
-        i += 1
-      else:
-        if len(t) == 0:
-          break
-        elif t[0].length == 0:
-          t = t[1:]
-        else:
-          print >> F, x.structure.to_dotparen()[i],
-          i += t[0].length
-          t = t[1:]
-    print >> F
-              
-  print >> F, "# Constant species"
-  for x in constant_species:
-    print >> F, x.name + " :"
-    first = True
-    t = []
-    for s in x.strands:
-      if first: first = False
-      else: print >> F, "+",
-      for d in s.domains:
-        print >> F, d.name,
-        t.append(d)
-    print >> F
-    i = 0
-    while i < len(x.structure.to_dotparen()):
-      if x.structure.to_dotparen()[i] == "+":
-        print >> F, "+",
-        i += 1
-      else:
-        if len(t) == 0:
-          break
-        elif t[0].length == 0:
-          t = t[1:]
-        else:
-          print >> F, x.structure.to_dotparen()[i],
-          i += t[0].length
-          t = t[1:]
-    print >> F
-  return
+  return solution, constant_solution
 
 def get_nuskell_args(parser) :
   """ A collection of arguments for Nuskell 
@@ -185,24 +67,25 @@ def get_nuskell_args(parser) :
   parser.add_argument("--ts", required=True, action = 'store',
       help="Specify path to the translation scheme")
 
-  # Enter the verification-only mode of Nuskell (Robert's mode)
-  parser.add_argument("--compare", nargs="+", action = 'store',
-      help="Specify path to an implementation CRN and (optionally) \
-      also to an interpretation CRN.")
-
   # Choose a verification method.
   parser.add_argument("--verify", default='', action = 'store',
       help="Specify name a verification method: \
           (bisimulation, pathway, integrated, bisim-loop-search,\
           bisim-depth-first, bisim-whole-graph)") 
 
-  # Convenience options 
+  parser.add_argument("--enumerate", action = 'store_true',
+      help="Enumerate the implementation CRN.")
+
+  parser.add_argument("--simulate", action = 'store_true',
+      help="Simulate the CRNs.")
+
   parser.add_argument("-o", "--output", default='', action = 'store',
       help="Specify name of output file")
-  parser.add_argument("--dom_short", type=int, default=6,
-      help="Length of short domains when using the short() built-in function")
-  parser.add_argument("--dom_long", type=int, default=15,
-      help="Length of long domains when using the long() built-in function")
+
+  ## Enter the verification-only mode of Nuskell 
+  #parser.add_argument("--compare", nargs="+", action = 'store',
+  #    help="Specify path to an implementation CRN and (optionally) \
+  #    also to an interpretation CRN.")
   return parser
 
 def main() :
@@ -232,50 +115,48 @@ def main() :
     args.output = 'implementation'
 
   pilfile = args.output + '.pil'
-  domfile = args.output + '.dom'
 
-  # NOTE: Specification of a translation scheme is the only entry into nuskell.
-  # This might change in the future. For example, a CRN + .pil file would be
-  # enough to verify a given implementation. Alternatively, one may just want
-  # to compare two CRNs, but then it is probably easier to write a script that 
-  # does exactly that using the 'Nuskell' libary
-  d, s, f, c = translate(input_crn, args.ts,
-          pilfile=pilfile, domfile=domfile)
+  # ~~~~~~~~~~~~~~~~~~~~~~~~
+  # Prepare CRN and TestTube
+  # ~~~~~~~~~~~~~~~~~~~~~~~~
+  print "Translating..."
+  if args.ts : # Translate CRN using a translation scheme
+    solution, constant_solution = translate(input_crn, args.ts, 
+        verbose = args.verbose)
+    if pilfile : solution.write_pilfile(pilfile)
+  elif args.pilfile : # Parse implementation species from a PIL file
+    solution = TestTube()
+    raise NotImplementedError
+    solution.load_pilfile(args.pilfile)
+  print "...done."
 
-  # NOTE: At this point, we only need the enumerator for verification, but in
-  # the future, it will also be used for simulation, optimization, etc.
-  if True and args.verify :
-    print "Translation done. Enumerating species of the implementation CRN:"
-    
-    # TODO: need to check *ignoring* of history domains in the pil-file before 
-    # switching to the new method. 
-    old = True
-    if old :
-      enum_crn, init_cplxs, enum_cplxs = enumerate_crn_old(args, domfile)
-    else :
-      enum_crn, init_cplxs, enum_cplxs = enumerate_crn(args, pilfile)
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Prepare enumerated CRN and TestTube
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  if args.verify or args.enumerate :
+    print "Enumerating..."
+    #TODO: remove pilfile
+    enum_crn, enum_solution = peppercorn_enumerate(args, pilfile, solution, 
+        verbose = args.verbose)
+    print "...done."
 
-  # TODO: verify depends on init_cplxes and enum_cplxs. init_cplxs is the same
-  # as c + f but in a different format, enum_cplxs is only needed for
-  # history-domain-schemes. It would be more flexible to make enum_cplxs
-  # optional, but that means we should change the format such that init does
-  # not depend on enumeration! 
-  # NOTE: It would make sense to have a unified interface of how a complex
-  # should be represented. One way would be to use DNAObjects.Complex, however,
-  # it turns out that the structure used here is just cleaner...
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Verify equivalence of CRNs
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify :
     print "Verification using:", args.verify
-
-    # NOTE: In principle, one could make 'verify' an optional preprocessing, but
-    # then again, it just makes sense for what 'nuskell' is written to do. If you 
-    # want other input, write your own script using the library!
-    v = verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
+    v = verify(input_crn, enum_crn, solution, enum_solution, 
         method = args.verify, verbose = args.verbose)
-
     if v:
-      print "verify: compilation was correct."
+      print "compilation was correct."
     else:
-      print "verify: compilation was incorrect." 
+      print "compilation was incorrect." 
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Simulate CRNs in a TestTube
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  if args.simulate :
+    raise NotImplementedError
 
 if __name__ == '__main__':
   main()
