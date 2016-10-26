@@ -24,7 +24,7 @@ setup(
     install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier', 
-        'nuskell.include', 'nuskell.include.peppercorn', 'nuskell.include.dnaobjects'],
+        'nuskell.include', 'nuskell.include.peppercorn'],
     scripts=['scripts/nuskell']
 )
 
