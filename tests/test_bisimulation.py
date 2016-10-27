@@ -95,18 +95,18 @@ class BisimulationTests(unittest.TestCase):
     partial['x2'] = Counter(['B','D'])
     partial['x3'] = Counter(['C'])
 
-    out = bisimulation.test(fcrn, icrn, fs, interpretation=partial,
+    v, i = bisimulation.test(fcrn, icrn, fs, interpretation=partial,
                             permissive='loop-search', verbose=False)
-    self.assertFalse(out[0])
-    self.assertTrue(out[1][1] >= 0)
+    self.assertFalse(v)
+    self.assertTrue(i[1] >= 0)
 
     del partial['x3']
 
-    out = bisimulation.test(fcrn, icrn, fs, permissive='loop-search',
+    v, _ = bisimulation.test(fcrn, icrn, fs, permissive='loop-search',
                             interpretation=partial, verbose=False)
-    self.assertTrue(out[0])
+    self.assertTrue(v)
 
-  def test_weird_behavior(self):
+  def test_example_with_results(self):
     """ a follow-up on testing the groupmeeting example """
 
     fcrn = "A + B -> C + D ; A + C -> B + D"
@@ -167,24 +167,32 @@ class BisimulationTests(unittest.TestCase):
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                               permissive='loop-search')
     self.assertTrue(v)
+    self.assertDictEqual(inter1, i1)
+
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                             permissive='whole-graph')
     self.assertTrue(v)
+    self.assertDictEqual(inter1, i1)
+
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
                             permissive='depth-first')
     self.assertTrue(v)
+    self.assertDictEqual(inter1, i1)
 
-    del inter1['x3']
-    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
+    v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation=pinter2,
                             permissive='loop-search')
     self.assertTrue(v)
+    self.assertDictEqual(inter2, i2)
 
-    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
+    v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation=pinter2,
                             permissive='whole-graph')
     self.assertTrue(v)
-    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter1,
+    self.assertDictEqual(inter2, i2)
+
+    v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation=pinter2,
                             permissive='depth-first')
     self.assertTrue(v)
+    self.assertDictEqual(inter2, i2)
 
     def dont_test_equivalence(self):
       (fcrn, fs) = self.equivalence['formal'][0]
