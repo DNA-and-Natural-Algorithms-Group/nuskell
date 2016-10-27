@@ -469,7 +469,10 @@ class builtin_functions(object):
     if not isinstance(args[0], Complex):
       raise RuntimeError("The argument of `infty' should be a Complex")
     args[0].flatten_cplx
-    return TestTube(complexes={args[0].name: args[0]})
+    if args[0].sequence == [] and args[0].structure == [] :
+      return TestTube()
+    else :
+      return TestTube(complexes={args[0].name: args[0]})
     # Translate NusCompex -> Complex, so that the environment returns a 
     # Standard TestTube Object.
     #standard = Complex(sequence=args[0].sequence, structure=args[0].structure)
