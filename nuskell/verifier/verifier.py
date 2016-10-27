@@ -1,14 +1,16 @@
+#!/usr/bin/env python
+#
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+#            Stefan Badelt (badelt@dna.caltech.edu)
+#
+# Verification interface
+#
 
-import os
-import sys
-import string # printRxn
 from collections import Counter
 
-from nuskell.parser import parse_crn_string, parse_dom_file
-from nuskell.parser import split_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
-from collections import Counter
 
 def printRxn(rxn, inter={}):
   # First, replace every Instance of a variable by its interpretation
@@ -19,7 +21,7 @@ def printRxn(rxn, inter={}):
     sorted(inter[x].elements())) if x in inter else x, rxn[1])
   print ' + '.join(react), '->', ' + '.join(produ)
 
-def patternMatch(x, y):
+def patternMatch(x, y, ignore = '?'):
   """Matches two complexes if they are the same, ignoring history domains. 
 
   Note: The strand order of the second complex changes to the strand order of
@@ -47,7 +49,7 @@ def patternMatch(x, y):
     if len(pMx[0]) == 0 :
       return True
 
-    if (pMx[0][0] != 'dummy' and pMy[0][0] != 'dummy') and \
+    if (pMx[0][0] != ignore and pMy[0][0] != ignore) and \
         (pMx[0][0] != pMy[0][0] or pMx[1][0] != pMy[1][0]):
           return False
     return pM_check([pMx[0][1:], pMx[1][1:]], [pMy[0][1:], pMy[1][1:]])
@@ -63,22 +65,25 @@ def patternMatch(x, y):
         return True
   return False
 
-def removeFuels(crn, fuel):
-    crn = [[filter(lambda s: s not in fuel, rxn[0]),
-            filter(lambda s: s not in fuel, rxn[1])]
-           for rxn in crn]
-    return crn
+def removeSpecies(crn, fuel):
+  crn = [[filter(lambda s: s not in fuel, rxn[0]),
+          filter(lambda s: s not in fuel, rxn[1])]
+         for rxn in crn]
+  return crn
 
-def remove_duplicates(l):
+def removeDuplicates(l):
+  def helper(l) :
     r = []
     if len(l) == 0: return []
     l.sort()
     while len(l) > 1:
-        if l[0] != l[1]:
-            r.append(l[0])
-        l = l[1:]
+      if l[0] != l[1]:
+        r.append(l[0])
+      l = l[1:]
     r.append(l[0])
     return r
+  l = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], l))
+  return helper(l)
 
 def get_interpretation(input_fs, init_cplxs, enum_cplxs):
   """Infer a partial interpretation from species names.
@@ -107,7 +112,7 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
   remove_ihist = set()
 
   for nx, x in init_cplxs.complexes.items() :
-    if 'dummy' in map(str, x.sequence) :
+    if 'hist' in map(str, x.sequence) :
       cnt = 0
       for ny, y in enum_cplxs.complexes.items() :
         if nx == ny : # formal species!
@@ -119,7 +124,7 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
             # should be save to remove this else statement.
             raise ValueError('Unexpected constant species')
         else :
-          if patternMatch(x, y) :
+          if patternMatch(x, y, ignore='hist') :
             cnt += 1
             enum_rename[ny] = nx + "_" + str(cnt)
             if nx in input_fs :
@@ -138,7 +143,7 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
 
   return enum_to_formal, enum_rename
 
-def verify(input_crn, enum_crn, init_cplxs, enum_cplxs, 
+def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs, 
     method = 'bisimulation', verbose = False):
   """Wrapper-function to speed up the verification of a CRN translation.
 
@@ -165,10 +170,11 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
     True: formal and implementation CRN are equivalent
     False: formal and implementation CRN are not equivalent
   """
-  interactive = False
 
-  (input_crn, input_fs, input_cs) = parse_crn_string(input_crn) 
-  irrev_crn = split_reversible_reactions(input_crn)
+  ## Reduce the enumerated CRN, 
+  #cs = map(str, init_cplxs.complexes)
+  #cs = filter(lambda x: x not in input_fs, cs)
+  #enum_crn = removeFuels(enum_crn, cs)
 
   # NOTE: enum_rename is empty for schemes without history domains
   interpret, enum_rename = get_interpretation(input_fs, init_cplxs, enum_cplxs)
@@ -191,17 +197,14 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
       products = map(get_name, products)
       enum_crn[i] = [reactants, products]
 
-  # Reduce the enumerated CRN, 
-  cs = map(str, init_cplxs.complexes)
-  cs = filter(lambda x: x not in input_fs, cs)
-
   if verbose:
     print "Renamed enumerated CRN:"
     for r in enum_crn: printRxn(r)
- 
-  enum_crn = removeFuels(enum_crn, cs)
-  enum_crn = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], enum_crn))
-  enum_crn = remove_duplicates(enum_crn) # TODO: WHAT FOR?
+
+  # Remove all constant Species and duplicate Reactions from the enumerated CRN
+  cs = filter(lambda x: x not in input_fs, init_cplxs.complexes)
+  enum_crn = removeSpecies(enum_crn, cs)
+  enum_crn = removeDuplicates(enum_crn)
 
   if verbose:
     print "Processed enumerated CRN:"
@@ -226,19 +229,28 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
     for r in enum_crn: printRxn(r, interpret)
     print "======================="
 
+  return enum_crn, interpret
+
+def verify(irrev_crn, enum_crn, input_fs, interpret = None, 
+    method = 'bisimulation', verbose = False):
+  """Wrapper to choose from different notions of equivalence.
+  """
+  interactive = False
+  v, i = None, None
+
   fcrn = [[Counter(part) for part in rxn] for rxn in irrev_crn]
   ecrn = [[Counter(part) for part in rxn] for rxn in enum_crn]
 
   if method == 'bisimulation' or method == 'bisim-whole-graph' :
-    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
+    v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
         interpretation = interpret, permissive='whole-graph', verbose=verbose)
 
   elif method == 'bisim-loop-search':
-    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+    v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
         interpretation = interpret, permissive='loop-search', verbose=verbose)
 
   elif method == 'bisim-depth-first':
-    return crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+    v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
         interpretation = interpret, permissive='depth-first', verbose=verbose)
 
   elif method == 'pathway':
@@ -247,7 +259,7 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
     for k,v in interpret.items() :
       v = sorted(v.elements())[0]
       pinter[k]=[v]
-    return crn_pathway_equivalence.test((irrev_crn, input_fs), 
+    v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
         (enum_crn, pinter.keys()), pinter, verbose, False, interactive)
   elif method == 'integrated':
     # TODO: integrated-hybrid -> first consider some species as formal for
@@ -261,9 +273,11 @@ def verify(input_crn, enum_crn, init_cplxs, enum_cplxs,
     for k,v in interpret.items() :
       v = sorted(v.elements())[0]
       pinter[k]=[v]
-    return crn_pathway_equivalence.test((irrev_crn, input_fs), 
-        (enum_crn, pinterpret), pinter, verbose, True, interactive)
+    v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
+        (enum_crn, pinter.keys()), pinter, verbose, True, interactive)
   else:
     print "Verification method unknown."
-    return False
+    v = False
+
+  return v, i
 

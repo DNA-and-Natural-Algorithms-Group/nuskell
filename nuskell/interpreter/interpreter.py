@@ -1,19 +1,18 @@
+# -*- coding: utf-8 -*-
 #
-#
-# Copyright (c) 2010 Caltech. All rights reserved.
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+#            Stefan Badelt (badelt@caltech.edu)
 #
-#
-# The interpreter for translation schemes.
+# The interpreter interface for translation schemes.
 #
 
 import sys
 from copy import copy
 
-
 from nuskell.parser import parse_ts_string
-from nuskell.interpreter.environment import Environment 
 from nuskell.objects import TestTube, Complex, Domain
+from nuskell.interpreter.environment import Environment 
 
 def ts_code_snippet():
   """ Sample code of the ts language, which is parsed upon initialization of
@@ -33,7 +32,7 @@ def ts_code_snippet():
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
 def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
-    name='ts_author', sdlen=6, ldlen=15, verbose=True):
+    name='ts_author', sdlen=6, ldlen=15, verbose=False):
   """Interface to the nuskell environment.
 
   The translation scheme is executed in the nuskell environment.

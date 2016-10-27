@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 #
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-# Modified by Stefan Badelt (badelt@caltech.edu)
+#            Stefan Badelt (badelt@caltech.edu)
 #
+# The interpreter environment for translation schemes.
 #
 
-"""The DSD translation scheme language environment.
+"""The nuskell programming language environment.
 
-This module contains all classes and functions that are needed to set up a
-Nuskell compile environment. Built-in functions are defined in the base-level
-upon initialization of the Environment() object, Nuskell code is embedded using
-public functions of the **Environment** class. At this point, only the
-interpreter module communicates with the environment module in order to set up
-the final namespace for a translation scheme and execute the translation scheme
-together with the input CRN.
+Nuskell code is interpreted using public functions of the **Environment**
+class.  All other classes and functions are needed internally to set up the
+interpreter environment.  Built-in functions and expressions are encapuslated
+in the respective namespace. 
 
 .. When modifying this file, use 2-whitespace character indents, 
 .. otherwise follow the Google Python Style Guide:
@@ -21,8 +20,9 @@ together with the input CRN.
 """
 
 import sys
-from nuskell.objects import Domain, Complex, TestTube, flatten
 from copy import copy
+
+from nuskell.objects import Domain, Complex, TestTube, flatten
 
 class RuntimeError(Exception):
   """Exception for environment.py module.
@@ -112,7 +112,7 @@ class NusComplex(Complex):
           range(len(s))))]
       elif s == '?' :
         assert (c in ['(','.',')'])
-        return Domain(constraints=['N'], name='dummy'), c
+        return Domain(constraints=['N'], name='hist'), c
         #return s, c
       else :
         raise NotImplementedError
@@ -280,9 +280,9 @@ class builtin_expressions(object):
         value = asgn[1]
 
         theenv._env, value = theenv.interpret_expr(value)
-        id_list = remove_id_tags(id_list)
+        id_list = self._bfunc_Obj.remove_id_tags(id_list)
 
-        for key, value in asgn_pattern_match(id_list, value) :
+        for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, value) :
           theenv._env = theenv._create_binding(key, value)
 
     theenv._env, value = theenv.interpret_expr(content[0])
@@ -551,6 +551,37 @@ class builtin_functions(object):
         new_crn.append(r) 
     return new_crn
 
+  @staticmethod
+  def asgn_pattern_match(id, value):
+    """Does the pattern matching for list assignments.
+       ex) [a, b, c] = [1, 2, 3]
+    """
+    if type(id) == list:
+      if type(value) != list or len(id) != len(value):
+        raise RuntimeError(
+            "Pattern matching failed while assigning values to " + str(id) + ".")
+      result = []
+      for i in range(len(id)):
+        result += builtin_functions.asgn_pattern_match(id[i], value[i])
+      return result
+    elif type(id) == str:
+      return [(id, value)]
+    else:
+      raise RuntimeError("""The left hand side of an assignment should be 
+      either an identifier or a list-tree consisting only of identifiers.""")
+
+  @staticmethod
+  def remove_id_tags(l):
+    """Helper function to remove all tags from the given id_list."""
+    kwd = l[0]
+    if kwd == "idlist":
+      return map(builtin_functions.remove_id_tags, l[1:])
+    elif kwd == "id":
+      return l[1]
+    else:
+      raise RuntimeError("""The left hand side of an assignment should be 
+      either an identifier or a list-tree consisting only of identifiers.""")
+  
 class Environment(builtin_expressions):
   """The Nuskell environment to interpret translation schemes. 
   
@@ -581,107 +612,6 @@ class Environment(builtin_expressions):
     # Setup the builtin functions. 
     self._env, self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
 
-  def _init_builtin_functions(self, sdlen, ldlen):
-    self._create_binding("print", Function(["s"], "print"))
-    self._create_binding("abort", Function(["s"], "abort"))
-    self._create_binding("tail", Function(["l"], "tail"))
-    self._create_binding("flip", Function(["l", "n"], "flip"))
-    self._create_binding("long", Function([], "long"))
-    self._create_binding("short", Function([], "short"))
-    self._create_binding("infty", Function(["species"], "infty"))
-    #self._create_binding("unique", Function(["l"], "unique"))
-    #self._create_binding("complement", Function(["l"], "complement"))
-    self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
-    self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
-    self._create_binding("empty", TestTube())
-    return self._env, builtin_functions(sdlen, ldlen)
-
-  def _create_binding(self, name, value):
-    """ Create binding of a Nuskell function.
-
-    Args:
-      name (str): Name of the function.
-      value (...): A built-in data type (Function, TestTube, Species,
-        Domain, Reaction, Complex, etc ...), either as single value or list
-
-    Returns: 
-      An updated environment inclding the function binding in the top-level.
-    """
-
-    bindings = (Function, TestTube, Species, Domain, Reaction, NusComplex, 
-        void, int, list)
-    if isinstance(value, list) :
-      assert all(isinstance(s, bindings) for s in value)
-    else :
-      assert isinstance(value, bindings)
-
-    self._env[-1][name] = value
-    return self._env
-
-  # Private environment modification functions #
-  def _create_level(self): 
-    # Create a new level for function bindings.
-    # It is commonly triggered by a 'where' statement or during the evaluation
-    # of a non-built-in function call.
-
-    # interpret_expr -> _where
-    # interpret_expr -> _trailer -> _apply -> _eval_func
-    self._env.append({})
-    return self._env
-  
-  def _destroy_level(self):
-    # Revert to the old level for function bindings.
-    # It is commonly triggered by a 'where' statement or after the evaluation
-    # of a non-built-in function call.
-
-    # interpret_expr -> _where
-    # interpret_expr -> _trailer -> _apply -> _eval_func
-    self._env.pop()
-    return self._env
-
-  def _ref_binding(self, name):
-    # Search levels from last to first to find a reference to an exisiting
-    # function binding.
-
-    # Args: 
-    #   name (str) : Name of a function
-
-    # Return: 
-    #   Function binding (self._env[?][name])
-    for level in reversed(self._env):
-      if name in level.keys():
-        return level[name]
-    raise RuntimeError("Cannot find a binding for `" + name + "'.")
-    return None
-
-  def _eval_func(self, f, args):
-    if type(f.body) == str: # the function is a built-in function
-      return self._env, self._bfunc_Obj.eval_builtin_functions(f.body, args)
-  
-    def hardcopy_list(l):
-      if type(l) != list:
-        return copy(l)
-      return map(hardcopy_list, l)
-  
-    self._create_level()
-    if not isinstance(f, Function):
-      raise RuntimeError(str(f) + "is not a function.")
-  
-    if len(f.args) > len(args):
-      raise RuntimeError("The function `" + f.name + "' requires at least " \
-          + str(len(f.args)) + " arguments but only found " + str(args) +\
-          " arguments.")
-  
-    for i in range(len(f.args)):
-      arg_name = f.args[i]
-      arg_value = args[i]
-      self._env = self._create_binding(arg_name, arg_value)
-  
-    # hardcopy the function body so that it does not change during evaluation.
-    self._env, value = self.interpret_expr(hardcopy_list(f.body))
-    self._destroy_level()
-    return self._env, value
-
   # Public functions #
   def interpret(self, code):
     """ Returns the Environment (the final namespace).
@@ -704,12 +634,12 @@ class Environment(builtin_expressions):
       if kwd == "global":
         # create binding to interpretation of the expression
         id_list = body[0]
-        id_list = remove_id_tags(id_list)
+        id_list = self._bfunc_Obj.remove_id_tags(id_list)
 
         value = body[1]
         self._env, value = self.interpret_expr(value)
 
-        for key, value in asgn_pattern_match(id_list, value) :
+        for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, value) :
           self._create_binding(key, value)
       else:
         # create binding to the function, without interpretation
@@ -832,32 +762,106 @@ class Environment(builtin_expressions):
 
     return self.constant_species_solution
 
-def asgn_pattern_match(id, value):
-  """Does the pattern matching for list assignments.
-     ex) [a, b, c] = [1, 2, 3]
-  """
-  if type(id) == list:
-    if type(value) != list or len(id) != len(value):
-      raise RuntimeError(
-          "Pattern matching failed while assigning values to " + str(id) + ".")
-    result = []
-    for i in range(len(id)):
-      result += asgn_pattern_match(id[i], value[i])
-    return result
-  elif type(id) == str:
-    return [(id, value)]
-  else:
-    raise RuntimeError("""The left hand side of an assignment should be 
-    either an identifier or a list-tree consisting only of identifiers.""")
+  # Private Functions #
+  def _init_builtin_functions(self, sdlen, ldlen):
+    self._create_binding("print", Function(["s"], "print"))
+    self._create_binding("abort", Function(["s"], "abort"))
+    self._create_binding("tail", Function(["l"], "tail"))
+    self._create_binding("flip", Function(["l", "n"], "flip"))
+    self._create_binding("long", Function([], "long"))
+    self._create_binding("short", Function([], "short"))
+    self._create_binding("infty", Function(["species"], "infty"))
+    #self._create_binding("unique", Function(["l"], "unique"))
+    #self._create_binding("complement", Function(["l"], "complement"))
+    self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
+    self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
+    self._create_binding("empty", TestTube())
+    return self._env, builtin_functions(sdlen, ldlen)
 
-def remove_id_tags(l):
-  """Helper function to remove all tags from the given id_list."""
-  kwd = l[0]
-  if kwd == "idlist":
-    return map(remove_id_tags, l[1:])
-  elif kwd == "id":
-    return l[1]
-  else:
-    raise RuntimeError("""The left hand side of an assignment should be 
-    either an identifier or a list-tree consisting only of identifiers.""")
+  def _create_binding(self, name, value):
+    """ Create binding of a Nuskell function.
+
+    Args:
+      name (str): Name of the function.
+      value (...): A built-in data type (Function, TestTube, Species,
+        Domain, Reaction, Complex, etc ...), either as single value or list
+
+    Returns: 
+      An updated environment inclding the function binding in the top-level.
+    """
+
+    bindings = (Function, TestTube, Species, Domain, Reaction, NusComplex, 
+        void, int, list)
+    if isinstance(value, list) :
+      assert all(isinstance(s, bindings) for s in value)
+    else :
+      assert isinstance(value, bindings)
+
+    self._env[-1][name] = value
+    return self._env
+
+  # Private environment modification functions #
+  def _create_level(self): 
+    # Create a new level for function bindings.
+    # It is commonly triggered by a 'where' statement or during the evaluation
+    # of a non-built-in function call.
+
+    # interpret_expr -> _where
+    # interpret_expr -> _trailer -> _apply -> _eval_func
+    self._env.append({})
+    return self._env
+  
+  def _destroy_level(self):
+    # Revert to the old level for function bindings.
+    # It is commonly triggered by a 'where' statement or after the evaluation
+    # of a non-built-in function call.
+
+    # interpret_expr -> _where
+    # interpret_expr -> _trailer -> _apply -> _eval_func
+    self._env.pop()
+    return self._env
+
+  def _ref_binding(self, name):
+    # Search levels from last to first to find a reference to an exisiting
+    # function binding.
+
+    # Args: 
+    #   name (str) : Name of a function
+
+    # Return: 
+    #   Function binding (self._env[?][name])
+    for level in reversed(self._env):
+      if name in level.keys():
+        return level[name]
+    raise RuntimeError("Cannot find a binding for `" + name + "'.")
+    return None
+
+  def _eval_func(self, f, args):
+    if type(f.body) == str: # the function is a built-in function
+      return self._env, self._bfunc_Obj.eval_builtin_functions(f.body, args)
+  
+    def hardcopy_list(l):
+      if type(l) != list:
+        return copy(l)
+      return map(hardcopy_list, l)
+  
+    self._create_level()
+    if not isinstance(f, Function):
+      raise RuntimeError(str(f) + "is not a function.")
+  
+    if len(f.args) > len(args):
+      raise RuntimeError("The function `" + f.name + "' requires at least " \
+          + str(len(f.args)) + " arguments but only found " + str(args) +\
+          " arguments.")
+  
+    for i in range(len(f.args)):
+      arg_name = f.args[i]
+      arg_value = args[i]
+      self._env = self._create_binding(arg_name, arg_value)
+  
+    # hardcopy the function body so that it does not change during evaluation.
+    self._env, value = self.interpret_expr(hardcopy_list(f.body))
+    self._destroy_level()
+    return self._env, value
+
 

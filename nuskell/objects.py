@@ -1,13 +1,21 @@
-"""The nuskell objects are to a large ident identical with "DNAObjects" from
-Joseph Schaeffer and Joseph Berleant. 
-
-Currently, the following Objects are implemented:
-  *IUPAC_translator: handling of nucleic acid constaints
-  *Domain: A constrained subsequence of a molecule
-  *ComplementDomain: A domain complementary to a Domain Object.
-  *Complex: A sequence/structure pair.
-  #*TestTube: A set of complexes
-"""
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2016 Caltech. All rights reserved.
+# Written by Stefan Badelt (badelt@caltech.edu)
+#
+# nuskell.objects: shared between different components of nuskell
+#
+# nuskell.objects are to some extent identical to "DNAObjects" coded by 
+# Joseph Schaeffer and Joseph Berleant. 
+#
+# The following Objects are implemented:
+#  *IUPAC_translator: handling of nucleic acid constaints
+#  *Domain: A constrained subsequence of a molecule
+#  *ComplementDomain: A domain complementary to a Domain Object.
+#  *Complex: A sequence/structure pair.
+#  *TestTube: A set of Complex objects and interface to
+#     - read/write PIL files
+#     - enumerate species
 
 def find(l, key):
   for i in range(len(l)):
@@ -522,7 +530,6 @@ class Complex(object):
     """ Returns True if the complexes are not equal. """
     return not self.__eq__(other)
 
-
 class TestTube(object):
   """ A graph representation of a test tube containing nucleic acids.
 
@@ -539,11 +546,6 @@ class TestTube(object):
   """
 
   def __init__(self, complexes=None):
-    #if domains :
-    #  assert all(isinstance(d, Domain) for k,d in domains.items())
-    #  self._domains = domains
-    #else :
-    #  self._domains = dict()
     if complexes :
       assert all(isinstance(c, Complex) for k,c in complexes.items())
       self._complexes = complexes
@@ -559,6 +561,15 @@ class TestTube(object):
 
   @property
   def strands(self):
+    """Return a dictionary of strands present in the TestTube. 
+
+    A strand is a nucleic-acid molecule connected by a single covalent
+    backbone. Strands are named automatically, and their names may change
+    whenever a new Complex is added to the TestTube.
+
+    Returns: 
+      strands[strand_1] = [Domain(X), Domain(Y), Domain(Z)]
+    """
     if not self._strands :
       count = 0
       self._strands = dict()
@@ -574,6 +585,11 @@ class TestTube(object):
 
   @property
   def domains(self):
+    """Return a dictionary of Domain Objects present in the TestTube. 
+    
+    Returns:
+      domains[Domain.name] = Domain
+    """
     if not self._domains :
       self._domains = dict()
       for n, c in self._complexes.items():
@@ -594,8 +610,8 @@ class TestTube(object):
 
     sequence d1 = NNN : 3
     sequence d2 = NNNN : 4
-    sequence dummy = N : 1
-    strand s1 = dummy d1 d2 : 8
+    sequence hist = N : 1
+    strand s1 = hist d1 d2 : 8
     strand s2 = d2* d1* : 7
     structure c1 = s1 : .(((((((+)))))))
     """
@@ -716,10 +732,6 @@ class TestTube(object):
   def __add__(self, other):
     assert isinstance(other, TestTube)
     combined = TestTube()
-    #for k,v in self.domains.items() :
-    #  combined.add_domain(v)
-    #for k,v in other._domains.items() :
-    #  combined.add_domain(v)
     for k,v in self._complexes.items() :
       combined.add_complex(v)
     for k,v in other.complexes.items() :

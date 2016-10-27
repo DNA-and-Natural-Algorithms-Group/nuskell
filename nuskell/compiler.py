@@ -12,10 +12,13 @@ import sys
 import argparse
 
 from nuskell.parser import parse_crn_string, parse_ts_file
-from nuskell.interpreter.interpreter import interpret
+from nuskell.parser import split_reversible_reactions
+from nuskell.interpreter import interpret
 from nuskell.enumeration import peppercorn_enumerate
-from nuskell.verifier.verifier import verify
+from nuskell.verifier import preprocess, verify
+
 from nuskell.objects import TestTube
+
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
 def translate(input_crn, ts_file, pilfile=None, verbose = False):
@@ -114,39 +117,62 @@ def main() :
   if args.output == '' :
     args.output = 'implementation'
 
-  pilfile = args.output + '.pil'
-
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~
-  print "Translating..."
   if args.ts : # Translate CRN using a translation scheme
+    print "Translating..."
     solution, constant_solution = translate(input_crn, args.ts, 
         verbose = args.verbose)
-    if pilfile : solution.write_pilfile(pilfile)
+    pilfile = args.output + '.pil'
+    solution.write_pilfile(pilfile)
+    print "wrote to file:", pilfile
   elif args.pilfile : # Parse implementation species from a PIL file
+    print "Parsing PIL file..."
     solution = TestTube()
     raise NotImplementedError
     solution.load_pilfile(args.pilfile)
-  print "...done."
+  else :
+    raise NotImplementedError
+    solution = None
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if args.verify or args.enumerate :
-    print "Enumerating..."
-    #TODO: remove pilfile
+  if args.verify or args.simulate or args.enumerate :
+    print "Enumerating reaction pathways..."
+    # TODO: remove pilfile
     enum_crn, enum_solution = peppercorn_enumerate(args, pilfile, solution, 
         verbose = args.verbose)
-    print "...done."
+
+    #print "Enumerated CRN:"
+    #for rxn in enum_crn :
+    #  print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify :
+    print "Verification preprocessing..."
+    (fcrn, fs, cs) = parse_crn_string(input_crn) 
+    fcrn = split_reversible_reactions(fcrn)
+
+    if True :
+      # Reduce the enumerated CRN and find an interpretation
+      icrn, interpret = preprocess(fcrn, enum_crn, fs,
+          solution, enum_solution, verbose=args.verbose)
+    else :
+      # Reduce the enumerated CRN without finding an interpretation
+      import nuskell.verifier.verifier
+      cs = filter(lambda x: x not in fs, solution.complexes)
+      icrn = nuskell.verifier.verifier.removeSpecies(enum_crn, cs)
+      icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
+      interpret = None
+
     print "Verification using:", args.verify
-    v = verify(input_crn, enum_crn, solution, enum_solution, 
-        method = args.verify, verbose = args.verbose)
+    v, i = verify(fcrn, icrn, fs, interpret=interpret, 
+        method=args.verify, verbose=args.verbose)
+
     if v:
       print "compilation was correct."
     else:

@@ -1,13 +1,22 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+#            Stefan Badelt (badelt@caltech.edu)
+#
+# Preprocessing and interface to peppercorn enumerator
+#
+
 import os
+
 from nuskell.parser import parse_dom_file
+from nuskell.objects import Domain, Complex, TestTube
+
 import nuskell.include.peppercorn.enumerator as pepen
 import nuskell.include.peppercorn.input as pepin
 import nuskell.include.peppercorn.output as pepout
 import nuskell.include.peppercorn.reactions as reactions
 from nuskell.include.peppercorn.condense import condense_resting_states
-
-from nuskell.objects import Domain, Complex, TestTube
-
 
 # Once peppercorn is its own package, we import it as depencency.
 # try :
@@ -25,7 +34,7 @@ def peppercorn_enumerate(args, pilfile, solution, verbose = False):
   enum.enumerate()
 
   # Get Data
-  enum_crn = get_enum_crn(enum, solution, verbose)
+  enum_crn = get_enum_crn(enum, verbose)
   enum_solution = get_enum_solution(enum, solution, verbose)
 
   return enum_crn, enum_solution
@@ -33,7 +42,7 @@ def peppercorn_enumerate(args, pilfile, solution, verbose = False):
 def enum_cplx_rename(x) :
   # Translating enum output to be compatible with nuskell Objects.
   x = 'e'+x if x[0].isdigit() else x
-  return x +'p' if x[-1].isdigit() else x
+  return x +'_' if x[-1].isdigit() else x
 
 # NOTE: This function is obsolete, because domains are initialized using
 # the original solution object
@@ -42,8 +51,8 @@ def enum_cplx_rename(x) :
 #  # ... and do some weird translation of history domain names
 #  x = 'e'+x if x[0].isdigit() else x
 #
-#  if x == 'dummy':
-#    return 'dummy'
+#  if x == 'hist':
+#    return 'hist'
 #  elif x[-1]=='*':
 #    return x[:-1] + 'p' + '*'
 #  elif x[-1].isdigit() :
@@ -51,24 +60,21 @@ def enum_cplx_rename(x) :
 #  else :
 #    return x
 
-def get_enum_crn(enum, solution, verbose):
+def get_enum_crn(enum, verbose=False):
   # Extract condensed reactions
   condense_options={}
   condensed = condense_resting_states(enum, **condense_options)
   reactions = condensed['reactions']
 
   enum_crn = []
-  for r in sorted(reactions): #utils.natural_sort(reactions):
+  for r in sorted(reactions):
     react = map(enum_cplx_rename, map(str, r.reactants))
     prod  = map(enum_cplx_rename, map(str, r.products))
-    if verbose :
-      print ' + '.join(react), '->', ' + '.join(prod)
     enum_crn.append([react, prod])
 
   return enum_crn
 
-
-def get_enum_solution(enum, solution, verbose):
+def get_enum_solution(enum, solution, verbose=False):
   # Extraction of complexes in the enumerated CRN:
   enum_cplxs = TestTube()
   enum_cplxs += solution
