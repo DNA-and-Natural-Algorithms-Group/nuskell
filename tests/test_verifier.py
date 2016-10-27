@@ -25,6 +25,10 @@ class VerificationPreprocessingTests(unittest.TestCase):
     self.cplx33 = Complex(sequence=['d4', 't5', 'd11', 't0', 'd12', 't6', '+', 't5*', 'd4*', 't3*', 't2*', 'd1i*', 't0*', '+', 'd1', 't2', 't3'], 
         structure = ['(', '(', '.', '.', '.', '.', '+', ')', ')', '(', '(', '.', '.', '+', '.', ')', ')'])
 
+    self.input_fs = None
+    self.init_cplxs = None
+    self.enum_cplxs = None
+
   def tearDown(self):
     # clean up even if unittests failed
     pass
@@ -39,4 +43,17 @@ class VerificationPreprocessingTests(unittest.TestCase):
     # single stranded complexes
     self.assertTrue(verifier.patternMatch(self.cplx11,self.cplx22))
     self.assertTrue(verifier.patternMatch(self.cplx11,self.cplx33))
+
+  def test_removeDuplicates(self):
+    crn1 = "A -> B; B <=> A; C -> D; B -> A + X; A -> A; Y + B -> Z + i + A; B + Y -> i + A + Z"
+    crn2 = "A -> A; A -> B; B -> A; B -> A + X; B + Y -> A + Z + i; C -> D"
+
+    (crn, fs, cs) = parse_crn_string(crn1)
+    ir_crn1 = split_reversible_reactions(crn)
+
+    (crn, fs, cs) = parse_crn_string(crn2)
+    ir_crn2 = split_reversible_reactions(crn)
+
+    self.assertEqual(verifier.removeDuplicates(ir_crn1), ir_crn2)
+
 

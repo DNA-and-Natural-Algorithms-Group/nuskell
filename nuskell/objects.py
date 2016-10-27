@@ -1,13 +1,21 @@
-"""The nuskell objects are to a large ident identical with "DNAObjects" from
-Joseph Schaeffer and Joseph Berleant. 
-
-Currently, the following Objects are implemented:
-  *IUPAC_translator: handling of nucleic acid constaints
-  *Domain: A constrained subsequence of a molecule
-  *ComplementDomain: A domain complementary to a Domain Object.
-  *Complex: A sequence/structure pair.
-  #*TestTube: A set of complexes
-"""
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2016 Caltech. All rights reserved.
+# Written by Stefan Badelt (badelt@caltech.edu)
+#
+# nuskell.objects: shared between different components of nuskell
+#
+# nuskell.objects are to some extent identical to "DNAObjects" coded by 
+# Joseph Schaeffer and Joseph Berleant. 
+#
+# The following Objects are implemented:
+#  *IUPAC_translator: handling of nucleic acid constaints
+#  *Domain: A constrained subsequence of a molecule
+#  *ComplementDomain: A domain complementary to a Domain Object.
+#  *Complex: A sequence/structure pair.
+#  *TestTube: A set of Complex objects and interface to
+#     - read/write PIL files
+#     - enumerate species
 
 def find(l, key):
   for i in range(len(l)):
@@ -345,38 +353,6 @@ class ComplementDomain(Domain):
     """ Returns True iff they are not equal."""
     return not self.__eq__(other)
 
-#class NusDomain(Domain):
-#  def __init__(self, domaintag='', **kwargs):
-#    """ 
-#    Args: 
-#      domaintag: You can specify different types of domains for 
-#        your sequence designer: 'toehold', 'branch-migration', etc...
-#    """
-#    super(NusDomain, self).__init__(**kwargs)
-#
-#    if domaintag == 'toehold':
-#      self._name = 't{}'.format(self.id)
-#    elif domaintag == 'wildcard' :
-#      self._name = '?{}'.format(self.id)
-#    else :
-#      self._name = 'd{}'.format(self.id)
-
-#class Structure(object):
-#  """The Structure of a DNA complex.
-#
-#  The structure is specified using a list of domains and a corresponding
-#  dot-parens notation. 
-#
-#  Args:
-#    domains (List[str]): names of domains
-#    dotparens (List[str]): A list of dot-parens characters ".(.+)."
-#    attr (Dict[name]=Domain): a mapping between names and Domain objects
-#  """
-#  def __init__(self, domains, dotparens, attr):
-#    self.domains = domains
-#    self.dotparens = dotparens
-#    self.attributes = attr
-
 class Complex(object):
   """A complex is a sequence & structure pair. 
   
@@ -404,7 +380,6 @@ class Complex(object):
     # Assign id
     self.id = Complex.id_counter
     Complex.id_counter += 1
-
  
     # Assign name
     if name :
@@ -430,6 +405,18 @@ class Complex(object):
     self._structure = structure
 
   @property
+  def name(self):
+    return self._name
+
+  @name.setter
+  def name(self, name):
+    if name[-1]=='*' :
+      raise ValueError('Invalid name for Complex Object!')
+    if name[-1].isdigit() :
+      raise ValueError('Complex name must not end with a digit!', name)
+    self._name = name
+
+  @property
   def sequence(self):
     return self._sequence
 
@@ -447,8 +434,15 @@ class Complex(object):
         for i in range(1, len(indices))]
 
   @property
+  def non_nested_sequence(self):
+    # TODO: Return is a unified non-nested domain sequence, merge with 
+    # nucleotide_sequence
+    pass
+
+  @property
   def nucleotide_sequence(self):
     """Return the complex sequence in form of a flat list of nucleotides. """
+    # TODO mixed sequences of domains
     lol = self.lol_sequence
     def my_base_sequence(seq) :
       if all(isinstance(d, Domain) for d in seq):
@@ -464,12 +458,23 @@ class Complex(object):
   @property
   def lol_structure(self):
     # NOTE: It is not clear if this makes sense
-    raise NotImplementedError
+    indices = [-1] + [i for i, x in enumerate(self._structure) if x == "+"]
+    indices.append(len(self._structure))
+    return [self._structure[indices[i-1]+1: indices[i]] 
+        for i in range(1, len(indices))]
 
   @property
   def nucleotide_structure(self):
     # NOTE: It is not clear if this makes sense
-    raise NotImplementedError
+    """Return the complex structure on nucleotide-level. """
+    lol = zip(self.lol_sequence, self.lol_structure)
+    def my_base_sequence(seq, sst) :
+      if all(isinstance(d, Domain) for d in seq):
+        tups = zip(seq, sst)
+        return map(lambda (x,y): y * x.base_length, tups)
+      else :
+        return sst
+    return flatten(map(lambda (x,y): my_base_sequence(x,y) + ['+'], lol))[:-1]
 
   @property
   def rotate_once(self):
@@ -524,9 +529,6 @@ class Complex(object):
   def __ne__(self, other):
     """ Returns True if the complexes are not equal. """
     return not self.__eq__(other)
- 
-class Reaction(object):
-  pass
 
 class TestTube(object):
   """ A graph representation of a test tube containing nucleic acids.
@@ -543,40 +545,155 @@ class TestTube(object):
   
   """
 
-  def __init__(self, domains=[], complexes=[]):
-    assert all(isinstance(d, Domain) for d in domains)
-    assert all(isinstance(c, Complex) for c in complexes)
-    self._domains = dict()
-    self._complexes = dict()
+  def __init__(self, complexes=None):
+    if complexes :
+      assert all(isinstance(c, Complex) for k,c in complexes.items())
+      self._complexes = complexes
+    else :
+      self._complexes = dict()
 
-  @property
-  def domains(self):
-    return self._domains
+    self._domains = None
+    self._strands = None
 
   @property
   def complexes(self):
     return self._complexes
 
+  @property
+  def strands(self):
+    """Return a dictionary of strands present in the TestTube. 
+
+    A strand is a nucleic-acid molecule connected by a single covalent
+    backbone. Strands are named automatically, and their names may change
+    whenever a new Complex is added to the TestTube.
+
+    Returns: 
+      strands[strand_1] = [Domain(X), Domain(Y), Domain(Z)]
+    """
+    if not self._strands :
+      count = 0
+      self._strands = dict()
+      self._strand_names = dict()
+      for n, c in self._complexes.items():
+        for s in c.lol_sequence :
+          strand = tuple(map(str,s))
+          if strand not in self._strand_names :
+            name = 'strand_{}'.format(count); count += 1
+            self._strand_names[strand] = name
+            self._strands[name] = s
+    return self._strands
+
+  @property
+  def domains(self):
+    """Return a dictionary of Domain Objects present in the TestTube. 
+    
+    Returns:
+      domains[Domain.name] = Domain
+    """
+    if not self._domains :
+      self._domains = dict()
+      for n, c in self._complexes.items():
+        for d in c.sequence :
+          if d == '+' : continue
+          self._add_domain(d)
+    return self._domains
+
   #def load_pilfile(self, pilfile):
   #  from nuskell.parser import parse_pil_file
   #  [complexes] = parse_pil_file(pilfile)
 
-  def add_complex(self, cplx):
+  def write_pilfile(self, pilfile):
+    """Write the contents of TestTube() into a pilfile. 
+
+    This function supports a particular version of pilfiles, used by nuskell
+    and peppercorn.
+
+    sequence d1 = NNN : 3
+    sequence d2 = NNNN : 4
+    sequence hist = N : 1
+    strand s1 = hist d1 d2 : 8
+    strand s2 = d2* d1* : 7
+    structure c1 = s1 : .(((((((+)))))))
+    """
+    with open(pilfile, 'w') as pil :
+      domains = self.domains
+
+      # Print Sequences
+      for k, v in sorted(domains.items(), key=lambda x : x[1].id):
+        if v.name[-1]=='*' : continue
+        pil.write("sequence {:s} = {:s} : {:d}\n".format(
+            v.name, ''.join(v.sequence), v.length))
+
+      # Print Strands
+      strands = self.strands
+      for k, v in sorted(strands.items(), key=lambda x: int(x[0].split('_')[1])):
+
+        pil.write("strand {:s} = {:s} : {:d}\n".format(k, 
+          ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
+
+      # Print Structures
+      for k, v in sorted(self._complexes.items()):
+        pil.write("structure {:s} = ".format(v.name))
+        for s in v.lol_sequence :
+          strand = tuple(map(str,s))
+          name = self._strand_names[strand]
+          pil.write("{:s} ".format(name))
+        pil.write(": {:s}\n".format(''.join(v.nucleotide_structure)))
+
+    return pilfile
+
+  def load_enum_cplxs(self, ecplxs, cplx_rename=None, domain_rename=None):
+
+    # Initialize dict of domains in system
+    domains = self.domains
+    for cx in ecplxs :
+      domseq = []
+      for s in cx.strands:
+        domseq.append('+')
+        for d in s.domains:
+          nucseq = d.sequence if d.sequence else 'N'*d.length
+          domname = domain_rename(d.name) if domain_rename else d.name
+
+          self._add_domain_by_name(domname, list(nucseq))
+          dom = self._domains[domname]
+          domseq.append(dom)
+      # remove the first '+' again
+      if len(domseq)>0: domseq = domseq[1:]
+      cplxname = cplx_rename(cx.name) if cplx_rename else cx.name
+      domstr = list(cx.dot_paren_string())
+      self._add_complex_by_name(cplxname, domseq, domstr)
+    return 
+
+  def add_complex(self, cplx, check_domains=True):
     if cplx.name in self._complexes :
       return False
     else :
+      # go over all domains, add domains
+      # print cplx, cplx.sequence, cplx.structure
+      # map(self.add_domain, cplx.sequence)
       self._complexes[cplx.name] = cplx
+      self._domains = None
+      self._strands = None
       return True
 
-  def add_complex_by_name(self, name, sequence, structure):
+  def _add_complex_by_name(self, name, sequence, structure, check_domains=True):
+    # NOTE: this function does not reset self._domains, because
+    # it assumes that self._domains is updated as well.
     if name in self._complexes :
       return False
     else :
+      # go over all domains, add domains
+      # map(lambda x: self.add_domain_by_name(x.name, x.sequence), sequence)
       self._complexes[name] = Complex(
           sequence=sequence, structure=structure, name=name)
+      for d in sequence :
+        if d == '+' : continue
+        if d.name not in self._domains:
+          raise ValueError("Update domains accordingly!")
+      self._strands = None
       return True
 
-  def add_domain(self, domain):
+  def _add_domain(self, domain):
     # This method does not care about complementarity
     if domain.name in self._domains :
       return False
@@ -584,7 +701,7 @@ class TestTube(object):
       self._domains[domain.name] = domain
       return True
  
-  def add_domain_by_name(self, name, sequence):
+  def _add_domain_by_name(self, name, sequence):
     """Adds a domain with a particular Name to the TestTube. 
     
     If a domain with the same name has been added before, there will be no
@@ -611,8 +728,13 @@ class TestTube(object):
  
   def concentrations(self):
     pass
-  
-class Solution(TestTube):
-  # Replace the Nuskell Solution Object
-  pass
+
+  def __add__(self, other):
+    assert isinstance(other, TestTube)
+    combined = TestTube()
+    for k,v in self._complexes.items() :
+      combined.add_complex(v)
+    for k,v in other.complexes.items() :
+      combined.add_complex(v)
+    return combined
 

@@ -1,12 +1,19 @@
-import os
-from nuskell.parser import parse_dom_file
-import nuskell.include.peppercorn.enumerator as pepen
-import nuskell.include.peppercorn.input as pepin
-import nuskell.include.peppercorn.output as pepout
-import nuskell.include.peppercorn.reactions as reactions
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
+# Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+#            Stefan Badelt (badelt@caltech.edu)
+#
+# Preprocessing and interface to peppercorn enumerator
+#
 
+from nuskell.parser import parse_dom_file
 from nuskell.objects import Domain, Complex, TestTube
 
+import nuskell.include.peppercorn.utils as peputils
+from nuskell.include.peppercorn.enumerator import Enumerator
+import nuskell.include.peppercorn.reactions as reactions
+from nuskell.include.peppercorn.condense import condense_resting_states
 
 # Once peppercorn is its own package, we import it as depencency.
 # try :
@@ -15,101 +22,120 @@ from nuskell.objects import Domain, Complex, TestTube
 #   sys.exit("""nuskell depends on the peppercorn package
 #   -- download at http://dna.caltech.edu/peppercorn """)
 
-def enumerate_crn_old(args, domfile):
-  dom = parse_dom_file(domfile)
-  efile, ctmp = enumerator_input(dom)
-  enum = pepin.input_enum(efile)
-  os.remove(efile)
+def initialize_enumerator(solution) :
+  """Initialize the peppercorn enumerator object.
 
-  set_enumargs(enum, args)
-  enum.enumerate()
+  Args:
+    solution (nuskell.objects.TestTube()): A set of complexes
 
-  return get_enum_data(args, enum)
+  Returns:
+    Enumerator (peppercorn.enumerator.Enumerator())
+  """
 
-def enumerate_crn(args, pilfile):
-  # A new interface that requires a pilfile rather than a domfile.
-  enum = pepin.input_pil(pilfile)
+  # Translate to peppercorn domains
+  domains = {}
+  for n, d in solution.domains.items() :
+    if n[-1] == '*' :
+      new_dom = peputils.Domain(n[:-1], d.length, sequence=''.join(d.sequence), is_complement=True)
+    else :
+      new_dom = peputils.Domain(n, d.length, sequence=''.join(d.sequence))
+    domains[n] = new_dom
+  #print domains.values()
 
-  set_enumargs(enum, args)
-  enum.enumerate()
+  # Translate to peppercorn strands
+  strands = {}
+  dom_to_strand = {}
+  for n, s in solution.strands.items() :
+    dom_to_strand[tuple(map(str,s))] = n
+    doms = []
+    for d in map(str, s) :
+      doms.append(domains[d])
+    strands[n] = peputils.Strand(n, doms)
+  #print strands.values()
+
+  # Translate to peppercorn complexes
+  complexes = {}
+  for n, c in solution.complexes.items():
+    cplx_strands = []
+    for s in c.lol_sequence :
+      ns = dom_to_strand[tuple(map(str,s))]
+      cplx_strands.append(strands[ns])
+    complex_structure = peputils.parse_dot_paren(''.join(c.structure))
+    complex = peputils.Complex(n, cplx_strands, complex_structure)
+    #complex.check_structure()
+    complexes[n] = complex		
+  #print complexes.values()
+
+  domains = domains.values()
+  strands = strands.values()
+  complexes = complexes.values()
+
+  return Enumerator(domains, strands, complexes)
+
+
+def peppercorn_enumerate(args, solution, verbose = False):
+  """Nuskell interface to the enumerator. 
+
+  Args:
+    args (Argparse Object): Arguments for the peppercorn enumerator
+    solution (TestTube()):  A set of complexes for enumeration
   
-  return get_enum_data(args, enum)
+  Returns:
+    enum_crn ([[[re],[pr]],..]: A CRN of enumerated species
+    enum_solution (TestTube()): Enumerated complexes
+  """
+  enum = initialize_enumerator(solution)
+  set_enumargs(enum, args)
+
+  enum.enumerate()
+
+  enum_crn = get_enum_crn(enum, verbose)
+  enum_solution = get_enum_solution(enum, solution, verbose)
+
+  return enum_crn, enum_solution
 
 def enum_cplx_rename(x) :
-  # Translating enum output to be compatible with nuskell Objects.
+  """ A function to rename enumerator species names to a format 
+  which is compatible with nuskell.objects
+  """
   x = 'e'+x if x[0].isdigit() else x
-  return x +'p' if x[-1].isdigit() else x
+  return x +'_' if x[-1].isdigit() else x
 
 def enum_domain_rename(x) :
-  # Translating enum output to be compatible with nuskell Objects.
-  # ... and do some weird translation of history domain names
+  # NOTE: This function is obsolete, because domains are initialized using
+  # the original solution object. However, it translates domain names to be
+  # compatible with nuskell.objects
   x = 'e'+x if x[0].isdigit() else x
-
-  if x == 'dummy':
-    return '?'
-  elif x[-1]=='*':
+  if x[-1]=='*':
     return x[:-1] + 'p' + '*'
   elif x[-1].isdigit() :
     return x + 'p'
   else :
     return x
 
-def get_enum_data(args, enum):
-  # Write the output of peppercorn into the enumfile
-  enumfile = args.output + '.enum'
-  pepout.output_crn(enum, enumfile, output_condensed = True)
+def get_enum_crn(enum, verbose=False):
+  # Extract condensed reactions
+  condense_options={}
+  condensed = condense_resting_states(enum, **condense_options)
+  reactions = condensed['reactions']
 
-  # Post-process enumerator results to extract the condensed crn
   enum_crn = []
-  with open(enumfile, 'r') as enu :
-    for line in enu :
-      react = line.split('->')
-      react[0] = sorted([x.strip() for x in react[0].split('+')])
-      react[1] = sorted([x.strip() for x in react[1].split('+')])
-      react[0] = map(enum_cplx_rename, react[0])
-      react[1] = map(enum_cplx_rename, react[1])
-      enum_crn.append(react)
+  for r in sorted(reactions):
+    react = map(enum_cplx_rename, map(str, r.reactants))
+    prod  = map(enum_cplx_rename, map(str, r.products))
+    enum_crn.append([react, prod])
 
-  # Extraction of complexes in the implementation CRN:
-  # NOTE: Very specific to the output of Nuskell!
-  init_cplxs = TestTube()
-  for cx in enum.initial_complexes :
-    cxs = []
-    for sd in cx.strands:
-      cxs.append('+')
-      for ds in sd.domains:
-        # NOTE: Hacks to communicate with old interface.
-        seq = ds.sequence if ds.sequence else 'N'*5
-        dname = enum_domain_rename(ds.name)
-        init_cplxs.add_domain_by_name(dname, list(seq))
-        cxs.append(dname)
-    # remove the first '+' again
-    if len(cxs)>0: cxs = cxs[1:]
-    cname = enum_cplx_rename(cx.name)
-    init_cplxs.add_complex_by_name(cname, cxs, list(cx.dot_paren_string()))
+  return enum_crn
 
+def get_enum_solution(enum, solution, verbose=False):
   # Extraction of complexes in the enumerated CRN:
-  slow_cplxs = TestTube()
+  enum_cplxs = TestTube()
+  enum_cplxs += solution
   for rs in enum.resting_states:
-    name = str(rs)
-    for cx in rs.complexes:
-      cxs = []
-      for sd in cx.strands:
-        cxs.append('+')
-        for ds in sd.domains:
-          # NOTE: Hacks to communicate with old interface.
-          seq = ds.sequence if ds.sequence else 'N'*5
-          dname = enum_domain_rename(ds.name)
-          slow_cplxs.add_domain_by_name(dname, list(seq))
-          cxs.append(dname)
-      # remove the first '+' again
-      if len(cxs)>0: cxs = cxs[1:]
-      cname = enum_cplx_rename(cx.name)
-      slow_cplxs.add_complex_by_name(cname, cxs, list(cx.dot_paren_string()))
+    enum_cplxs.load_enum_cplxs(rs.complexes,
+        enum_cplx_rename)
 
-  #print 'i', init_cplxs.complexes
-  #print 'e', slow_cplxs.complexes
-  return enum_crn, init_cplxs, slow_cplxs
+  return enum_cplxs
 
 def set_enumargs(enum, args):
   """Transfer options to Enumerator Object. 
@@ -170,61 +196,4 @@ def set_enumargs(enum, args):
       enum.FAST_REACTIONS.remove(reactions.branch_4way)
 
   return
-
-#DEPRICATED, used by enumerate_crn_old()
-def enumerator_input(dom):
-  import random, string
-  efile = "".join(random.sample(string.letters + string.digits, 8)) + "._tmp"
-  F = open(efile, "w")
-  if len(dom) == 2:   # there is sequence information
-    complexes = dom[1]
-    for i in dom[0]:
-      print >> F, "domain", i[0], ":", i[1]
-  else:
-    complexes = dom[0]
-  print >> F, "domain dummy : 15"
-
-  strand_n = 0
-  out_strands = {}
-  out_complexes = []
-
-  for i in complexes:
-    c = [i[0],"",""]
-    s = ""
-    i[1].append("+")
-    for j in i[1]:
-      if j == "?":
-        s += " dummy"
-      if type(j) == list:
-        if len(j) == 2:
-          j = j[0] + j[1]
-        else:
-          j = j[0]
-        s += " " + j
-      elif j == "+":
-        if s not in out_strands.keys():
-          strand_n += 1
-          sname = "strand"+str(strand_n)
-          out_strands[s] = sname
-        else:
-          sname = out_strands[s]
-        s = ""
-        c[1] += " "+sname
-    i[1] = i[1][:-1]
-    for j in i[2]:
-      if j == "+": j = " + "
-      c[2] += j
-    out_complexes.append(c)
-
-  for s in out_strands.keys():
-    sname = out_strands[s]
-    print >> F, "strand", sname, ":", s
-
-  for [c0,c1,c2] in out_complexes:
-    print >> F, "complex", c0, ":"
-    print >> F, c1
-    print >> F, c2
-    print >> F
-  F.close()
-  return efile, complexes
 

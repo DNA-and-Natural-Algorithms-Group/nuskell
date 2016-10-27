@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 #
+# Copyright (c) 2010-2016 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-# Modified by Stefan Badelt (badelt@caltech.edu)
+#            Stefan Badelt (badelt@caltech.edu)
 #
+# The interpreter environment for translation schemes.
 #
 
-"""The DSD translation scheme language environment.
+"""The nuskell programming language environment.
 
-This module contains all classes and functions that are needed to set up a
-Nuskell compile environment. Built-in functions are defined in the base-level
-upon initialization of the Environment() object, Nuskell code is embedded using
-public functions of the **Environment** class. At this point, only the
-interpreter module communicates with the environment module in order to set up
-the final namespace for a translation scheme and execute the translation scheme
-together with the input CRN.
+Nuskell code is interpreted using public functions of the **Environment**
+class.  All other classes and functions are needed internally to set up the
+interpreter environment.  Built-in functions and expressions are encapuslated
+in the respective namespace. 
 
 .. When modifying this file, use 2-whitespace character indents, 
 .. otherwise follow the Google Python Style Guide:
@@ -21,8 +20,9 @@ together with the input CRN.
 """
 
 import sys
-from nuskell.objects import Domain
 from copy import copy
+
+from nuskell.objects import Domain, Complex, TestTube, flatten
 
 class RuntimeError(Exception):
   """Exception for environment.py module.
@@ -68,41 +68,80 @@ class Function(object):
     self.args = args
     self.body = body
 
-class Structure(object):
-  """The Structure of a DNA complex.
+class NusComplex(Complex):
+  """Nucleic Acid Complex (Sequence, Structure) pair.
 
-  The structure is specified using a list of domains and a corresponding
-  dot-parens notation. 
+  This is an extension of nuskell.objects.Complex(), which stores an additional
+  dictionary of attributes. This dictionary maps domain names as specified in
+  the translation-scheme to the unique Domain() object.
 
   Args:
-    domains (List[str]): names of domains
-    dotparens (List[str]): A list of dot-parens characters ".(.+)."
-    attr (Dict[name]=Domain): a mapping between names and Domain objects
+    attr (Dict[name]=Domain): A mapping between names in the translation scheme
+                              and Domain objects 
+    sequence (List[str]): Domain Objects
+    structure (List[str]): A list of dot-parens characters ".(.+)."
   """
-  def __init__(self, domains, dotparens, attr):
-    self.domains = domains
-    self.dotparens = dotparens
+  def __init__(self, attr=dict(), **kwargs):
+    super(NusComplex, self).__init__(**kwargs)
     self.attributes = attr
 
-class Solution(object):
-  """A set of structure objects.
+  @property
+  def flatten_cplx(self):
+    """Resolves nested complexes and their corresponding '~' structure wildcard.
 
-  The solution object contains all species that have to be present in
-  ``infinite'' concentration in a DSD circuit.
+    This function is very specific to Nuskell translation using macros, but it
+    might be generalized to handle 'Complex of Complexes' behavior of some sort.
+    """
+    def resolve(s, c):
+      # This is a function with is very specific to nuskell. Sometimes,
+      # A complex can contain a complex structure in the sequence, and 
+      # a wildcard in the structure.
+      if isinstance(s, Domain):
+        assert (c in ['(','.',')'])
+        return s, c
+      elif s == '+' and c == '+' :
+        return s, c
+      elif isinstance(s, Complex):
+        assert (c == '~')
+        return s.sequence, s.structure
+      elif type(s) == list:
+        assert (c == '~')
+        # map returns a list of [[seq, str], ..]
+        # zip transposes this into tuples ([seq1,seq2,...]),([str1,str2,...])
+        return [list(a) for a in zip(*map(lambda i : resolve(s[i],'~'),
+          range(len(s))))]
+      elif s == '?' :
+        assert (c in ['(','.',')'])
+        return Domain(constraints=['N'], name='hist'), c
+        #return s, c
+      else :
+        raise NotImplementedError
 
-  Args:
-    initial (set[Solution]) : A set of Solution objects
-  """
-  def __init__(self, initial):
-    assert isinstance(initial, set)
-    assert all(isinstance(s, Structure) for s in initial)
-    self.molecules = initial
+    newseq = []
+    newstr = []
+    for i in range(len(self._sequence)):
+      if self._sequence[i] == [] and self._structure[i] == '~' : 
+        continue
+      se, ss = resolve(self._sequence[i], self._structure[i])
+      newseq.append(se)
+      newstr.append(ss)
+    
+    newseq = flatten(newseq)
+    newstr = flatten(newstr)
 
-  def __add__(self, other):
-    """Returns the union of two solution objects."""
-    assert isinstance(other, Solution)
-    return Solution(self.molecules.union(other.molecules))
-  
+    start = True
+    for i in reversed(range(len(newseq))):
+      if newseq[i] == '+' and newstr[i]=='+' :
+        if start or i == 0 :
+          newseq.pop(i)
+          newstr.pop(i)
+        start = True
+      else :
+        start = False
+
+    self._sequence = newseq
+    self._structure = newstr
+    return self._sequence, self._structure
 
 class builtin_expressions(object):
   """ Builtin expressions of Nuskell translation schemes.
@@ -131,7 +170,7 @@ class builtin_expressions(object):
         'num': lambda self, content: (self._env, int(content[0])), 
         'quote': lambda self, content: (self._env, content[0]), 
         'dict': self._dict,
-        'dna': self._dna, # return self._env, Structure()
+        'dna': self._dna, # return self._env, NusComplex()
         'list': self._list, # return self._env, content
         'where': self._where, # return self._env, value
         'uminus': self._uminus, # return self._env, -value (integer only!)
@@ -213,15 +252,18 @@ class builtin_expressions(object):
     dotparen = content[1]
     attributes = {}
     for i in range(len(domains)):
+      # TODO history domains
       if domains[i] != "?" and domains[i] != "+":
         starred = (len(domains[i]) == 2)
         dom = domains[i][0]
+        # Get the binding for e.g.: ['id', 'd13']
         theenv._env, dom_value = theenv.interpret_expr(dom)        
         attributes[dom[1]] = dom_value
         if starred:
           dom_value = ~dom_value
         domains[i] = dom_value
-    return theenv._env, Structure(domains, dotparen, attributes)
+    return theenv._env, NusComplex(sequence = domains, structure = dotparen,
+        attr=attributes)
 
   def _list(self, theenv, content) :
     for i in range(len(content)):
@@ -238,9 +280,9 @@ class builtin_expressions(object):
         value = asgn[1]
 
         theenv._env, value = theenv.interpret_expr(value)
-        id_list = remove_id_tags(id_list)
+        id_list = self._bfunc_Obj.remove_id_tags(id_list)
 
-        for key, value in asgn_pattern_match(id_list, value) :
+        for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, value) :
           theenv._env = theenv._create_binding(key, value)
 
     theenv._env, value = theenv.interpret_expr(content[0])
@@ -272,7 +314,7 @@ class builtin_expressions(object):
 
   def _attribute(self, theenv, head, args):
     identifier = args[0][1] # strip the tag
-    if isinstance(head, Structure):
+    if isinstance(head, NusComplex):
       head = head.attributes[identifier]
     elif identifier in head.__dict__:
       head = head.__dict__[identifier]
@@ -370,8 +412,8 @@ class builtin_functions(object):
   def _print(self, args):
     """Print statment, primarily to debug nuskell scripts"""
     for a in args:
-      if isinstance(a, Structure) :
-        print [str(d) for d in a.domains]
+      if isinstance(a, Complex) :
+        print map(str, a.sequence)
       else :
         print str(a),
     print
@@ -420,13 +462,18 @@ class builtin_functions(object):
   @staticmethod
   def infty(args) :
     """
-    'infty' is a built-in function that takes a structure instance and puts
+    'infty' is a built-in function that takes a Complex instance and puts
     that the species is supposed to have "infinite" concentration. The
-    resulting object will be a Solution instance
+    resulting object will be a TestTube instance
     """
-    if not isinstance(args[0], Structure):
-      raise RuntimeError("The argument of `infty' should be a structure")
-    return Solution(set([args[0]]))
+    if not isinstance(args[0], Complex):
+      raise RuntimeError("The argument of `infty' should be a Complex")
+    args[0].flatten_cplx
+    return TestTube(complexes={args[0].name: args[0]})
+    # Translate NusCompex -> Complex, so that the environment returns a 
+    # Standard TestTube Object.
+    #standard = Complex(sequence=args[0].sequence, structure=args[0].structure)
+    #return TestTube(complexes={standard.name: standard})
 
   #@staticmethod
   #def unique(args) :
@@ -436,7 +483,7 @@ class builtin_functions(object):
 
   @staticmethod
   def complement(args) :
-    """ Returns the complement of a given input. It can interpret Structures, 
+    """ Returns the complement of a given input. It can interpret Complex, 
     Domains and Dot-bracket lists, as well as lists of lists.
 
     :param args: an expression in form of an array, where the first element
@@ -452,10 +499,11 @@ class builtin_functions(object):
     elif isinstance(x, Domain):
       print 'Untested:', ~x
       return ~x
-    elif isinstance(x, Structure):
-      return Structure(
-          self._complement([x.domains]),
-          self._complement([x.dotparens]),
+    elif isinstance(x, Complex):
+      raise NotImplementedError
+      return Complex(
+          self._complement([x.sequence]),
+          self._complement([x.structure]),
           dict(x.attributes))
     elif x == "(":
       return ")"
@@ -503,6 +551,37 @@ class builtin_functions(object):
         new_crn.append(r) 
     return new_crn
 
+  @staticmethod
+  def asgn_pattern_match(id, value):
+    """Does the pattern matching for list assignments.
+       ex) [a, b, c] = [1, 2, 3]
+    """
+    if type(id) == list:
+      if type(value) != list or len(id) != len(value):
+        raise RuntimeError(
+            "Pattern matching failed while assigning values to " + str(id) + ".")
+      result = []
+      for i in range(len(id)):
+        result += builtin_functions.asgn_pattern_match(id[i], value[i])
+      return result
+    elif type(id) == str:
+      return [(id, value)]
+    else:
+      raise RuntimeError("""The left hand side of an assignment should be 
+      either an identifier or a list-tree consisting only of identifiers.""")
+
+  @staticmethod
+  def remove_id_tags(l):
+    """Helper function to remove all tags from the given id_list."""
+    kwd = l[0]
+    if kwd == "idlist":
+      return map(builtin_functions.remove_id_tags, l[1:])
+    elif kwd == "id":
+      return l[1]
+    else:
+      raise RuntimeError("""The left hand side of an assignment should be 
+      either an identifier or a list-tree consisting only of identifiers.""")
+  
 class Environment(builtin_expressions):
   """The Nuskell environment to interpret translation schemes. 
   
@@ -533,6 +612,157 @@ class Environment(builtin_expressions):
     # Setup the builtin functions. 
     self._env, self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
 
+  # Public functions #
+  def interpret(self, code):
+    """ Returns the Environment (the final namespace).
+    
+    Creates bindings for variables and functions defined in the body of the
+    translation scheme. 
+
+    Note: 
+      At this point all keywords (class, function, macro, module) are treated
+      exactly the same, only the **global** keyword is special, because the 
+      global expressions are **interpreted first** and then bound.
+
+    Returns:
+      self.env: An updated Environment
+    """
+    for stmt in code:
+      kwd = stmt[0]
+      body = stmt[1:]
+
+      if kwd == "global":
+        # create binding to interpretation of the expression
+        id_list = body[0]
+        id_list = self._bfunc_Obj.remove_id_tags(id_list)
+
+        value = body[1]
+        self._env, value = self.interpret_expr(value)
+
+        for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, value) :
+          self._create_binding(key, value)
+      else:
+        # create binding to the function, without interpretation
+        # e.g. kwd = module; id = 'rxn'; args = ['r']; body_ = [where...]
+        assert body[0][0] == "id"
+        id = body[0][1]
+        args = map(lambda x: x[1], body[1]) # remove 'id' tags from args
+        body_ = body[2] # the ['where' [...]] part
+        self._create_binding(id, Function(args, body_))
+    return self._env
+
+  def translate_formal_species(self, fs_list):
+    """ Apply the formal() function to the formal species in the input CRN.
+
+    First, the bindings for formal species are created, then the formal()
+    function is applied to every formal species in the input CRN.
+
+    Returns:
+      self.formal_species_dict : A dictionary of {fs:NusComplex()}.
+    """
+    formal_species_objects = map(Species, fs_list)
+
+    # compile the formal species
+    self._create_binding("__formalspecies__", formal_species_objects)
+
+    # map(formal, __formalspecies__)
+    self._env, fs_result = self.interpret_expr(["trailer",
+      ["id", "map"], ["apply", 
+        ["id", "formal"], 
+        ["id", "__formalspecies__"]]])
+
+    self.formal_species_dict = {}
+    for i in range(len(fs_list)):
+      self.formal_species_dict[fs_list[i]] = fs_result[i]
+
+    return self.formal_species_dict
+
+  def translate_constant_species(self, cs_list, crn_parsed):
+    """Implementation CRN translator function.
+
+    This function builds a TestTube object from species that have been declared
+    as 'constant' in the input CRN. This enables to specify an implementation 
+    CRN directly as input and use the translation scheme merely to describe how
+    formal and constant species should look like. 
+
+    TODO: This function might be combined with the regular formalCRN-to-DSD
+    approach, but we should think about when this makes sense.
+
+    """
+    constant_species_objects = map(Species, cs_list)
+
+    # compile the formal species
+    self._create_binding("__constantspecies__", constant_species_objects)
+
+    self._env, cs_result = self.interpret_expr(["trailer",
+      ["id", "map"], ["apply", 
+        ["id", "constant"], 
+        ["id", "__constantspecies__"]]])
+
+    self.constant_species_dict = {}
+    for i in range(len(cs_list)):
+      self.constant_species_dict[cs_list[i]] = cs_result[i]
+
+    # replace every instance of a constant species in the CRN with the
+    # respective cs_result instance. Skip all non-constant species
+    crn_remap = []
+    for r in crn_parsed:
+      react = []
+      for e, field in enumerate(r):
+        if e == 0 :
+          react.append(field)
+        else :
+          spec = []
+          for s in field :
+            if s in self.constant_species_dict :
+              spec.append(self.constant_species_dict[s])
+          react.append(spec)
+      crn_remap.append(react)
+
+    crn_object = map(
+        lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
+
+    self._create_binding("__crn__", crn_object)
+    self._env, self.constant_species_solution = self.interpret_expr( 
+        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+ 
+    return self.constant_species_solution
+
+  def translate_reactions(self, crn_parsed):
+    """Execute the main() function of the translation scheme.
+    
+    The input CRN is replaced with previously initialized formal species objects.
+
+    Args:
+      crn_paresed (List[Lists]): A crn in crn_parser format.
+
+    Returns:
+      self.main_solution (Solution) : The Solution object with all constant
+      species
+
+    Raises:
+      RuntimeError: If the compiled formal species cannot be found
+
+    """
+    if not self.formal_species_dict :
+      raise RuntimeError('Could not find the compiled formal species!')
+
+    # replace every fs (str) with fs(NusComplex())
+    crn_remap = map(
+        lambda x: [x[0]] + map( lambda y: map(
+            lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
+
+    crn_object = map(
+        lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
+
+    # main(__crn__)
+    self._create_binding("__crn__", crn_object)
+    self._env, self.constant_species_solution = self.interpret_expr( 
+        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+
+    return self.constant_species_solution
+
+  # Private Functions #
   def _init_builtin_functions(self, sdlen, ldlen):
     self._create_binding("print", Function(["s"], "print"))
     self._create_binding("abort", Function(["s"], "abort"))
@@ -542,10 +772,10 @@ class Environment(builtin_expressions):
     self._create_binding("short", Function([], "short"))
     self._create_binding("infty", Function(["species"], "infty"))
     #self._create_binding("unique", Function(["l"], "unique"))
-    self._create_binding("complement", Function(["l"], "complement"))
+    #self._create_binding("complement", Function(["l"], "complement"))
     self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
     self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
-    self._create_binding("empty", Solution(set()))
+    self._create_binding("empty", TestTube())
     return self._env, builtin_functions(sdlen, ldlen)
 
   def _create_binding(self, name, value):
@@ -553,14 +783,14 @@ class Environment(builtin_expressions):
 
     Args:
       name (str): Name of the function.
-      value (...): A built-in data type (Function, Solution, Species,
-        Domain, Reaction, Structure, etc ...), either as single value or list
+      value (...): A built-in data type (Function, TestTube, Species,
+        Domain, Reaction, Complex, etc ...), either as single value or list
 
     Returns: 
       An updated environment inclding the function binding in the top-level.
     """
 
-    bindings = (Function, Solution, Species, Domain, Reaction, Structure, 
+    bindings = (Function, TestTube, Species, Domain, Reaction, NusComplex, 
         void, int, list)
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)
@@ -634,182 +864,4 @@ class Environment(builtin_expressions):
     self._destroy_level()
     return self._env, value
 
-  # Public functions #
-  def interpret(self, code):
-    """ Returns the Environment (the final namespace).
-    
-    Creates bindings for variables and functions defined in the body of the
-    translation scheme. 
-
-    Note: 
-      At this point all keywords (class, function, macro, module) are treated
-      exactly the same, only the **global** keyword is special, because the 
-      global expressions are **interpreted first** and then bound.
-
-    Returns:
-      self.env: An updated Environment
-    """
-    for stmt in code:
-      kwd = stmt[0]
-      body = stmt[1:]
-
-      if kwd == "global":
-        # create binding to interpretation of the expression
-        id_list = body[0]
-        id_list = remove_id_tags(id_list)
-
-        value = body[1]
-        self._env, value = self.interpret_expr(value)
-
-        for key, value in asgn_pattern_match(id_list, value) :
-          self._create_binding(key, value)
-      else:
-        # create binding to the function, without interpretation
-        # e.g. kwd = module; id = 'rxn'; args = ['r']; body_ = [where...]
-        assert body[0][0] == "id"
-        id = body[0][1]
-        args = map(lambda x: x[1], body[1]) # remove 'id' tags from args
-        body_ = body[2] # the ['where' [...]] part
-        self._create_binding(id, Function(args, body_))
-    return self._env
-
-  def translate_formal_species(self, fs_list):
-    """ Apply the formal() function to the formal species in the input CRN.
-
-    First, the bindings for formal species are created, then the formal()
-    function is applied to every formal species in the input CRN.
-
-    Returns:
-      self.formal_species_dict : A dictionary of {fs:Structure()}.
-    """
-    formal_species_objects = map(Species, fs_list)
-
-    # compile the formal species
-    self._create_binding("__formalspecies__", formal_species_objects)
-
-    # map(formal, __formalspecies__)
-    self._env, fs_result = self.interpret_expr(["trailer",
-      ["id", "map"], ["apply", 
-        ["id", "formal"], 
-        ["id", "__formalspecies__"]]])
-
-    self.formal_species_dict = {}
-    for i in range(len(fs_list)):
-      self.formal_species_dict[fs_list[i]] = fs_result[i]
-
-    return self.formal_species_dict
-
-  def translate_constant_species(self, cs_list, crn_parsed):
-    """Implementation CRN translator function.
-
-    This function builds a solution object from species that have been declared
-    as 'constant' in the input CRN. This enables to specify an implementation 
-    CRN directly as input and use the translation scheme merely to describe how
-    formal and constant species should look like. 
-
-    TODO: This function might be combined with the regular formalCRN-to-DSD
-    approach, but we should think about when this makes sense.
-
-    """
-    constant_species_objects = map(Species, cs_list)
-
-    # compile the formal species
-    self._create_binding("__constantspecies__", constant_species_objects)
-
-    self._env, cs_result = self.interpret_expr(["trailer",
-      ["id", "map"], ["apply", 
-        ["id", "constant"], 
-        ["id", "__constantspecies__"]]])
-
-    self.constant_species_dict = {}
-    for i in range(len(cs_list)):
-      self.constant_species_dict[cs_list[i]] = cs_result[i]
-
-    # replace every instance of a constant species in the CRN with the
-    # respective cs_result instance. Skip all non-constant species
-    crn_remap = []
-    for r in crn_parsed:
-      react = []
-      for e, field in enumerate(r):
-        if e == 0 :
-          react.append(field)
-        else :
-          spec = []
-          for s in field :
-            if s in self.constant_species_dict :
-              spec.append(self.constant_species_dict[s])
-          react.append(spec)
-      crn_remap.append(react)
-
-    crn_object = map(
-        lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
-
-    self._create_binding("__crn__", crn_object)
-    self._env, self.constant_species_solution = self.interpret_expr( 
-        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
- 
-    return self.constant_species_solution
-
-  def translate_reactions(self, crn_parsed):
-    """Execute the main() function of the translation scheme.
-    
-    The input CRN is replaced with previously initialized formal species objects.
-
-    Args:
-      crn_paresed (List[Lists]): A crn in crn_parser format.
-
-    Returns:
-      self.main_solution (Solution) : The Solution object with all constant
-      species
-
-    Raises:
-      RuntimeError: If the compiled formal species cannot be found
-
-    """
-    if not self.formal_species_dict :
-      raise RuntimeError('Could not find the compiled formal species!')
-
-    # replace every fs (str) with fs(Structure())
-    crn_remap = map(
-        lambda x: [x[0]] + map( lambda y: map(
-            lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
-
-    crn_object = map(
-        lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
-
-    # main(__crn__)
-    self._create_binding("__crn__", crn_object)
-    self._env, self.constant_species_solution = self.interpret_expr( 
-        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
-
-    return self.constant_species_solution
-
-def asgn_pattern_match(id, value):
-  """Does the pattern matching for list assignments.
-     ex) [a, b, c] = [1, 2, 3]
-  """
-  if type(id) == list:
-    if type(value) != list or len(id) != len(value):
-      raise RuntimeError(
-          "Pattern matching failed while assigning values to " + str(id) + ".")
-    result = []
-    for i in range(len(id)):
-      result += asgn_pattern_match(id[i], value[i])
-    return result
-  elif type(id) == str:
-    return [(id, value)]
-  else:
-    raise RuntimeError("""The left hand side of an assignment should be 
-    either an identifier or a list-tree consisting only of identifiers.""")
-
-def remove_id_tags(l):
-  """Helper function to remove all tags from the given id_list."""
-  kwd = l[0]
-  if kwd == "idlist":
-    return map(remove_id_tags, l[1:])
-  elif kwd == "id":
-    return l[1]
-  else:
-    raise RuntimeError("""The left hand side of an assignment should be 
-    either an identifier or a list-tree consisting only of identifiers.""")
 
