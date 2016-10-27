@@ -52,6 +52,8 @@ def patternMatch(x, y, ignore = '?'):
     if (pMx[0][0] != ignore and pMy[0][0] != ignore) and \
         (pMx[0][0] != pMy[0][0] or pMx[1][0] != pMy[1][0]):
           return False
+    #elif toponly and pMy[0][0] == ignore :
+    #  return False
     return pM_check([pMx[0][1:], pMx[1][1:]], [pMy[0][1:], pMy[1][1:]])
 
   pMx = [map(str, x.sequence), map(str, x.structure)]
@@ -183,8 +185,8 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
     print "======================="
     print "== CRN preprocessing =="
     print "======================="
-    print "Original enumerated CRN:"
-    for r in enum_crn: printRxn(r)
+    #print "Original enumerated CRN:"
+    #for r in enum_crn: printRxn(r)
 
   if enum_rename :
     for i in range(len(enum_crn)):
@@ -206,9 +208,9 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
   enum_crn = removeSpecies(enum_crn, cs)
   enum_crn = removeDuplicates(enum_crn)
 
-  if verbose:
-    print "Processed enumerated CRN:"
-    for r in enum_crn: printRxn(r)
+  #if verbose:
+  #  print "Processed enumerated CRN:"
+  #  for r in enum_crn: printRxn(r)
  
   # Get rid of all reactions that start with an *initial* history domain but
   # then later can get replaced by a produce molecule.
@@ -223,10 +225,10 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
         lambda x: set(x[0]).intersection(total) == set(x[0]), enum_crn)
 
   if verbose:
-    print "History-reduced enumerated CRN:"
+    print "Reduced enumerated CRN:"
     for r in enum_crn: printRxn(r)
-    print "Interpreted enumerated CRN:"
-    for r in enum_crn: printRxn(r, interpret)
+    #print "Interpreted enumerated CRN:"
+    #for r in enum_crn: printRxn(r, interpret)
     print "======================="
 
   return enum_crn, interpret

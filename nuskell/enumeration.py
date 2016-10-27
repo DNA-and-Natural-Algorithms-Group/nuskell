@@ -7,14 +7,11 @@
 # Preprocessing and interface to peppercorn enumerator
 #
 
-import os
-
 from nuskell.parser import parse_dom_file
 from nuskell.objects import Domain, Complex, TestTube
 
-import nuskell.include.peppercorn.enumerator as pepen
-import nuskell.include.peppercorn.input as pepin
-import nuskell.include.peppercorn.output as pepout
+import nuskell.include.peppercorn.utils as peputils
+from nuskell.include.peppercorn.enumerator import Enumerator
 import nuskell.include.peppercorn.reactions as reactions
 from nuskell.include.peppercorn.condense import condense_resting_states
 
@@ -25,40 +22,96 @@ from nuskell.include.peppercorn.condense import condense_resting_states
 #   sys.exit("""nuskell depends on the peppercorn package
 #   -- download at http://dna.caltech.edu/peppercorn """)
 
-def peppercorn_enumerate(args, pilfile, solution, verbose = False):
-  # Prepare
-  enum = pepin.input_pil(pilfile)
+def initialize_enumerator(solution) :
+  """Initialize the peppercorn enumerator object.
+
+  Args:
+    solution (nuskell.objects.TestTube()): A set of complexes
+
+  Returns:
+    Enumerator (peppercorn.enumerator.Enumerator())
+  """
+
+  # Translate to peppercorn domains
+  domains = {}
+  for n, d in solution.domains.items() :
+    if n[-1] == '*' :
+      new_dom = peputils.Domain(n[:-1], d.length, sequence=''.join(d.sequence), is_complement=True)
+    else :
+      new_dom = peputils.Domain(n, d.length, sequence=''.join(d.sequence))
+    domains[n] = new_dom
+  #print domains.values()
+
+  # Translate to peppercorn strands
+  strands = {}
+  dom_to_strand = {}
+  for n, s in solution.strands.items() :
+    dom_to_strand[tuple(map(str,s))] = n
+    doms = []
+    for d in map(str, s) :
+      doms.append(domains[d])
+    strands[n] = peputils.Strand(n, doms)
+  #print strands.values()
+
+  # Translate to peppercorn complexes
+  complexes = {}
+  for n, c in solution.complexes.items():
+    cplx_strands = []
+    for s in c.lol_sequence :
+      ns = dom_to_strand[tuple(map(str,s))]
+      cplx_strands.append(strands[ns])
+    complex_structure = peputils.parse_dot_paren(''.join(c.structure))
+    complex = peputils.Complex(n, cplx_strands, complex_structure)
+    #complex.check_structure()
+    complexes[n] = complex		
+  #print complexes.values()
+
+  domains = domains.values()
+  strands = strands.values()
+  complexes = complexes.values()
+
+  return Enumerator(domains, strands, complexes)
+
+
+def peppercorn_enumerate(args, solution, verbose = False):
+  """Nuskell interface to the enumerator. 
+
+  Args:
+    args (Argparse Object): Arguments for the peppercorn enumerator
+    solution (TestTube()):  A set of complexes for enumeration
+  
+  Returns:
+    enum_crn ([[[re],[pr]],..]: A CRN of enumerated species
+    enum_solution (TestTube()): Enumerated complexes
+  """
+  enum = initialize_enumerator(solution)
   set_enumargs(enum, args)
 
-  # Do it 
   enum.enumerate()
 
-  # Get Data
   enum_crn = get_enum_crn(enum, verbose)
   enum_solution = get_enum_solution(enum, solution, verbose)
 
   return enum_crn, enum_solution
 
 def enum_cplx_rename(x) :
-  # Translating enum output to be compatible with nuskell Objects.
+  """ A function to rename enumerator species names to a format 
+  which is compatible with nuskell.objects
+  """
   x = 'e'+x if x[0].isdigit() else x
   return x +'_' if x[-1].isdigit() else x
 
-# NOTE: This function is obsolete, because domains are initialized using
-# the original solution object
-#def enum_domain_rename(x) :
-#  # Translating enum output to be compatible with nuskell Objects.
-#  # ... and do some weird translation of history domain names
-#  x = 'e'+x if x[0].isdigit() else x
-#
-#  if x == 'hist':
-#    return 'hist'
-#  elif x[-1]=='*':
-#    return x[:-1] + 'p' + '*'
-#  elif x[-1].isdigit() :
-#    return x + 'p'
-#  else :
-#    return x
+def enum_domain_rename(x) :
+  # NOTE: This function is obsolete, because domains are initialized using
+  # the original solution object. However, it translates domain names to be
+  # compatible with nuskell.objects
+  x = 'e'+x if x[0].isdigit() else x
+  if x[-1]=='*':
+    return x[:-1] + 'p' + '*'
+  elif x[-1].isdigit() :
+    return x + 'p'
+  else :
+    return x
 
 def get_enum_crn(enum, verbose=False):
   # Extract condensed reactions

@@ -29,16 +29,12 @@ def translate(input_crn, ts_file, pilfile=None, verbose = False):
 
   Args: 
     input_crn: An input string representation of the formal CRN
-    is_file: The input file name of a translation scheme
-    pilfile: The output file name of a DOM-level cirucit in .pil format
-    domfile: The output file name of a DOM-level cirucit in .dom format
+    ts_file: The input file name of a translation scheme
+    pilfile: The output file name of a domain-level cirucit in .pil format
 
   Returns:
-    domains: A list of Domain objects (see DNAObjects)
-    strands: A list of Strand objects (see DNAObjects)
-    formal_species: A list of Complex objects (see DNAObjects)
-    constant_species: A list of Complex objects (see DNAObjects)
-
+    solution: A TestTube object 
+    constant_soluiton: A TestTube object that contains only constant species
   """
 
   ts = parse_ts_file(ts_file)
@@ -141,13 +137,13 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify or args.simulate or args.enumerate :
     print "Enumerating reaction pathways..."
-    # TODO: remove pilfile
-    enum_crn, enum_solution = peppercorn_enumerate(args, pilfile, solution, 
+    enum_crn, enum_solution = peppercorn_enumerate(args, solution, 
         verbose = args.verbose)
 
-    #print "Enumerated CRN:"
-    #for rxn in enum_crn :
-    #  print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
+    if args.verbose :
+      print "Enumerated CRN:"
+      for rxn in enum_crn :
+        print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
