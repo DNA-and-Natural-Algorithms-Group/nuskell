@@ -21,7 +21,7 @@ from nuskell.objects import TestTube
 
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
-def translate(input_crn, ts_file, pilfile=None, verbose = False):
+def translate(input_crn, ts_file, pilfile=None, domfile=None, verbose = False):
   """A formal chemical reaction network (CRN) is translated into domain level
   representation (DOM) of a DNA strand displacement circuit (DSD).  The
   translation-scheme has to be formulated using the nuskell programming
@@ -45,6 +45,8 @@ def translate(input_crn, ts_file, pilfile=None, verbose = False):
 
   if pilfile :
     solution.write_pilfile(pilfile)
+  if domfile :
+    solution.write_domfile(pilfile)
 
   return solution, constant_solution
 
@@ -121,8 +123,10 @@ def main() :
     solution, constant_solution = translate(input_crn, args.ts, 
         verbose = args.verbose)
     pilfile = args.output + '.pil'
+    domfile = args.output + '.dom'
     solution.write_pilfile(pilfile)
-    print "wrote to file:", pilfile
+    solution.write_domfile(domfile)
+    print "wrote to file:", pilfile, domfile
   elif args.pilfile : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
     solution = TestTube()

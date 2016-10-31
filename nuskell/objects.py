@@ -601,6 +601,22 @@ class TestTube(object):
   #def load_pilfile(self, pilfile):
   #  from nuskell.parser import parse_pil_file
   #  [complexes] = parse_pil_file(pilfile)
+  def write_domfile(self, domfile):
+    with open(domfile, 'w') as dom:
+      domains = self.domains
+
+      # Print Sequences
+      for k, v in sorted(domains.items(), key=lambda x : x[1].id):
+        if v.name[-1]=='*' : continue
+        dom.write("sequence {:s} = {:s} : {:d}\n".format(
+            v.name, ''.join(v.sequence), v.length))
+
+      # Print Complexes
+      for k, v in sorted(self._complexes.items()):
+        dom.write("{:s} = {:s} : {:s}\n".format(v.name, 
+          ' '.join(map(str,v.sequence)), ' '.join(v.structure)))
+
+    return domfile
 
   def write_pilfile(self, pilfile):
     """Write the contents of TestTube() into a pilfile. 
