@@ -57,3 +57,6 @@ class VerificationPreprocessingTests(unittest.TestCase):
     self.assertEqual(verifier.removeDuplicates(ir_crn1), ir_crn2)
 
 
+if __name__ == '__main__':
+  unittest.main()
+

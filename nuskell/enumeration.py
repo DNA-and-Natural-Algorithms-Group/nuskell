@@ -22,6 +22,30 @@ from nuskell.include.peppercorn.condense import condense_resting_states
 #   sys.exit("""nuskell depends on the peppercorn package
 #   -- download at http://dna.caltech.edu/peppercorn """)
 
+def peppercorn_enumerate(args, solution, condense = True, verbose=False):
+  """Nuskell interface to the enumerator. 
+
+  Args:
+    args (Argparse Object): Arguments for the peppercorn enumerator
+    solution (TestTube()):  A set of complexes for enumeration
+  
+  Returns:
+    enum_crn ([[[re],[pr]],..]: A CRN of enumerated species
+    enum_solution (TestTube()): Enumerated complexes
+  """
+  enum = initialize_enumerator(solution)
+  set_enumargs(enum, args)
+
+  enum.enumerate()
+
+  if condense :
+    enum_crn = get_enum_crn_condense(enum, verbose)
+  else :
+    enum_crn = get_enum_crn(enum, verbose)
+  enum_solution = get_enum_solution(enum, solution, verbose)
+
+  return enum_crn, enum_solution
+
 def initialize_enumerator(solution) :
   """Initialize the peppercorn enumerator object.
 
@@ -62,7 +86,7 @@ def initialize_enumerator(solution) :
       cplx_strands.append(strands[ns])
     complex_structure = peputils.parse_dot_paren(''.join(c.structure))
     complex = peputils.Complex(n, cplx_strands, complex_structure)
-    #complex.check_structure()
+    complex.check_structure()
     complexes[n] = complex		
   #print complexes.values()
 
@@ -72,34 +96,20 @@ def initialize_enumerator(solution) :
 
   return Enumerator(domains, strands, complexes)
 
-
-def peppercorn_enumerate(args, solution, verbose = False):
-  """Nuskell interface to the enumerator. 
-
-  Args:
-    args (Argparse Object): Arguments for the peppercorn enumerator
-    solution (TestTube()):  A set of complexes for enumeration
-  
-  Returns:
-    enum_crn ([[[re],[pr]],..]: A CRN of enumerated species
-    enum_solution (TestTube()): Enumerated complexes
-  """
-  enum = initialize_enumerator(solution)
-  set_enumargs(enum, args)
-
-  enum.enumerate()
-
-  enum_crn = get_enum_crn(enum, verbose)
-  enum_solution = get_enum_solution(enum, solution, verbose)
-
-  return enum_crn, enum_solution
-
 def enum_cplx_rename(x) :
   """ A function to rename enumerator species names to a format 
   which is compatible with nuskell.objects
   """
   x = 'e'+x if x[0].isdigit() else x
   return x +'_' if x[-1].isdigit() else x
+
+def enum_rs_rename(x) :
+  """ A function to rename enumerator species names to a format 
+  which is compatible with nuskell.objects
+  """
+  x = 'r'+x if x[0].isdigit() else x
+  return x +'_' if x[-1].isdigit() else x
+
 
 def enum_domain_rename(x) :
   # NOTE: This function is obsolete, because domains are initialized using
@@ -113,7 +123,7 @@ def enum_domain_rename(x) :
   else :
     return x
 
-def get_enum_crn(enum, verbose=False):
+def get_enum_crn_condense(enum, verbose=False):
   # Extract condensed reactions
   condense_options={}
   condensed = condense_resting_states(enum, **condense_options)
@@ -121,10 +131,36 @@ def get_enum_crn(enum, verbose=False):
 
   enum_crn = []
   for r in sorted(reactions):
-    react = map(enum_cplx_rename, map(str, r.reactants))
-    prod  = map(enum_cplx_rename, map(str, r.products))
-    enum_crn.append([react, prod])
+    #print map(lambda x: map(str, x.complexes), r.reactants), '->', 
+    #print map(lambda x: map(str, x.complexes), r.products)
+    #print r.kernel_string()
 
+    react = []
+    for rs in r.reactants:
+      if len(rs.complexes) == 1: 
+        react.append(enum_cplx_rename(str(rs.complexes[0])))
+      else :
+        react.append(enum_rs_rename(rs.name))
+
+    prod = []
+    for rs in r.products:
+      if len(rs.complexes) == 1: 
+        prod.append(enum_cplx_rename(str(rs.complexes[0])))
+      else :
+        prod.append(enum_rs_rename(rs.name))
+
+    enum_crn.append([react, prod])
+  return enum_crn
+
+def get_enum_crn(enum, verbose=False):
+  reactions = enum.reactions
+  enum_crn = []
+  for r in sorted(reactions):
+    react = map(enum_cplx_rename, map(str, r.reactants))
+    prod = map(enum_cplx_rename, map(str, r.products))
+    #print r.kernel_string()
+    #print [react, prod]
+    enum_crn.append([react, prod])
   return enum_crn
 
 def get_enum_solution(enum, solution, verbose=False):
@@ -132,8 +168,7 @@ def get_enum_solution(enum, solution, verbose=False):
   enum_cplxs = TestTube()
   enum_cplxs += solution
   for rs in enum.resting_states:
-    enum_cplxs.load_enum_cplxs(rs.complexes,
-        enum_cplx_rename)
+    enum_cplxs.load_enum_cplxs(rs.complexes, enum_cplx_rename)
 
   return enum_cplxs
 
@@ -150,6 +185,15 @@ def set_enumargs(enum, args):
   #enum.MAX_COMPLEX_SIZE   = 1000
   #enum.k_fast = 2.0
   #enum.REJECT_REMOTE = True
+  if args.verbose is not None:
+    import logging
+    logger = logging.getLogger()
+    if args.verbose == 1:
+      logger.setLevel(logging.INFO)
+    elif args.verbose == 2:
+      logger.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+      logger.setLevel(logging.NOTSET)
 
   if args.k_slow is not None:
     enum.k_slow = args.k_slow

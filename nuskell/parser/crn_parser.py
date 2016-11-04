@@ -153,6 +153,31 @@ def split_reversible_reactions(crn):
       new_crn.append([p,r])
   return new_crn
 
+def combine_reversible_reactions(crn) : 
+  """Condesnse two irreversible reactions into the corresponding reversible
+  reactions, add 'reversible' and 'irreversible' tags.
+  """
+  if type(crn) != list:
+    raise RuntimeError("The argument of `rev_reactions' should be a list.")
+  new_crn = []
+  removed = []
+  for r in crn:
+    if r in removed:
+      continue
+
+    if len(r) == 3 : tag = r[2]
+    else : tag = 'irreversible'
+
+    for r2 in crn: 
+      if sorted(r[0]) == sorted(r2[1]) and \
+          sorted(r[1]) == sorted(r2[0]):
+            tag = 'reversible' 
+            removed.append(r2)
+            break
+    r = [r[0],r[1],tag]
+    new_crn.append(r)
+  return new_crn
+
 def parse_crn_file(filename):
     """Parses the given file and returns the result in the form of
        (crn, formal species, constant species)."""

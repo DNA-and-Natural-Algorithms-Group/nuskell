@@ -9,6 +9,7 @@
 
 from collections import Counter
 
+from nuskell.parser import combine_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 
@@ -19,7 +20,10 @@ def printRxn(rxn, inter={}):
     sorted(inter[x].elements())) if x in inter else x, rxn[0])
   produ = map(lambda x: ' + '.join(
     sorted(inter[x].elements())) if x in inter else x, rxn[1])
-  print ' + '.join(react), '->', ' + '.join(produ)
+  if len(rxn) == 3 and rxn[2] == 'reversible':
+    print ' + '.join(react), '<=>', ' + '.join(produ)
+  else :
+    print ' + '.join(react), '->', ' + '.join(produ)
 
 def patternMatch(x, y, ignore = '?'):
   """Matches two complexes if they are the same, ignoring history domains. 
@@ -201,7 +205,8 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
 
   if verbose:
     print "Renamed enumerated CRN:"
-    for r in enum_crn: printRxn(r)
+    #for r in enum_crn: printRxn(r)
+    for r in combine_reversible_reactions(enum_crn): printRxn(r)
 
   # Remove all constant Species and duplicate Reactions from the enumerated CRN
   cs = filter(lambda x: x not in input_fs, init_cplxs.complexes)
@@ -213,7 +218,9 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
   #  for r in enum_crn: printRxn(r)
  
   # Get rid of all reactions that start with an *initial* history domain but
-  # then later can get replaced by a produce molecule.
+  # then later can get replaced by a produce molecule. Start with a set of
+  # produce molecules and see what species emerge from reactions consuming
+  # these molecules.
   if enum_rename:
     [prev, total] = [set(), set(interpret.keys())]
     while prev != total:
@@ -226,7 +233,8 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
 
   if verbose:
     print "Reduced enumerated CRN:"
-    for r in enum_crn: printRxn(r)
+    #for r in enum_crn: printRxn(r)
+    for r in combine_reversible_reactions(enum_crn): printRxn(r)
     #print "Interpreted enumerated CRN:"
     #for r in enum_crn: printRxn(r, interpret)
     print "======================="

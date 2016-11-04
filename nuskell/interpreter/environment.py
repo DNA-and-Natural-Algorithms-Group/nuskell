@@ -112,7 +112,7 @@ class NusComplex(Complex):
           range(len(s))))]
       elif s == '?' :
         assert (c in ['(','.',')'])
-        return Domain(constraints=['N'], name='hist'), c
+        return Domain(constraints=list('N' * 15), name='hist'), c
         #return s, c
       else :
         raise NotImplementedError

@@ -659,26 +659,31 @@ class TestTube(object):
     return pilfile
 
   def load_enum_cplxs(self, ecplxs, cplx_rename=None, domain_rename=None):
-
     # Initialize dict of domains in system
     domains = self.domains
     for cx in ecplxs :
+      cplxname = cplx_rename(cx.name) if cplx_rename else cx.name
       domseq = []
       for s in cx.strands:
         domseq.append('+')
         for d in s.domains:
           nucseq = d.sequence if d.sequence else 'N'*d.length
           domname = domain_rename(d.name) if domain_rename else d.name
-
           self._add_domain_by_name(domname, list(nucseq))
           dom = self._domains[domname]
           domseq.append(dom)
       # remove the first '+' again
       if len(domseq)>0: domseq = domseq[1:]
-      cplxname = cplx_rename(cx.name) if cplx_rename else cx.name
       domstr = list(cx.dot_paren_string())
       self._add_complex_by_name(cplxname, domseq, domstr)
     return 
+
+  def rm_complex(self, cplx):
+    if cplx.name in self._complexes :
+      del self._complexes[cplx.name]
+      return True
+    else :
+      return False
 
   def add_complex(self, cplx, check_domains=True):
     if cplx.name in self._complexes :

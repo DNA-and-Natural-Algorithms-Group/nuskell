@@ -13,6 +13,7 @@ import argparse
 
 from nuskell.parser import parse_crn_string, parse_ts_file
 from nuskell.parser import split_reversible_reactions
+from nuskell.parser import combine_reversible_reactions
 from nuskell.interpreter import interpret
 from nuskell.enumeration import peppercorn_enumerate
 from nuskell.verifier import preprocess, verify
@@ -145,9 +146,13 @@ def main() :
         verbose = args.verbose)
 
     if args.verbose :
+      rev_crn = combine_reversible_reactions(enum_crn)
       print "Enumerated CRN:"
-      for rxn in enum_crn :
-        print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
+      for rxn in rev_crn :
+        if rxn[2] == 'reversible' :
+          print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
+        else :
+          print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
@@ -169,7 +174,9 @@ def main() :
       icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
       interpret = None
 
-    print "Verification using:", args.verify
+    print "Verification using:", args.verify, "with interpretation:"
+    for k,v in interpret.items() :
+      print "  {} = {}".format(k, [x for x in v.elements()])
     v, i = verify(fcrn, icrn, fs, interpret=interpret, 
         method=args.verify, verbose=args.verbose)
 

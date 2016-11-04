@@ -6,23 +6,6 @@ import string
 import crn_bisimulation_equivalence
 import basis_finder
 
-# EW added, copied from printRxn
-def printSpecies(Sp_list, inter = {}):
-    print "{",
-    first = True
-    for x in Sp_list:
-        if x[0] not in string.letters:
-            if x in inter.keys() and inter[x]==[]:
-                x = "w" + x
-            else:
-                x = "i" + x
-        if not first:
-            print ",",
-        else:
-            first = False
-        print x,
-    print "}"
-
 def printRxn(rxn, inter = {}):
     first = True
     for x in rxn[0]:
@@ -52,27 +35,32 @@ def printRxn(rxn, inter = {}):
     print
 
 def findWastes(crn, formal):
-    species = set()
-    for rxn in crn:
-        for x in rxn[0]:
-            species.add(x)
-        for x in rxn[1]:
-            species.add(x)
-    nonwastes = set(formal)
-    while True:
-        flag = False
-        for x in species:
-            if x not in nonwastes:
-                for rxn in crn:
-                    if x in rxn[0] and \
-                      (len(nonwastes & set(rxn[1])) > 0 \
-                      or len(nonwastes & set(rxn[0])) > 0):
-                        flag = True
-                        nonwastes.add(x)
-                        break
-        if not flag: break
+  # seraching for all species that are only products, but never react.
+  # Non-waste is a species that is involved as a reactant in a reaction that
+  # involves a non-waste species
+  species = set()
+  for rxn in crn:
+    for x in rxn[0]:
+      species.add(x)
+    for x in rxn[1]:
+      species.add(x)
+  nonwastes = set(formal)
+  while True:
+    flag = False
+    for x in species:
+      if x not in nonwastes:
+        # Add x to non-waste if in any reaction x is an reactant while there
+        # are non-wastes in the reaction. Reset the outer loop if you found a
+        # new non-waste species.
+        for rxn in crn:
+          if x in rxn[0] and \
+            (len(nonwastes & set(rxn[1]+rxn[0])) > 0):
+              flag = True
+              nonwastes.add(x)
+              break
+    if not flag: break
 
-    return species - nonwastes
+  return species - nonwastes
 
 def remove_duplicates(l):
     r = []
@@ -124,8 +112,7 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
         printRxn(rxn)
     print
     print "Compiled CRN:"
-    print "formal species = ", 
-    printSpecies(fs2, inter)      #EW makes print-out prettier
+    print "interpretation of species = ", inter
     for rxn in crn2:
         print "   ",
         printRxn(rxn, inter)

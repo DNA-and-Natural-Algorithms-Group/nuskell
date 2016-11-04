@@ -1,3 +1,4 @@
+import os
 import unittest
 from collections import Counter
 
@@ -16,55 +17,57 @@ class BisimulationTests(unittest.TestCase):
         sense for reproducability.
   """
   def setUp(self):
-    # preprocessing for unittesting
-
-    # Load data from crn/ dictionary into self.crnequiv dictionary:
-    # self.crnequiv['formal']   = [(crn1, fs), (crn2, fs), (crn3, fs)]
-    # self.crnequiv['qian2011'] = [(crn1, fs), (crn2, fs), (crn3, fs)]
-
-    self.equivalence = dict()
-    (fcrn, formal, constant) = parse_crn_file('tests/crns/roessler_formal.crn')
-    (icrn, waste1, waste2) = parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
-    self.equivalence['formal'] = [(fcrn, formal)]
-    self.equivalence['qian2011_gen'] = [(icrn, formal)]
+    # Skip slow unittests unless you have a lot of time.
+    self.skip_slow = True
 
   def tearDown(self):
     # clean up even if unittests failed
     pass
 
-  def test_interface(self):
-    """A sample test to aggree on a new interface for bisimulation.  
+  def _parse_crn_file(self, filename):
+    # Load data from filename into the proper bisimulation format
+    if not os.path.isfile(filename):
+      raise Exception("File for unittest is missing: {}".format(filename))
+    (crn, formal, _) = parse_crn_file(filename)
+    crn = split_reversible_reactions(crn)
+    return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
-    Simply switch to old=False.
-    """
+  def _parse_crn_string(self, string):
+    (crn, formal, _) = parse_crn_string(string)
+    crn = split_reversible_reactions(crn)
+    return ([[Counter(part) for part in rxn] for rxn in crn], formal)
+
+  def test_equivalence(self):
+    if self.skip_slow : return
+    (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
+    (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
+
+    v, i = bisimulation.test(fcrn, icrn, fs)
+    self.assertTrue(v)
+
+  def test_interface(self):
+    #A sample test to aggree on a new interface for bisimulation.  
     fcrn = "A->B"
     ecrn = "A<=>i19; i19<=>i39+X; i39->i71+i72"
 
-    (fcrn, fs, _) = parse_crn_string(fcrn) 
-    fcrn = split_reversible_reactions(fcrn)
-
-    (ecrn, _, _) = parse_crn_string(ecrn) 
-    ecrn = split_reversible_reactions(ecrn)
+    (fcrn, fs) = self._parse_crn_string(fcrn) 
+    (ecrn, _) = self._parse_crn_string(ecrn) 
 
     partial = dict()
     partial['A'] = Counter(A=1)
     partial['B'] = Counter(B=1)
 
-    fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
-    ecrn = [[Counter(part) for part in rxn] for rxn in ecrn]
-
-    # TODO
-    out = bisimulation.test(fcrn, ecrn, fs, interpretation=partial, 
+    v, i = bisimulation.test(fcrn, ecrn, fs, interpretation=partial, 
             permissive='loop-search', verbose=False)
-    self.assertTrue(out[0])
+    self.assertTrue(v)
 
-    out = bisimulation.test(fcrn, ecrn, fs, interpretation=partial, 
+    v, i = bisimulation.test(fcrn, ecrn, fs, interpretation=partial, 
             permissive='whole-graph', verbose=False)
-    self.assertTrue(out[0])
+    self.assertTrue(v)
 
-    out = bisimulation.test(fcrn, ecrn, fs, interpretation=partial, 
+    v, i = bisimulation.test(fcrn, ecrn, fs, interpretation=partial, 
             permissive='depth-first', permissive_depth=8, verbose=False)
-    self.assertTrue(out[0])
+    self.assertTrue(v)
 
     # A function that does not say so, should not modify its arguments:
     argcheck = dict()
@@ -98,7 +101,6 @@ class BisimulationTests(unittest.TestCase):
     v, i = bisimulation.test(fcrn, icrn, fs, interpretation=partial,
                             permissive='loop-search', verbose=False)
     self.assertFalse(v)
-    self.assertTrue(i[1] >= 0)
 
     del partial['x3']
 
@@ -194,7 +196,26 @@ class BisimulationTests(unittest.TestCase):
     self.assertTrue(v)
     self.assertDictEqual(inter2, i2)
 
-    def dont_test_equivalence(self):
-      (fcrn, fs) = self.equivalence['formal'][0]
-      (ecrn, fs) = self.equivalence['qian2011_gen'][0]
+  def test_mini1(self):
+    # Two valid interpretations
+    fcrn = "B + B -> B"
+    icrn = "B <=> x1; B + x1 -> x2 + x3; x2 -> B + x4"
+
+    (fcrn, fs) = self._parse_crn_string(fcrn)
+    (icrn, _) = self._parse_crn_string(icrn)
+
+    inter = {'B': Counter(['B']),
+             'x2': Counter(['B','B'])}
+
+    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
+    self.assertTrue(v)
+
+    inter = {'B': Counter(['B']),
+             'x2': Counter(['B'])}
+
+    v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
+    self.assertTrue(v)
+
+if __name__ == '__main__':
+  unittest.main()
 

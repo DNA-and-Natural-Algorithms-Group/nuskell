@@ -37,3 +37,7 @@ def dom_document_setup():
 def parse_dom_file(data):
   document = dom_document_setup()
   return document.parseFile(data).asList()
+
+def parse_dom_string(data):
+  document = dom_document_setup()
+  return document.parseString(data).asList()
