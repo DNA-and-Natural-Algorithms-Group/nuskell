@@ -216,6 +216,24 @@ class BisimulationTests(unittest.TestCase):
     v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
     self.assertTrue(v)
 
+  def test_species_names(self):
+    #TODO: naming species in certain ways breaks bisimulation
+    fcrn = "A+C->A+B"
+
+    #NOTE: replace x2 with e45 and it will not terminate!
+    icrn = "A <=> x1 + x2; C+x1 <=> x3 + x4; x3 -> A + B + x5"
+    #icrn = "A <=> x1 + e45; C + x1 <=> x3 + x4; x3 -> A + B + x5"
+
+    (fcrn, fs) = self._parse_crn_string(fcrn)
+    (icrn, _) = self._parse_crn_string(icrn)
+
+    inter = {'A': Counter(['A']),
+             'B': Counter(['B']),
+             'C': Counter(['C'])}
+
+    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
+    self.assertTrue(v)
+
 if __name__ == '__main__':
   unittest.main()
 
