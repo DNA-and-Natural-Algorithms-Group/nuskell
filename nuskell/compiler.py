@@ -14,11 +14,11 @@ import argparse
 from nuskell.parser import parse_crn_string, parse_ts_file
 from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
-from nuskell.interpreter import interpret
-from nuskell.enumeration import peppercorn_enumerate
-from nuskell.verifier import preprocess, verify
 
-from nuskell.objects import TestTube
+from nuskell.interpreter import interpret
+from nuskell.enumeration import TestTubePeppercornIO
+from nuskell.verifier import preprocess, verify
+from nuskell.objects import TestTube, TestTubeIO
 
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
@@ -45,9 +45,9 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, verbose = False):
       formal_species, const_species)
 
   if pilfile :
-    solution.write_pilfile(pilfile)
+    TestTubeIO(solution).write_pilfile(pilfile)
   if domfile :
-    solution.write_domfile(pilfile)
+    TestTubeIO(solution).write_domfile(pilfile)
 
   return solution, constant_solution
 
@@ -128,8 +128,8 @@ def main() :
         verbose = (args.verbose > 1)) 
     pilfile = args.output + '.pil'
     domfile = args.output + '.dom'
-    solution.write_pilfile(pilfile)
-    solution.write_domfile(domfile)
+    TestTubeIO(solution).write_pilfile(pilfile)
+    TestTubeIO(solution).write_domfile(domfile)
     print "Wrote file:", pilfile, domfile
   elif args.pilfile : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
@@ -145,8 +145,12 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
-    enum_crn, enum_solution = peppercorn_enumerate(args, solution, 
-        verbose = (args.verbose > 1))
+
+    peppercorn = TestTubePeppercornIO(solution, args)
+    peppercorn.enumerate()
+    enum_solution = peppercorn.testtube
+    enum_crn = peppercorn.condense_reactions
+    #enum_crn = peppercorn.all_reactions
 
     if args.verbose :
       rev_crn = combine_reversible_reactions(enum_crn)

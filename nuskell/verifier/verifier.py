@@ -118,23 +118,28 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
   remove_ihist = set()
 
   for nx, x in init_cplxs.complexes.items() :
-    if 'hist' in map(str, x.sequence) :
+    if 'h' in map(lambda x:x[0], map(str, x.sequence)) :
+      hist = filter(lambda x:x[0]=='h', map(str, x.sequence))
+      if len(hist) > 1:
+        raise ValueError("multiple history domains!")
+      else :
+        hist = hist[0]
       cnt = 0
       for ny, y in enum_cplxs.complexes.items() :
         if nx == ny : # formal species!
           enum_rename[ny] = nx + "_i"
           if nx in input_fs :
-            enum_to_formal[nx+"_i"]=Counter(nx)
+            enum_to_formal[nx+"_i"]=Counter([nx])
           else :
             # SB: this is just because I want to observe a case, 
             # should be save to remove this else statement.
             raise ValueError('Unexpected constant species')
         else :
-          if patternMatch(x, y, ignore='hist') :
+          if patternMatch(x, y, ignore=hist) :
             cnt += 1
             enum_rename[ny] = nx + "_" + str(cnt)
             if nx in input_fs :
-              enum_to_formal[nx+"_"+str(cnt)] = Counter(nx)
+              enum_to_formal[nx+"_"+str(cnt)] = Counter([nx])
               remove_ihist.add(nx+"_i")
             else :
               # SB: this is just because I want to observe a case, 
@@ -142,7 +147,7 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
               raise ValueError('Unexpected constant species')
     else :
       if nx in input_fs :
-        enum_to_formal[nx]=Counter(nx)
+        enum_to_formal[nx]=Counter([nx])
 
   # removing initial history species, if replaceable
   map(lambda x: enum_to_formal.pop(x), remove_ihist)
