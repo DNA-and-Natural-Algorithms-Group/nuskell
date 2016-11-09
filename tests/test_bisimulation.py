@@ -238,8 +238,8 @@ class BisimulationTests(unittest.TestCase):
     fcrn = "A+C->A+B"
 
     #NOTE: replace x2 with e45 and it will not terminate!
-    icrn = "A <=> x1 + x2; C+x1 <=> x3 + x4; x3 -> A + B + x5"
-    #icrn = "A <=> x1 + e45; C + x1 <=> x3 + x4; x3 -> A + B + x5"
+    #icrn = "A <=> x1 + x2; C+x1 <=> x3 + x4; x3 -> A + B + x5"
+    icrn = "A <=> x1 + e45; C + x1 <=> x3 + x4; x3 -> A + B + x5"
 
     (fcrn, fs) = self._parse_crn_string(fcrn)
     (icrn, _) = self._parse_crn_string(icrn)
