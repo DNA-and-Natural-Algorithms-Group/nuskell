@@ -44,8 +44,12 @@ def output(intrp):
     for sp in intrp:
         print "   ",
         k = sp
-        if k[0:4] == 'impl':
-            k = k[4:]
+        try:
+            replace = k[0] == 'impl'
+        except (IndexError, TypeError):
+            replace = False
+        if replace:
+            k = k[1]
         printRxn([{k: 1}, intrp[sp]])
     print
 
@@ -84,14 +88,17 @@ def solve_contejean_devie(a):
         e.append([])
         for j in range(len(a)):
             e[i].append(a[j][i])     
-    p = [[0 for i in range(q)]]
-    frozen = [[False for i in range(q)]]
+    p = []
+    frozen = []
+    for i in range(q):
+        p.append([1 if j == i else 0 for j in range(q)])
+        frozen.append([i == q-1 or j < i for j in range(q)])
     zero = [0 for i in range(len(a))]
     zero1 = [0 for i in range(q)]
     b = []
     while p:
         t = p.pop()
-        if sub(t) == zero and any(t):
+        if sub(t) == zero:
             if t[q-1] == 1:
                 return t    # just get the first solution, not all solutions (unlike C&D 1994).
             b.append(list(t))
@@ -99,7 +106,7 @@ def solve_contejean_devie(a):
         else:
             f = frozen.pop()
             for i in range(q):
-                if not f[i] and (not any(t)) or (multi(sub(t), e[i]) < 0):
+                if not f[i] and (multi(sub(t), e[i]) < 0):
                     tmp = list(t)
                     tmp[i] += 1
                     if Min(b, tmp):
@@ -322,10 +329,18 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         # fail if depth d of trivial reaction steps is exceeded without firing a reaction in fr.
         if permissive_depth and d > permissive_depth:
             return None
-        if "@@@".join(sorted(s.elements())) in hasht:
+        hashee = list(s.elements())
+        for i in range(len(hashee)):
+            try:
+                if hashee[i][0] == 'impl':
+                    hashee[i] = hashee[i][1]
+            except (IndexError, TypeError):
+                pass
+        hashee = tuple(sorted(hashee))
+        if hashee in hasht:
             return False
         else:
-            hasht.add("@@@".join(sorted(s.elements())))
+            hasht.add(hashee)
         for i in fr:
             if (i[0] - s).keys() == []:
                 return True
@@ -864,23 +879,23 @@ def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
         for k in rxn[0]:
             if k in fs:
                 v = rxn[0].pop(k)
-                rxn[0]['impl'+k] = v
+                rxn[0][('impl',k)] = v
         for k in rxn[1]:
             if k in fs:
                 v = rxn[1].pop(k)
-                rxn[1]['impl'+k] = v
+                rxn[1][('impl',k)] = v
 
     if interpretation is None: # default 1: no interpretation information
         intrp = {}
     elif interpretation is True: # default 2: each fsp has a canonical implementation
-        intrp = {'impl'+fsp: Counter({fsp: 1}) for fsp in fs
-                 if any(['impl'+fsp in rxn[0] or 'impl'+fsp in rxn[1]
+        intrp = {('impl',fsp): Counter({fsp: 1}) for fsp in fs
+                 if any([('impl',fsp) in rxn[0] or ('impl',fsp) in rxn[1]
                          for rxn in icrn])}
     else:
         intrp = {}
         for isp in interpretation:
             if isp in fs:
-                intrp['impl'+isp] = interpretation[isp]
+                intrp[('impl',isp)] = interpretation[isp]
             else:
                 intrp[isp] = interpretation[isp]
 
@@ -932,6 +947,22 @@ def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
                     print "with max trivial reaction chain length", permissive_depth, "reached."
             print
 
+    intrpout = out[1] if out[0] else out[1][0]
+    introut = {}
+    for isp in intrpout:
+        try:
+            replace = isp[0] == 'impl'
+        except (IndexError, TypeError):
+            replace = False
+
+        if replace:
+            introut[isp[1]] = intrpout[isp]
+        else:
+            introut[isp] = intrpout[isp]
+    if out[0]:
+        out[1] = introut
+    else:
+        out[1][0] = introut
     return out
 
 if __name__ == "__main__":
