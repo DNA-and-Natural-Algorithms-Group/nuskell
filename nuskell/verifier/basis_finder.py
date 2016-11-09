@@ -203,6 +203,7 @@ def width(p):
     return w
 
 def enumerate(p, w_max, i_max, crn, fs):
+  verbose = False
   global ret, ccheck, ebasis, done
   global linear, inter
 
@@ -241,11 +242,12 @@ def enumerate(p, w_max, i_max, crn, fs):
     if final not in ccheck:
       ccheck.append(final)
       if not tidy(final, crn, fs):
-        print "The given system is not tidy:"
-        print "from initial state ", initial
-        for rxn in p:
-            print_reaction(rxn)
-        print
+        if verbose :
+          print "The given system is not tidy:"
+          print "from initial state ", initial
+          for rxn in p:
+              print_reaction(rxn)
+          print
         done = 1
         return
     if len(p) > 0 and formal_state(final, fs):
@@ -266,21 +268,23 @@ def enumerate(p, w_max, i_max, crn, fs):
         RFS1 = regular_final_state(p1, fsp)
         ebasis.append(p)
         if final1 not in RFS1:
-          print "The given system is not regular:"
-          print "from initial state ", initial
-          for rxn in p:
-            print_reaction(rxn)
-          print
+          if verbose :
+            print "The given system is not regular:"
+            print "from initial state ", initial
+            for rxn in p:
+              print_reaction(rxn)
+            print
           done = 1
           return
       else: # compositional hybrid theory
         ebasis.append(p)
         if final not in RFS:
-          print "The given system is not regular:"
-          print "from initial state ", initial
-          for rxn in p:
-            print_reaction(rxn)
-          print
+          if verbose :
+            print "The given system is not regular:"
+            print "from initial state ", initial
+            for rxn in p:
+              print_reaction(rxn)
+            print
           done = 1
           return
 
@@ -342,6 +346,7 @@ def enumerate_basis(crn, fs):
   the reactions in a pathway.
   
   """
+  verbose = False
   global ret, ccheck, ebasis, done
   done = 0
 
@@ -396,7 +401,8 @@ def enumerate_basis(crn, fs):
   i_max = 0
   ccheck = []
   while not done:
-    print "Current bounds : w_max", w_max, "i_max", i_max
+    if verbose :
+      print "Current bounds : w_max", w_max, "i_max", i_max
     ret = []
     ebasis = []
     enumerate([], w_max, i_max, crn, fs)
@@ -460,10 +466,13 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
                 hybrid" approach
 
   """
+  verbose = False
+
   global inter
   inter = inter2
   if optimize:
-    print "Identifying modules in the implementation CRN..."
+    if verbose :
+      print "Identifying modules in the implementation CRN..."
     intermediates = set()
     for rxn in crn:
       for x in rxn[0] + rxn[1]:
@@ -499,13 +508,15 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
     n = 0
     for c in division.values():
       if len(c)>0: n += 1
-    print "Divided the implementation CRN into",n,"modules."
-    print
+    if verbose :
+      print "Divided the implementation CRN into",n,"modules."
+      print
     n = 0
     for c in division.values():
       if c == []: continue
       n += 1
-      print "Verifying module", n,":"
+      if verbose :
+        print "Verifying module", n,":"
       ## new optimization using linear structure
       global linear, wastes
       wastes = set(intermediates)
@@ -517,7 +528,7 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
         r1 = filter(lambda x: x in intermediates and x not in wastes, r)
         p1 = filter(lambda x: x in intermediates and x not in wastes, p)
         if len(r1)>1 or len(p1)>1: linear = False
-      if linear: print "Monomolecular substructure detected"
+      if linear and verbose: print "Monomolecular substructure detected"
       ##
       b = enumerate_basis(c, fs)
       if b == None: # irregular or nontidy

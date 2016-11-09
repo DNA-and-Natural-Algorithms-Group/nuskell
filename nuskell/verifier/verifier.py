@@ -270,7 +270,7 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
       v = sorted(v.elements())[0]
       pinter[k]=[v]
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
-        (enum_crn, pinter.keys()), pinter, verbose, False, interactive)
+        (enum_crn, pinter.keys()), pinter, False, interactive, verbose)
   elif method == 'integrated':
     # TODO: integrated-hybrid -> first consider some species as formal for
     # pathway decomposition, then do bisimulation. This is necessary for
@@ -284,7 +284,7 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
       v = sorted(v.elements())[0]
       pinter[k]=[v]
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
-        (enum_crn, pinter.keys()), pinter, verbose, True, interactive)
+        (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
   else:
     print "Verification method unknown."
     v = False
