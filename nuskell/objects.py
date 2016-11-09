@@ -153,29 +153,24 @@ class Domain(IUPAC_translator):
 
   id_counter = 0
  
-  def __init__(self, constraints=[], subdomains=[], name='', prefix='d'):
+  def __init__(self, sequence, name='', prefix='d'):
     """Initialization of the Domain Object.
 
     Arguments:
-      name (str)             -- Name of this domain. If not given,
-                                 an automatic one is generated.
-      constraints (str)      -- Sequence constraints on this domain.
-                                 Specifiers may be any of
-                                 A,T,C,G,R,Y,W,S,M,K,B,V,D,H,N.
-                                 Either constraints or subdomains
-                                 must be specified.
-      subdomains ([Domains]) -- List of component Domain objects. Either
-                                 constraints or subdomains must be specified.
+      sequence (list) -- Sequence constraints on this domain.
+      name (str)      -- Name of this domain. If not given,
+                         an automatic one is generated.
+      prefix (str)    -- 
     """
 
     # Assign name
     # -----------
-    # NOTE: The Domain function does not allow to specify names or prefixes to
-    # end with digits, as proximal digits always are an automatically assigned
-    # ID of a complex. A mixture of both naming modes is forbidden, as it must
-    # be forbidden to initialize two domains with the same name. The
-    # information of two domains with the same ID being different would be lost
-    # when the domains are written into a file. 
+    # NOTE: The Domain function does not allow names or prefixes ending with
+    # digits or '*'. Proximal digits are reseved to name domains automatically
+    # using their unique domain-IDs. A mixture of both naming modes is
+    # forbidden.  Beware, that it is still possible to initialize two different
+    # domains with the same name, and that the information that these domain
+    # are different is lost when writing them to a file.
     self.id = Domain.id_counter
     Domain.id_counter += 1
 
@@ -192,24 +187,17 @@ class Domain(IUPAC_translator):
         raise ValueError('Domain prefix must not end with a digit!')
       self._name = prefix + str(self.id)
 
-    # Assign constraints or subdomain list
-    if constraints and not subdomains :
-      assert all(isinstance(c, str) for c in constraints)
-      self._constraints = constraints
-      self._subdomains = None
-    elif subdomains and not constraints :
-      assert all(isinstance(d, Domain) for d in subdomains)
-      self._subdomains = subdomains
-      self._constraints = None
-    else:
-      raise ValueError("Must pass one of 'constraints' or 'subdomains' \
-          keyword argument.")
+    # Assign domain sequence 
+    if not sequence or type(sequence) != list :
+      raise ValueError("Must pass a sequence of constraints or domain objects.")
+    else :
+      assert all(isinstance(s, (str, Domain)) for s in sequence)
+      self._sequence = sequence
 
     self._ComplementDomain = None
 
     # Initialize an empty set of complementary Domains. This is an experimental
-    # feature that might come in handy for RNA. It will raise Warnings when
-    # used at this point
+    # feature that might come in handy for RNA.
     self._complements = set()
     #if complements :
     #  raise Warning("Specifying complements this is an experimental feature.")
@@ -225,52 +213,69 @@ class Domain(IUPAC_translator):
     return len(self.sequence)
 
   @property
+  def sequence(self):
+    return self._sequence
+
+  @property
   def base_length(self):
+    """Return the length of the nucleotide sequence."""
     return len(self.base_sequence)
     
   @property
-  def sequence(self):
-    if self._constraints :
-      # This should also allow to overwrite the constraints
-      return self._constraints
-    else :
-      return self._subdomains
-
-  @property
   def base_sequence(self):
     """Breaks down the domain into non-composite domains."""
-    if self._constraints :
-      return self._constraints
-    return list(''.join(
-      map(lambda x: ''.join(x.base_sequence), self._subdomains)))
+    if all(isinstance(s, str) for s in self._sequence):
+      return self._sequence
+    else :
+      if all(isinstance(s, Domain) for s in self._sequence):
+        return list(''.join(
+          map(lambda x: ''.join(x.base_sequence), self._sequence)))
+      else :
+        # Implement mixed composite / non-composite case here
+        raise NotImplementedError
+
+  def _merge_constraints(self, con, con2):
+    """Return a new list of unified constraints. """
+    return map(self.iupac_union, zip(con,con2))
 
   def update_constraints(self, con):
-    """ Unify new and old constraint """
-    if len(con) != len(self._constraints) :
-      raise ValueError("Length of new constraint != old constraint")
-    for i in range(len(con)):
-      con1 = con[i]
-      con2 = self._constraints[i]
-      con[i] = self.iupac_union([con1, con2])
-      if not con[i] :
-        raise ValueError("Constraints cannot be satisfied")
-    return con
+    """Unify new and old constraint. """
+    if not con or type(con) != list :
+      raise ValueError("Must pass a constraints as a list.")
 
-  def get_ComplementDomain(self, constraints=[], subdomains=[]):
-    if not self._ComplementDomain :
-      if constraints :
-        if len(constraints) != len(self._constraints) :
-          raise ValueError("Length of constraint != complementary constraint")
-        for i in range(len(constraints)):
-          con1 = constraints[i]
-          con2 = self.iupac_neighbor(self._constraints[i])
-          constraints[i] = self.iupac_union([con1, con2])
-          if not constraints[i] :
-            raise ValueError("Constraints cannot be satisfied")
-      self._ComplementDomain = ComplementDomain(self, 
-          constraints=constraints, subdomains=subdomains)
+    # Implement this when needed!
+    if not all(isinstance(s,str) for s in self.sequence + con) :
+      raise NotImplementedError('Cannot update constraints on composite domains.')
+
+    if len(self._sequence) != len(con):
+      raise ValueError("Constraints differ in length.")
+
+    new = self._merge_constraints(self.sequence, con)
+
+    if '' in new :
+      raise ValueError("Constraints cannot be satisfied")
     else :
-      self._ComplementDomain.update_constraints(constraints)
+      self.sequence = new
+
+  def get_ComplementDomain(self, compseq):
+    """This function initializes or updates a ComplementDomain. 
+
+    Note: To return the complement, use the __invert__ operator.
+    """
+    # Implement when needed!!!
+    if not all(isinstance(s,str) for s in self.sequence + compseq) :
+      raise NotImplementedError('Cannot initialize composite ComplementDomain.')
+
+    if self._ComplementDomain :
+      self._ComplementDomain.update_constraints(compseq)
+    else :
+      if len(compseq) != len(self._sequence) :
+        raise ValueError("Length of constraint != complementary constraint")
+      complement = map(self.iupac_neighbor, self._sequence)
+      new = self._merge_constraints(complement, compseq)
+      if '' in new :
+        raise ValueError("Constraints cannot be satisfied")
+      self._ComplementDomain = ComplementDomain(self, new)
     return self._ComplementDomain
 
   @property
@@ -322,7 +327,7 @@ class ComplementDomain(Domain):
   members.
 
   """
-  def __init__(self, CompDomain, constraints=[], subdomains=[]):
+  def __init__(self, CompDomain, sequence):
     """Create the ComplementDomain for a given domain. A ComplementDomain can
     only be initialized with respect to a given Domain. There can only exist
     one ComplementDomain for every Domain. 
@@ -331,14 +336,12 @@ class ComplementDomain(Domain):
     self._name = CompDomain._name + '*'
     self._ComplementDomain = CompDomain
 
-    # Assign constraints or subdomain list
-    if constraints and not subdomains :
-      self._constraints = constraints
-    elif subdomains and not constraints :
-      self._subdomains = self.update_subdomains(subdomains)
-    else:
-      raise ValueError("Must pass one of 'constraints' or 'subdomains' \
-          keyword argument.")
+    # Assign domain sequence 
+    if not sequence or type(sequence) != list :
+      raise ValueError("Must pass a sequence of constraints or domain objects.")
+    else :
+      assert all(isinstance(s, (str, Domain)) for s in sequence)
+      self._sequence = sequence
 
   def __invert__(self):
     return self._ComplementDomain
@@ -747,9 +750,6 @@ class TestTube(object):
         self._domains[name] = Domain(constraints=sequence, name=name)
     return True
  
-  def concentrations(self):
-    pass
-
   def __add__(self, other):
     assert isinstance(other, TestTube)
     combined = TestTube()

@@ -13,30 +13,29 @@ class DomainObjectTest(unittest.TestCase):
     pass
 
   def test_DomainInit(self):
-    with self.assertRaises(ValueError):
-      doodle = objects.Domain()
-
-    doodle = objects.Domain(prefix='doodle', constraints=list('Y'*5))
+    doodle = objects.Domain(list('Y'*5), prefix='doodle')
 
     self.assertIsInstance(doodle, objects.Domain, "doodle is a Domain")
     self.assertEqual(str(doodle), 'doodle{}'.format(doodle.id), "print Domain")
     self.assertEqual(doodle.length, 5, "Domain length")
     self.assertEqual(doodle.sequence, list('Y'*5), "Domain sequence")
 
-    moodle = objects.Domain(constraints=list('Y'*5))
+    moodle = objects.Domain(list('Y'*5))
     self.assertEqual(str(moodle), 'd{}'.format(moodle.id), 
         "Automatic Domain Name")
 
   def test_ComplementDomainInit(self):
-    foo = objects.Domain(constraints=list('Y'*5))
+    foo = objects.Domain(list('Y'*5))
 
     # Conflicting Constraints
     with self.assertRaises(ValueError):
-      bar = foo.get_ComplementDomain(constraints=list('R'*3))
+      bar = foo.get_ComplementDomain(list('R'*3))
     with self.assertRaises(ValueError):
-      bar = foo.get_ComplementDomain(constraints=list('Y'*5))
+      bar = foo.get_ComplementDomain(list('Y'*5))
+    with self.assertRaises(ValueError):
+      foo.update_constraints(list('R'*6))
 
-    bar = foo.get_ComplementDomain(constraints=list('R'*5))
+    bar = foo.get_ComplementDomain(list('R'*5))
     self.assertEqual(foo.id, bar.id)
 
     moo = ~foo
@@ -48,31 +47,14 @@ class DomainObjectTest(unittest.TestCase):
     self.assertTrue(bar.is_ComplementDomain, "bar is complement")
     self.assertFalse(foo.is_ComplementDomain, "foo is complement")
 
-  def dont_test_NusDomain(self):
-    nus = objects.NusDomain(constraints=list('Y'*5), domaintag='toehold')
-    self.assertEqual(str(nus), 't{}'.format(nus.id), "NusDomain Name")
-
-    cus = nus.get_ComplementDomain(constraints=list('R'*5))
-    self.assertEqual(cus.id, nus.id)
-
-    mus = ~cus
-    self.assertTrue(mus == nus)
-    self.assertTrue(mus == ~cus)
-    self.assertTrue(nus == ~cus)
-    # The following line revealed an unexpected bug.
-    self.assertFalse(nus == ~mus)
-    self.assertTrue(cus.is_ComplementDomain, "cus is complement")
-    self.assertFalse(nus.is_ComplementDomain, "nus is complement")
-
   def test_domains_of_domains(self):
-    d1aa = objects.Domain(constraints='N') 
-    d1ab = objects.Domain(constraints='Y') 
+    d1aa = objects.Domain(list('N')) 
+    d1ab = objects.Domain(list('Y')) 
+    d1a = objects.Domain([d1aa, d1ab]) 
 
-    d1a = objects.Domain(subdomains=[d1aa, d1ab]) 
-    d1b = objects.Domain(constraints='RR')
-    d1c = objects.Domain(constraints='NN')
-
-    d1 = objects.Domain(subdomains=[d1a,d1b,d1c])
+    d1b = objects.Domain(list('RR'))
+    d1c = objects.Domain(list('NN'))
+    d1 = objects.Domain([d1a,d1b,d1c])
 
     self.assertIsInstance(d1, objects.Domain, "d1 is a Domain")
 
@@ -83,10 +65,21 @@ class DomainObjectTest(unittest.TestCase):
     self.assertListEqual(d1.base_sequence, list('NYRRNN'))
     self.assertEqual(d1.base_length, 6)
 
-  def test_nucleotide_constraints(self):
-    pass
+  def test_complement_domains_of_domains_of_domains(self):
+    d1aa = objects.Domain(list('N')) 
+    d1ab = objects.Domain(list('Y')) 
+    d1a = objects.Domain([d1aa, d1ab]) 
 
-  def test_complementarity(self):
+    d1b = objects.Domain(list('RR'))
+    d1c = objects.Domain(list('NN'))
+    d1 = objects.Domain([d1a,d1b,d1c])
+    with self.assertRaises(NotImplementedError):
+      d2 = d1.get_ComplementDomain(list('R'*6))
+
+    with self.assertRaises(NotImplementedError):
+      d1.update_constraints(list('R'*6))
+
+  def dont_test_complementarity(self):
     # TODO: This is not properly implemented yet.
     # e.g. foo is in ~bar
     pass
@@ -94,12 +87,12 @@ class DomainObjectTest(unittest.TestCase):
 class ComplexObjectTest(unittest.TestCase):
 
   def setUp(self):
-    self.d1 = objects.Domain(constraints=list('Y'*5))
-    self.d2 = objects.Domain(constraints=list('N'*5))
-    self.d3 = objects.Domain(constraints=list('R'*5))
-    self.d1c = self.d1.get_ComplementDomain(constraints=list('N'*5))
-    self.d2c = self.d2.get_ComplementDomain(constraints=list('D'*5))
-    self.d3c = self.d3.get_ComplementDomain(constraints=list('H'*5))
+    self.d1 = objects.Domain(list('Y'*5))
+    self.d2 = objects.Domain(list('N'*5))
+    self.d3 = objects.Domain(list('R'*5))
+    self.d1c = self.d1.get_ComplementDomain(list('N'*5))
+    self.d2c = self.d2.get_ComplementDomain(list('D'*5))
+    self.d3c = self.d3.get_ComplementDomain(list('H'*5))
 
   def test_ComplexInit(self):
     #NOTE: There is no particular reason for this Error, so it might change!

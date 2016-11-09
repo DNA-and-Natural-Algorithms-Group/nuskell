@@ -112,7 +112,7 @@ class NusComplex(Complex):
           range(len(s))))]
       elif s == '?' :
         assert (c in ['(','.',')'])
-        return Domain(constraints=list('N' * 15), name='hist'), c
+        return Domain(list('N' * 15), name='hist'), c
         #return s, c
       else :
         raise NotImplementedError
@@ -379,8 +379,8 @@ class builtin_functions(object):
     uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
     lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    upper = Domain(constraints = list(uppercon), prefix=tag)
-    lower = upper.get_ComplementDomain(constraints = list(lowercon))
+    upper = Domain(list(uppercon), prefix=tag)
+    lower = upper.get_ComplementDomain(list(lowercon))
     return upper
 
   def short(self, args):
@@ -405,8 +405,8 @@ class builtin_functions(object):
     uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
     lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    upper = Domain(constraints = list(uppercon), prefix=tag)
-    lower = upper.get_ComplementDomain(constraints = list(lowercon))
+    upper = Domain(list(uppercon), prefix=tag)
+    lower = upper.get_ComplementDomain(list(lowercon))
     return upper
 
   def _print(self, args):
