@@ -196,9 +196,11 @@ def main() :
         method=args.verify, verbose=(args.verbose>1))
 
     if i and args.verbose :
+      if not v : i = i[0]
       print "Returned interpretation:"
       for impl, formal in sorted(i.items()) :
         print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
+
 
     if v:
       print "\nCompilation was correct."

@@ -204,8 +204,7 @@ class BisimulationTests(unittest.TestCase):
     (fcrn, fs) = self._parse_crn_string(fcrn)
     (icrn, _) = self._parse_crn_string(icrn)
 
-    ifull1 = {'implB': Counter(['B']),
-    #ifull1 = {'B': Counter(['B']),
+    ifull1 = {'B': Counter(['B']),
              'x1': Counter(['B']),
              'x2': Counter(['B','B']),
              'x3': Counter(),
@@ -218,8 +217,7 @@ class BisimulationTests(unittest.TestCase):
     self.assertTrue(v)
     self.assertDictEqual(i1, ifull1)
 
-    ifull2 = {'implB': Counter(['B']),
-    #ifull2 = {'B': Counter(['B']),
+    ifull2 = {'B': Counter(['B']),
              'x1': Counter(['B']),
              'x2': Counter(['B']),
              'x3': Counter(),
