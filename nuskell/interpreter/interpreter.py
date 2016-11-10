@@ -89,6 +89,8 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
   for k,v in fs_result.items():
     v.flatten_cplx
     #print type(v), k, map(str, v.sequence), v.structure
+    if k in solution.complexes :
+      raise ValueError("Overwriting existing name")
     c = Complex(name = k, 
         sequence = v.sequence, 
         structure = v.structure)
@@ -99,10 +101,70 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
 
   num=1
   for k,v in cs_solution.complexes.items():
+    rename = 'f{}_'.format(str(num))
+    # Make sure nobody calls calls formal species like fuel species
+    if rename in solution.complexes :
+      raise ValueError("Duplicate fuel species name!")
     c = Complex(sequence = v.sequence, structure = v.structure, 
-        name = '_{}_'.format(str(num)))
+        name = rename)
     solution.add_complex(c)
     num += 1
 
+  # Greedy replace history-domains *before* reaction enumeration. 
+  #for nx, x in solution.complexes.items():
+  #  hd = filter(lambda y:str(y)[0]=='h', x.sequence)
+  #  if len(hd) == 1:
+  #    if '+' in x.sequence:
+  #      raise NotImplementedError("history domain in multistranded complex!")
+  #    hd = hd[0]
+  #    for ns, s in solution.strands.items():
+  #      if x.sequence == s : 
+  #        continue
+  #      if patternMatch(x.sequence, s, ignore=str(hd)):
+  #        dummy = Complex(s, x.structure, name=x.name)
+  #        solution.rm_complex(x)
+  #        solution.add_complex(dummy)
+  #        break
+  #  elif len(hd) > 1:
+  #    raise NotImplementedError("multiple history domains in one complex!")
+
   return solution, cs_solution
+
+def patternMatch(x, y, ignore = '?'):
+  """Matches two complexes if they are the same, ignoring history domains. 
+
+  Note: The strand order of the second complex changes to the strand order of
+  the first complex, if there is a rotation under which both complexes are
+  patternMatched.
+
+  Args: 
+    x (Complex()) : A nuskell Complex() object.
+    y (Complex()) : A nuskell Complex() object.
+
+  Returns: True/False
+  """
+  if len(x) != len(y) :
+    return False
+
+  def pM_check(pMx, pMy):
+    """Recursively parse the current sequences and structures. 
+
+    Args: 
+      pMx [seqX,strX]: A list of two lists (sequence, structrure)
+      pMy [seqY,strY]: A list of two lists (sequence, structrure)
+
+    Returns: True/False
+    """
+    if len(pMx) == 0 :
+      return True
+
+    if pMx[0] != ignore and pMy[0] != ignore and pMx[0] != pMy[0]:
+      return False
+    return pM_check(pMx[1:], pMy[1:])
+
+  pMx = map(str, x)
+  pMy = map(str, y)
+  if pM_check(pMx,pMy) :
+    return True
+  return False
 

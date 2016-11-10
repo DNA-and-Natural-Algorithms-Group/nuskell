@@ -1,11 +1,11 @@
 # Nuskell - Checklist for Release
 
 # Issues:
-  - resolve naming conflicts of Domains / Complexes (e.g. inpute e10\_ + e11\_ -> B)
-  - debug enumeration for lakin scheme (roessler)
-  - identify enumeration problem with soloveichik scheme (A+A->A)
+  - identify rates for leaky remote-toehold binding in the soloveichik scheme (A+A->A)
+  - write generalized version for lakin scheme (roessler)
   - Check whether there is a reason to keep qian2011_gen.ts separate from qian2011_fixed.ts
   - structure the scheme directory into {original, generalized, optimized, implementation}
+  - is there a problem when the enumerator gets history-reduced systems in the first place?
 
 ## Release 0.2:
 
