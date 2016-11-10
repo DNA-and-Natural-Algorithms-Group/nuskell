@@ -60,8 +60,7 @@ class TestTubePeppercornIO(object):
 
   @property
   def condense_reactions(self):
-    condense_options={}
-    condensed = condense_resting_states(self.enumerator, **condense_options)
+    condensed = condense_resting_states(self.enumerator, compute_rates=True, k_fast=0.0)
     reactions = condensed['reactions']
 
     enum_crn = []
