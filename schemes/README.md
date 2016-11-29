@@ -1,8 +1,59 @@
 # Nuskell CRN-to-DSD translation schemes
 
-A collection of translation schemes taken from literature.  The schemes are
-named after the first author on the publication, some of them have been
-extended to capture a bigger variety of CRNs
+A collection of translation schemes taken from literature.  We destinguish
+three types of schemes:
+  - Name2016.ts (original version from the paper)
+  - Name2016_gen.ts (generalized version)
+  - Name2016_opt.ts (optimized version)
+
+and a separate category of implementation schemes for particular types of
+reactions. You can think of these as a version emulating the VisualDSD
+philosophy.
+  - Name2016_catalyst.ts (implementation of a catalyst)
+
+
+While the *original* versions are predominantly interesting for historic
+reasons and for testing and performance analysis, the \*gen.ts and \*opt.ts
+schemes will be used by the nuskell compiler. 
+
+  ```echo "A+B->C" | nuskell ```
+  ... uses some default schemes that we have to determine
+
+In cases where the original version and the generalized version
+are equivalent, there will be a softlink from Name20xx.ts to Name20xx_gen.ts.
+
+As an example, the scheme qian2011.ts and qian2011_gen.ts are different, as
+qian2011_gen.ts contains an additional irreversible reaction step after product
+species have been consumed. 
+
+An important feature for generalized versions is that they are bisimulation
+equivalent to at least one (?) formal input CRN. Therfore,
+cardelli2011_2D_gen.ts does not include the garbage collection mechanism
+described in the original publication.
+
+For example, the Cardelli-Schemes with carbage collection are in
+Cardelli2011.ts, but the _gen schemes additionally implement " -> A" and do
+not use garbage collection. Also, the _gen.ts schemes should implement general
+rules to extrapolate from bimolecular to trimolecular reactions.
+
+  - 0->X via f->X where f=fuel (can we call them "instant" reactions?)
+      
+      .. p = if len(r.products) == 0 then [formal(0)] else r.products;
+
+  - A+B+C->X via A+B<=>i; i+C->X
+  - A-> W+X+Y+Z via A->W+i1; i1->X+i2; i2->Y+Z
+
+## How to write your own translation scheme:
+
+Some schemes want reactions to be irreversible, but others save species with
+reversible reactions. That means it is possible to optimize the formal input
+CRN. The translation scheme should specify how the CRN should be compressed.
+
+  - check if the scheme exists in some version already.
+  - start with the original scheme in the publication and put it into original
+    document to your best knowledge whether this scheme is similar, or an
+    extension, or whatever 
+
 
 ## Example:
 
