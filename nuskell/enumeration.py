@@ -34,7 +34,7 @@ class TestTubePeppercornIO(object):
     self._testtube += ttube
     self._enumerator = self._initialize_peppercorn(ttube)
     if args :
-      self._set_enum_args(args)
+      set_enum_args(self._enumerator, args)
 
     # If True, the enumerator has been called and the TestTube is up-to-date.
     # only flips if used by the enumerate() function in *this* instance.
@@ -60,7 +60,7 @@ class TestTubePeppercornIO(object):
 
   @property
   def condense_reactions(self):
-    condensed = condense_resting_states(self.enumerator, compute_rates=True, k_fast=0.0)
+    condensed = condense_resting_states(self.enumerator, compute_rates=True, k_fast=0.)
     reactions = condensed['reactions']
 
     enum_crn = []
@@ -161,78 +161,6 @@ class TestTubePeppercornIO(object):
 
     return Enumerator(domains, strands, complexes)
 
-  def _set_enum_args(self, args):
-    """Transfer options to self._enumerator object. 
-    
-    Do NOT set Nuskell-defaults values here. Defaults are set with the argparse
-    object of peppercorn: nuskell/include/peppercorn/enumerator.py 
-    
-    """
-
-    enum = self._enumerator
-
-    #enum.MAX_REACTION_COUNT = 5000000
-    #enum.MAX_COMPLEX_COUNT  = 100000
-    #enum.MAX_COMPLEX_SIZE   = 1000
-    #enum.k_fast = 2.0
-    #enum.REJECT_REMOTE = True
-
-    if args.verbose is not None:
-      import logging
-      logger = logging.getLogger()
-      if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-      elif args.verbose == 2:
-        logger.setLevel(logging.DEBUG)
-      elif args.verbose >= 3:
-        logger.setLevel(logging.NOTSET)
-
-    if args.k_slow is not None:
-      enum.k_slow = args.k_slow
-    if args.k_fast is not None:
-      enum.k_fast = args.k_fast
-
-    if args.MAX_REACTION_COUNT is not None:
-      enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
-
-    if args.MAX_COMPLEX_COUNT is not None:
-      enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
-
-    if args.MAX_COMPLEX_SIZE is not None:
-      enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
-
-    if args.RELEASE_CUTOFF is not None:
-      enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
-
-    if args.RELEASE_CUTOFF_1_1 is not None:
-      enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF_1_1
-
-    if args.RELEASE_CUTOFF_1_N is not None:
-      enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF_1_N
-
-    if args.REJECT_REMOTE is not None:
-      enum.REJECT_REMOTE = args.REJECT_REMOTE
-
-    if args.UNZIP is not None:
-      enum.UNZIP = args.UNZIP
-
-    if args.LEGACY_UNZIP is not None:
-      enum.LEGACY_UNZIP = args.LEGACY_UNZIP
-
-    # TODO: what is this?
-    # enum.DFS = not args.bfs
-
-    # Modify enumeration events based on command line options.
-    if args.ignore_branch_3way:
-      if reactions.branch_3way in enum.FAST_REACTIONS:
-        enum.FAST_REACTIONS.remove(reactions.branch_3way)
-
-    if args.ignore_branch_4way:
-      if reactions.branch_4way in enum.FAST_REACTIONS:
-        enum.FAST_REACTIONS.remove(reactions.branch_4way)
-
-    return
-
   def _ecplx_rename(self, x):
     """ A function to rename enumerator species names to a format 
     which is compatible with nuskell.objects
@@ -281,4 +209,74 @@ class TestTubePeppercornIO(object):
         self._testtube.add_complex(mycplx)
         self._enum_to_ttube[cx.name] = mycplx.name
     return 
+
+def set_enum_args(enum, args):
+  """Transfer options to self._enumerator object. 
+  
+  Do NOT set Nuskell-defaults values here. Defaults are set with the argparse
+  object of peppercorn: nuskell/include/peppercorn/enumerator.py 
+  
+  """
+
+  #enum.MAX_REACTION_COUNT = 5000000
+  #enum.MAX_COMPLEX_COUNT  = 100000
+  #enum.MAX_COMPLEX_SIZE   = 1000
+  #enum.k_fast = 2.0
+  #enum.REJECT_REMOTE = True
+
+  if args.verbose is not None:
+    import logging
+    logger = logging.getLogger()
+    if args.verbose == 1:
+      logger.setLevel(logging.INFO)
+    elif args.verbose == 2:
+      logger.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+      logger.setLevel(logging.NOTSET)
+
+  if args.k_slow is not None:
+    enum.k_slow = args.k_slow
+  if args.k_fast is not None:
+    enum.k_fast = args.k_fast
+
+  if args.MAX_REACTION_COUNT is not None:
+    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
+
+  if args.MAX_COMPLEX_COUNT is not None:
+    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
+
+  if args.MAX_COMPLEX_SIZE is not None:
+    enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
+
+  if args.RELEASE_CUTOFF is not None:
+    enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
+
+  if args.RELEASE_CUTOFF_1_1 is not None:
+    enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF_1_1
+
+  if args.RELEASE_CUTOFF_1_N is not None:
+    enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF_1_N
+
+  if args.REJECT_REMOTE is not None:
+    enum.REJECT_REMOTE = args.REJECT_REMOTE
+
+  if args.UNZIP is not None:
+    enum.UNZIP = args.UNZIP
+
+  if args.LEGACY_UNZIP is not None:
+    enum.LEGACY_UNZIP = args.LEGACY_UNZIP
+
+  # TODO: what is this?
+  # enum.DFS = not args.bfs
+
+  # Modify enumeration events based on command line options.
+  if args.ignore_branch_3way:
+    if reactions.branch_3way in enum.FAST_REACTIONS:
+      enum.FAST_REACTIONS.remove(reactions.branch_3way)
+
+  if args.ignore_branch_4way:
+    if reactions.branch_4way in enum.FAST_REACTIONS:
+      enum.FAST_REACTIONS.remove(reactions.branch_4way)
+
+  return
 

@@ -28,7 +28,7 @@ class EnumerationTests(unittest.TestCase):
   """
   def setUp(self):
     parser = argparse.ArgumentParser()
-    self.args = parser.parse_args()
+    self.args = parser.parse_args([])
 
     self.args.verbose = False
 
@@ -80,7 +80,7 @@ class EnumerationTests(unittest.TestCase):
     complexes = [c1,c2]
 
     enum = Enumerator(domains, strands, complexes)
-    ne.set_enumargs(enum, self.args)
+    ne.set_enum_args(enum, self.args)
 
     enum.enumerate()
 
@@ -108,8 +108,7 @@ class EnumerationTests(unittest.TestCase):
 
     ###########################
     # Get condensed output CRN
-    condense_options={}
-    condensed = condense_resting_states(enum, **condense_options)
+    condensed = condense_resting_states(enum, compute_rates=True, k_fast = 0.)
     reactions = condensed['reactions']
 
     self.assertEqual(len(reactions), 1)
@@ -137,7 +136,10 @@ class EnumerationTests(unittest.TestCase):
 
     return solution
 
-  def test_example1(self):
+  def test_under_the_hood1(self):
+    # A test function that checks enumerated reaction networks by directly
+    # calling the Enumerator object, not the output of the TestTubePeppercornIO
+    # wrapper.
     domstring = """
     sequence tf : 5
     sequence bm : 15
@@ -153,14 +155,14 @@ class EnumerationTests(unittest.TestCase):
     """
     
     solution = self._TestTube_from_DOM(domstring)
-    enum = ne.initialize_enumerator(solution)
-    self.assertIsInstance(enum, Enumerator)
-    ne.set_enumargs(enum, self.args)
+    peppercorn = ne.TestTubePeppercornIO(solution, self.args)
+    self.assertIsInstance(peppercorn.enumerator, Enumerator)
 
-    enum.enumerate()
+    peppercorn.enumerate()
+
     ###########################
     # Get full output CRN
-    reactions = enum.reactions
+    reactions = peppercorn.enumerator.reactions
     r1 = 'tf bm  +  bm( tb( + ) ) tf*  ->  tf( bm + bm( tb( + ) ) )'
     r2 = 'tf( bm( + tb* ) )  +  bm tb  ->  tf( bm( + bm tb( + ) ) )'
     r3 = 'tf( bm + bm( tb( + ) ) )  ->  tf( bm( + bm tb( + ) ) )'
@@ -173,8 +175,7 @@ class EnumerationTests(unittest.TestCase):
 
     ###########################
     # Get condensed output CRN
-    condense_options={}
-    condensed = condense_resting_states(enum, **condense_options)
+    condensed = condense_resting_states(peppercorn.enumerator)
     reactions = condensed['reactions']
 
     rc1 = 'tf bm  +  bm( tb( + ) ) tf*  ->  tf( bm( + tb* ) )  +  bm tb'
@@ -183,7 +184,7 @@ class EnumerationTests(unittest.TestCase):
     for r in sorted(reactions):
       self.assertTrue(r.kernel_string() in [rc1, rc2])
 
-  def test_example2(self):
+  def test_under_the_hood2(self):
     domstring = """
     sequence tf : 5
     sequence bm : 15
@@ -198,14 +199,14 @@ class EnumerationTests(unittest.TestCase):
     """
     
     solution = self._TestTube_from_DOM(domstring)
-    enum = ne.initialize_enumerator(solution)
-    self.assertIsInstance(enum, Enumerator)
-    ne.set_enumargs(enum, self.args)
+    peppercorn = ne.TestTubePeppercornIO(solution, self.args)
+    self.assertIsInstance(peppercorn.enumerator, Enumerator)
 
-    enum.enumerate()
+    peppercorn.enumerate()
+
     ###########################
     # Get full output CRN
-    reactions = enum.reactions
+    reactions = peppercorn.enumerator.reactions
     r1 = 'tf bm  +  tf( bm( + tf* ) )  ->  tf( bm( + tf( bm + ) ) )'
     r2 = 'tf bm  +  bm( tf( + ) ) tf*  ->  tf( bm + bm( tf( + ) ) )'
     r3 = 'tf( bm( + tf* ) )  +  bm tf  ->  tf( bm( + bm tf( + ) ) )'
@@ -224,8 +225,7 @@ class EnumerationTests(unittest.TestCase):
 
     ###########################
     # Get condensed output CRN
-    condense_options={}
-    condensed = condense_resting_states(enum, **condense_options)
+    condensed = condense_resting_states(peppercorn.enumerator)
     reactions = condensed['reactions']
 
     rc1 = 'tf bm  +  bm( tf( + ) ) tf*  ->  tf( bm( + tf* ) )  +  bm tf'
@@ -235,7 +235,7 @@ class EnumerationTests(unittest.TestCase):
     for r in sorted(reactions):
       self.assertTrue(r.kernel_string() in [rc1, rc2])
 
-  def dont_test_example3(self):
+  def dont_test_under_the_hood3(self):
     # Here we have a test example that illustrates the condese function of the
     # enumerator. The example uses complexes from the Soloveichik scheme,
     # reaction B+B->B. Note that some of these complexes are commented out! 
@@ -267,21 +267,20 @@ class EnumerationTests(unittest.TestCase):
     """
     
     solution = self._TestTube_from_DOM(domstring)
-    enum = ne.initialize_enumerator(solution)
-    self.assertIsInstance(enum, Enumerator)
-
     #self.args.reject_remote = False
     self.args.MAX_COMPLEX_SIZE = 4
     self.args.MAX_COMPLEX_COUNT = 9
     self.args.MAX_REACTION_COUNT = 10
     self.args.REJECT_REMOTE = False
     self.args.ignore_branch_4way = True
-    ne.set_enumargs(enum, self.args)
+ 
+    peppercorn = ne.TestTubePeppercornIO(solution, self.args)
+    self.assertIsInstance(peppercorn.enumerator, Enumerator)
 
-    enum.enumerate()
+    peppercorn.enumerate()
     ###########################
     # Get full output CRN
-    reactions = enum.reactions
+    reactions = peppercorn.enumerator.reactions
 
     count = 0
     ks_t_cp = dict()
@@ -292,8 +291,7 @@ class EnumerationTests(unittest.TestCase):
     print '--'
     ###########################
     # Get condensed output CRN
-    condense_options={}
-    condensed = condense_resting_states(enum, **condense_options)
+    condensed = condense_resting_states(peppercorn.enumerator)
     reactions = condensed['reactions']
 
     for r in sorted(reactions):
