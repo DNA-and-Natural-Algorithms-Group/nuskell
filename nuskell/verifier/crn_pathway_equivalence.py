@@ -73,7 +73,7 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
+def test(c1, c2, inter, integrated = False, interactive = False, verbose = False):
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     #for rxn in crn2:
@@ -100,36 +100,37 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
     crn1size = len(crn1)
     crn2size = len(crn2)
     t1 = time.time()
-    print "CRN 1 size :", crn1size
-    print "CRN 2 size :", crn2size
+    if verbose :
+      print "CRN 1 size :", crn1size
+      print "CRN 2 size :", crn2size
     species = set()
     for rxn in crn2: species = species.union(set(rxn[0])).union(set(rxn[1]))
-    print "# of species :", len(species)
-    
-    print "Original CRN:"
-    for rxn in crn1:
-        print "   ",
-        printRxn(rxn)
-    print
-    print "Compiled CRN:"
-    print "interpretation of species = ", inter
-    for rxn in crn2:
-        print "   ",
-        printRxn(rxn, inter)
-    print
+    if verbose :
+      print "# of species :", len(species)
+      print "Original CRN:"
+      for rxn in crn1:
+          print "   ",
+          printRxn(rxn)
+      print
+      print "Compiled CRN:"
+      print "interpretation of species = ", inter
+      for rxn in crn2:
+          print "   ",
+          printRxn(rxn, inter)
+      print
 
     if interactive:
-        print "Enter species to be treated as formal species, along with its interpretation:"
-        print "(e.g. i187 -> A + B)"
-        print "When done, press ctrl + D."
-        for line in sys.stdin:
-            z = map(lambda x: x.strip(), line.split("->"))
-            y1 = z[0]
-            y2 = map(lambda x: x.strip(), z[1].split("+"))
-            if y1[0] == "i" or y1[0] == "w": y1 = y1[1:]
-            inter[y1] = y2
-            fs2.add(y1)
-        print
+      print "Enter species to be treated as formal species, along with its interpretation:"
+      print "(e.g. i187 -> A + B)"
+      print "When done, press ctrl + D."
+      for line in sys.stdin:
+        z = map(lambda x: x.strip(), line.split("->"))
+        y1 = z[0]
+        y2 = map(lambda x: x.strip(), z[1].split("+"))
+        if y1[0] == "i" or y1[0] == "w": y1 = y1[1:]
+        inter[y1] = y2
+        fs2.add(y1)
+      print
 
     basis = basis_finder.find_basis(crn2, fs2, True, inter if integrated else None)
     if basis == None: # irregular or nontidy
@@ -225,11 +226,12 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
     # permissive test end
     basis = fbasis
 
-    print "Basis of the compiled CRN:"
-    for rxn in basis:
-        print "   ",
-        printRxn(rxn)
-    print
+    if verbose :
+      print "Basis of the compiled CRN:"
+      for rxn in basis:
+          print "   ",
+          printRxn(rxn)
+      print
 
     # delimiting test
     flag = True
@@ -248,11 +250,12 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
                 else:
                     products[x] = 1
             if reactants != products:
+              if verbose :
                 print "Error : The formal pathway"
                 print "    ",
                 printRxn(rxn)
                 print " is in the input CRN but not in the compiled CRN."
-                flag = False
+              flag = False
     for rxn in basis:
         if rxn not in crn1:
             reactants = {}
@@ -268,13 +271,15 @@ def test(c1, c2, inter, verbose = True, integrated = False, interactive = True):
                 else:
                     products[x] = 1
             if reactants != products:
+              if verbose :
                 print "Error : The formal pathway"
                 print "    ",
                 printRxn(rxn)
                 print " is in the compiled CRN but not in the input CRN."
-                flag = False
+              flag = False
 
 
     t2 = time.time()
-    print "Elapsed time :", t2-t1
+    if verbose :
+      print "Elapsed time :", t2-t1
     return flag

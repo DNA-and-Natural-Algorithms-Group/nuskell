@@ -14,11 +14,11 @@ import argparse
 from nuskell.parser import parse_crn_string, parse_ts_file
 from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
-from nuskell.interpreter import interpret
-from nuskell.enumeration import peppercorn_enumerate
-from nuskell.verifier import preprocess, verify
 
-from nuskell.objects import TestTube
+from nuskell.interpreter import interpret
+from nuskell.enumeration import TestTubePeppercornIO
+from nuskell.verifier import preprocess, verify
+from nuskell.objects import TestTube, TestTubeIO
 
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
@@ -45,9 +45,9 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, verbose = False):
       formal_species, const_species)
 
   if pilfile :
-    solution.write_pilfile(pilfile)
+    TestTubeIO(solution).write_pilfile(pilfile)
   if domfile :
-    solution.write_domfile(pilfile)
+    TestTubeIO(solution).write_domfile(pilfile)
 
   return solution, constant_solution
 
@@ -66,8 +66,11 @@ def get_nuskell_args(parser) :
     .. Complain if both a translation scheme and an iCRN are specified.
   """
   # Enter the translation mode of Nuskell
-  parser.add_argument("--ts", required=True, action = 'store',
+  parser.add_argument("--ts", action = 'store',
       help="Specify path to the translation scheme")
+
+  parser.add_argument("--pilfile", action = 'store',
+      help="Specify path to a *.pil file.")
 
   # Choose a verification method.
   parser.add_argument("--verify", default='', action = 'store',
@@ -120,30 +123,34 @@ def main() :
   # Prepare CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   if args.ts : # Translate CRN using a translation scheme
-    print "Translating..."
+    print "\nTranslating..."
     solution, constant_solution = translate(input_crn, args.ts, 
-        verbose = args.verbose)
+        verbose = (args.verbose > 1)) 
     pilfile = args.output + '.pil'
     domfile = args.output + '.dom'
-    solution.write_pilfile(pilfile)
-    solution.write_domfile(domfile)
-    print "wrote to file:", pilfile, domfile
+    TestTubeIO(solution).write_pilfile(pilfile)
+    TestTubeIO(solution).write_domfile(domfile)
+    print "Wrote file:", pilfile, domfile
   elif args.pilfile : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
     solution = TestTube()
     raise NotImplementedError
     solution.load_pilfile(args.pilfile)
   else :
-    raise NotImplementedError
+    raise NotImplementedError("Automated choice of translation scheme is not implemented")
     solution = None
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify or args.simulate or args.enumerate :
-    print "Enumerating reaction pathways..."
-    enum_crn, enum_solution = peppercorn_enumerate(args, solution, 
-        verbose = args.verbose)
+    print "\nEnumerating reaction pathways..."
+
+    peppercorn = TestTubePeppercornIO(solution, args)
+    peppercorn.enumerate()
+    enum_solution = peppercorn.testtube
+    enum_crn = peppercorn.condense_reactions
+    #enum_crn = peppercorn.all_reactions
 
     if args.verbose :
       rev_crn = combine_reversible_reactions(enum_crn)
@@ -158,14 +165,14 @@ def main() :
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify :
-    print "Verification preprocessing..."
+    print "\nVerification preprocessing..."
     (fcrn, fs, cs) = parse_crn_string(input_crn) 
     fcrn = split_reversible_reactions(fcrn)
 
     if True :
       # Reduce the enumerated CRN and find an interpretation
       icrn, interpret = preprocess(fcrn, enum_crn, fs,
-          solution, enum_solution, verbose=args.verbose)
+          solution, enum_solution, verbose=(args.verbose>1))
     else :
       # Reduce the enumerated CRN without finding an interpretation
       import nuskell.verifier.verifier
@@ -174,16 +181,35 @@ def main() :
       icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
       interpret = None
 
-    print "Verification using:", args.verify, "with interpretation:"
-    for k,v in interpret.items() :
-      print "  {} = {}".format(k, [x for x in v.elements()])
+    if args.verbose :
+      print "Implementation CRN:"
+      rev_crn = combine_reversible_reactions(icrn)
+      for rxn in rev_crn :
+        if rxn[2] == 'reversible' :
+          print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
+        else :
+          print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
+
+    print "\nVerification using:", args.verify
+    if args.verbose :
+      print "Partial interpretation:"
+      for impl, formal in sorted(interpret.items()) :
+        print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
+
     v, i = verify(fcrn, icrn, fs, interpret=interpret, 
-        method=args.verify, verbose=args.verbose)
+        method=args.verify, verbose=(args.verbose>1))
+
+    if i and args.verbose :
+      if not v : i = i[0]
+      print "Returned interpretation:"
+      for impl, formal in sorted(i.items()) :
+        print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
+
 
     if v:
-      print "compilation was correct."
+      print "\nCompilation was correct."
     else:
-      print "compilation was incorrect." 
+      print "\nCompilation was incorrect." 
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Simulate CRNs in a TestTube

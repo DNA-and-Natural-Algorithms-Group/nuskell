@@ -11,7 +11,7 @@ def reactand(s, n) :
   sp = []
   for i in range(n) :
     sp.append(rndSpecies(s))
-  return ' '.join(sp)
+  return ' + '.join(sp)
 
 def arrow(no_reversible) :
   if no_reversible or random.choice([1,2])==2 :

@@ -204,17 +204,32 @@ class BisimulationTests(unittest.TestCase):
     (fcrn, fs) = self._parse_crn_string(fcrn)
     (icrn, _) = self._parse_crn_string(icrn)
 
-    inter = {'B': Counter(['B']),
+    ifull1 = {'B': Counter(['B']),
+             'x1': Counter(['B']),
+             'x2': Counter(['B','B']),
+             'x3': Counter(),
+             'x4': Counter()}
+
+    ipart1 = {'B': Counter(['B']),
              'x2': Counter(['B','B'])}
 
-    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
+    v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation = ipart1)
     self.assertTrue(v)
+    self.assertDictEqual(i1, ifull1)
 
-    inter = {'B': Counter(['B']),
+    ifull2 = {'B': Counter(['B']),
+             'x1': Counter(['B']),
+             'x2': Counter(['B']),
+             'x3': Counter(),
+             'x4': Counter()}
+
+
+    ipart2 = {'B': Counter(['B']),
              'x2': Counter(['B'])}
 
-    v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
+    v, i2 = bisimulation.test(fcrn, icrn, fs, interpretation = ipart2)
     self.assertTrue(v)
+    self.assertDictEqual(i2, ifull2)
 
   def test_species_names(self):
     #TODO: naming species in certain ways breaks bisimulation

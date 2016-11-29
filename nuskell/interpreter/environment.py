@@ -112,7 +112,7 @@ class NusComplex(Complex):
           range(len(s))))]
       elif s == '?' :
         assert (c in ['(','.',')'])
-        return Domain(constraints=list('N' * 15), name='hist'), c
+        return Domain(list('N' * 15), prefix='h'), c
         #return s, c
       else :
         raise NotImplementedError
@@ -379,8 +379,8 @@ class builtin_functions(object):
     uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
     lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    upper = Domain(constraints = list(uppercon), prefix=tag)
-    lower = upper.get_ComplementDomain(constraints = list(lowercon))
+    upper = Domain(list(uppercon), prefix=tag)
+    lower = upper.get_ComplementDomain(list(lowercon))
     return upper
 
   def short(self, args):
@@ -405,8 +405,8 @@ class builtin_functions(object):
     uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * kwargs['len']
     lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * kwargs['len']
 
-    upper = Domain(constraints = list(uppercon), prefix=tag)
-    lower = upper.get_ComplementDomain(constraints = list(lowercon))
+    upper = Domain(list(uppercon), prefix=tag)
+    lower = upper.get_ComplementDomain(list(lowercon))
     return upper
 
   def _print(self, args):
@@ -752,8 +752,8 @@ class Environment(builtin_expressions):
 
     # replace every fs (str) with fs(NusComplex())
     crn_remap = map(
-        lambda x: [x[0]] + map( lambda y: map(
-            lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
+        lambda x: [x[2]] + map( lambda y: map(
+            lambda z: self.formal_species_dict[z], y), x[:2]), crn_parsed)
 
     crn_object = map(
         lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)

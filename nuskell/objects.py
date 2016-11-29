@@ -9,7 +9,7 @@
 # Joseph Schaeffer and Joseph Berleant. 
 #
 # The following Objects are implemented:
-#  *IUPAC_translator: handling of nucleic acid constaints
+#  *IUPAC_translator: handling of nucleic acid constraints
 #  *Domain: A constrained subsequence of a molecule
 #  *ComplementDomain: A domain complementary to a Domain Object.
 #  *Complex: A sequence/structure pair.
@@ -127,55 +127,43 @@ class IUPAC_translator(object):
     return bin_iupac_dict[nuc]
 
 class Domain(IUPAC_translator):
-  """The Nuskell Domain class.
+  """The Nuskell Domain object.
 
-  SeqDomain = SeqDomain | [Domains]
-
-  A domain is a sequence of cnsequtive nucleotides, or a sequence of
-  consequtive domains. A domain can be present in multiple DNA complexes, and
-  its secondary structure can change dependent on the context. However, a
-  single domain must always correspond to a single structure. Every domain has
-  a unique descriptor (domain-ID) that allows for accessing/modifying every
-  occurence in the System.
+  A domain is a sequence of consecutive nucleotides and/or domains. A domain
+  can be present in multiple complexes, and its secondary structure can change
+  dependent on the context. However, a single domain must always correspond to
+  a single structure. Every domain has a unique descriptor (domain-ID) that
+  allows for accessing/modifying every occurrence in the System.
   
-  NOTE: For domains on the nucleotide level, or first-level abstractions
-  commonly used in strand displacement circuits, this is must (?) be dot-parens
-  notation. For domains of domains, one may invent a new character mapping, e.g. 
-  #"d1 = d1a d1b d1c" "h = ( . )"
+  Every Domain can have exactly one ComplementDomain, but it can be
+  complementary to multiple Domains. Hence, the concept of a ComplementDomain
+  may or may not be used.
 
-  Every 'Domain' can have exactly one 'ComplementDomain', but it can be
-  complementary to multiple Domains.
-
-  Global:
-    id_counter: stores the last automatically assigend domain-ID in a System.
-
+  Global Variables:
+    id_counter: the next automatically assigned domain-ID in a system.
   """
 
   id_counter = 0
  
-  def __init__(self, constraints=[], subdomains=[], name='', prefix='d'):
-    """Initialization of the Domain Object.
+  def __init__(self, sequence=[], name='', prefix='d', complements=None):
+    """Initialization of the Domain object.
 
     Arguments:
-      name (str)             -- Name of this domain. If not given,
-                                 an automatic one is generated.
-      constraints (str)      -- Sequence constraints on this domain.
-                                 Specifiers may be any of
-                                 A,T,C,G,R,Y,W,S,M,K,B,V,D,H,N.
-                                 Either constraints or subdomains
-                                 must be specified.
-      subdomains ([Domains]) -- List of component Domain objects. Either
-                                 constraints or subdomains must be specified.
+      sequence <list>         = A list of sequence constraints on this domain.
+      name <optional: str>    = Name of this domain. If not specified, an
+                                automatic name is generated.
+      prefix <optional: str>  = A prefix for autmated naming of Domains. 
+                                Default: 'd' for 'domain'
+
+    Note: The Domain function does not allow names or prefixes ending with
+    digits or '*'. Proximal digits are reseved to name domains automatically
+    using their unique domain-IDs. A mixture of both naming modes is forbidden.
+    Beware, that it is still possible to initialize two different domains with
+    the same name, and that the information that these domain are different is
+    lost when writing them to a file.
     """
 
     # Assign name
-    # -----------
-    # NOTE: The Domain function does not allow to specify names or prefixes to
-    # end with digits, as proximal digits always are an automatically assigned
-    # ID of a complex. A mixture of both naming modes is forbidden, as it must
-    # be forbidden to initialize two domains with the same name. The
-    # information of two domains with the same ID being different would be lost
-    # when the domains are written into a file. 
     self.id = Domain.id_counter
     Domain.id_counter += 1
 
@@ -192,29 +180,24 @@ class Domain(IUPAC_translator):
         raise ValueError('Domain prefix must not end with a digit!')
       self._name = prefix + str(self.id)
 
-    # Assign constraints or subdomain list
-    if constraints and not subdomains :
-      assert all(isinstance(c, str) for c in constraints)
-      self._constraints = constraints
-      self._subdomains = None
-    elif subdomains and not constraints :
-      assert all(isinstance(d, Domain) for d in subdomains)
-      self._subdomains = subdomains
-      self._constraints = None
-    else:
-      raise ValueError("Must pass one of 'constraints' or 'subdomains' \
-          keyword argument.")
+    # Assign domain sequence 
+    if not sequence or type(sequence) != list :
+      raise ValueError("Must pass a sequence of constraints or domain objects.")
+    else :
+      assert all(isinstance(s, (str, Domain)) for s in sequence)
+      self._sequence = sequence
 
     self._ComplementDomain = None
 
     # Initialize an empty set of complementary Domains. This is an experimental
-    # feature that might come in handy for RNA. It will raise Warnings when
-    # used at this point
-    self._complements = set()
-    #if complements :
-    #  raise Warning("Specifying complements this is an experimental feature.")
-    #  assert all(isinstance(d, Domain) for d in complements)
-    #  self.add_complements(complements)
+    # feature and an alternative to defining *one* ComplementDomain.
+    if complements :
+      raise NotImplementedError(
+          "Specifying complements this is an experimental feature.")
+      assert all(isinstance(d, Domain) for d in complements)
+      #self.add_complements(complements)
+    else :
+      self._complements = set()
 
   @property
   def name(self):
@@ -225,52 +208,69 @@ class Domain(IUPAC_translator):
     return len(self.sequence)
 
   @property
+  def sequence(self):
+    return self._sequence
+
+  @property
   def base_length(self):
+    """Return the length of the nucleotide sequence."""
     return len(self.base_sequence)
     
   @property
-  def sequence(self):
-    if self._constraints :
-      # This should also allow to overwrite the constraints
-      return self._constraints
-    else :
-      return self._subdomains
-
-  @property
   def base_sequence(self):
     """Breaks down the domain into non-composite domains."""
-    if self._constraints :
-      return self._constraints
-    return list(''.join(
-      map(lambda x: ''.join(x.base_sequence), self._subdomains)))
+    if all(isinstance(s, str) for s in self._sequence):
+      return self._sequence
+    else :
+      if all(isinstance(s, Domain) for s in self._sequence):
+        return list(''.join(
+          map(lambda x: ''.join(x.base_sequence), self._sequence)))
+      else :
+        # Implement mixed composite / non-composite case here
+        raise NotImplementedError
+
+  def _merge_constraints(self, con, con2):
+    """Return a new list of unified constraints. """
+    return map(self.iupac_union, zip(con,con2))
 
   def update_constraints(self, con):
-    """ Unify new and old constraint """
-    if len(con) != len(self._constraints) :
-      raise ValueError("Length of new constraint != old constraint")
-    for i in range(len(con)):
-      con1 = con[i]
-      con2 = self._constraints[i]
-      con[i] = self.iupac_union([con1, con2])
-      if not con[i] :
-        raise ValueError("Constraints cannot be satisfied")
-    return con
+    """Unify new and old constraint. """
+    if not con or type(con) != list :
+      raise ValueError("Must pass a constraints as a list.")
 
-  def get_ComplementDomain(self, constraints=[], subdomains=[]):
-    if not self._ComplementDomain :
-      if constraints :
-        if len(constraints) != len(self._constraints) :
-          raise ValueError("Length of constraint != complementary constraint")
-        for i in range(len(constraints)):
-          con1 = constraints[i]
-          con2 = self.iupac_neighbor(self._constraints[i])
-          constraints[i] = self.iupac_union([con1, con2])
-          if not constraints[i] :
-            raise ValueError("Constraints cannot be satisfied")
-      self._ComplementDomain = ComplementDomain(self, 
-          constraints=constraints, subdomains=subdomains)
+    # Implement this when needed!
+    if not all(isinstance(s,str) for s in self.sequence + con) :
+      raise NotImplementedError('Cannot update constraints on composite domains.')
+
+    if len(self._sequence) != len(con):
+      raise ValueError("Constraints differ in length.")
+
+    new = self._merge_constraints(self.sequence, con)
+
+    if '' in new :
+      raise ValueError("Constraints cannot be satisfied")
     else :
-      self._ComplementDomain.update_constraints(constraints)
+      self.sequence = new
+
+  def get_ComplementDomain(self, compseq):
+    """This function initializes or updates a ComplementDomain. 
+
+    Note: To return the complement, use the __invert__ operator.
+    """
+    # Implement when needed!!!
+    if not all(isinstance(s,str) for s in self.sequence + compseq) :
+      raise NotImplementedError('Cannot initialize composite ComplementDomain.')
+
+    if self._ComplementDomain :
+      self._ComplementDomain.update_constraints(compseq)
+    else :
+      if len(compseq) != len(self._sequence) :
+        raise ValueError("Length of constraint != complementary constraint")
+      complement = map(self.iupac_neighbor, self._sequence)
+      new = self._merge_constraints(complement, compseq)
+      if '' in new :
+        raise ValueError("Constraints cannot be satisfied")
+      self._ComplementDomain = ComplementDomain(self, new)
     return self._ComplementDomain
 
   @property
@@ -283,10 +283,6 @@ class Domain(IUPAC_translator):
   #   for c in other :
   #     other.add_complements(set(self))
   #     self.complements.add(other)
-
-  # def all_complements(self):
-  #   # return all self.complements
-  #   raise NotImplementedError
 
   # Built-in functions
   def __eq__(self, other):
@@ -309,20 +305,17 @@ class Domain(IUPAC_translator):
     self._ComplementDomain can be initilized with get_ComplementDomain()
     """
     if self._complements:
-      raise Warning("Multiple complements")
+      raise NotImplementedError("Multiple complements not implemented")
       return self._complements
     else :
       return self._ComplementDomain
 
 class ComplementDomain(Domain):
+  """ Represents a ComplementDomain, assuming that every Domain has exactly one
+  ComplementDomain. Note that this object is always defined in terms of an
+  original domain.
   """
-  Represents a complemented domain. Note that this is always
-  defined in terms of an original domain and does not have the same
-  data members, instead providing an interface to the complementary
-  members.
-
-  """
-  def __init__(self, CompDomain, constraints=[], subdomains=[]):
+  def __init__(self, CompDomain, sequence=[]):
     """Create the ComplementDomain for a given domain. A ComplementDomain can
     only be initialized with respect to a given Domain. There can only exist
     one ComplementDomain for every Domain. 
@@ -331,14 +324,12 @@ class ComplementDomain(Domain):
     self._name = CompDomain._name + '*'
     self._ComplementDomain = CompDomain
 
-    # Assign constraints or subdomain list
-    if constraints and not subdomains :
-      self._constraints = constraints
-    elif subdomains and not constraints :
-      self._subdomains = self.update_subdomains(subdomains)
-    else:
-      raise ValueError("Must pass one of 'constraints' or 'subdomains' \
-          keyword argument.")
+    # Assign domain sequence 
+    if not sequence or type(sequence) != list :
+      raise ValueError("Must pass a sequence of constraints or domain objects.")
+    else :
+      assert all(isinstance(s, (str, Domain)) for s in sequence)
+      self._sequence = sequence
 
   def __invert__(self):
     return self._ComplementDomain
@@ -356,27 +347,30 @@ class ComplementDomain(Domain):
 class Complex(object):
   """A complex is a sequence & structure pair. 
   
-  This implementation requires both sequence and structure to be of the same
-  length, either on the domain-level or on the nucleotide-level.   
+  Sequence and structure can be specified on the domain or on the nucleotide
+  level, but they have to be of the same length. Although not yet implemented,
+  one may define special characters for secondary structures that are more
+  diverse than a regual dot-parens string, e.g. 'h' = '(', '.', ')'
+
+  Global Variables:
+    id_counter: the next automatically assigned complex-ID in a system.
   """
-  # TODO: is there something like a complex of complexes??
+
   id_counter = 0
 
   def __init__(self, sequence=[], structure=[], name='', prefix='cplx'):
+    """Initialization of the Complex object.
+
+    Arguments:
+      sequence <list>         = A list of sequence constraints on this domain.
+      structure <list>        = A list of dot-parens characters corresponding
+                                to the specified sequence.
+      name <optional: str>    = Name of this domain. If not specified, an
+                                automatic name is generated.
+      prefix <optional: str>  = A prefix for autmated naming of Domains. 
+                                Default: 'cplx' for 'complex'
     """
-    Initialization:
-    
-    Keyword Arguments:
-    name [type=str]                -- Name of the complex. An automatic name
-                                      "complex_###" is assigned if this is not
-                                      given.
-    strands [type=list of strands] -- List of strands in this complex
-    structure [type=str OR list]   -- Structure for this complex, in dot-paren
-                                      notation or strand-list notation
-                                      as used by Casey's enumerator. Note that
-                                      only the latter representation can be
-                                      used for pseudoknotted structures.
-    """
+
     # Assign id
     self.id = Complex.id_counter
     Complex.id_counter += 1
@@ -395,7 +389,6 @@ class Complex(object):
         raise ValueError('Complex prefix must not end with a digit!')
       self._name = prefix + str(self.id)
 
-    #TODO: this might change!
     if sequence == [] :
       raise ValueError('Complex: requires Sequence and Structure Argument')
 
@@ -434,19 +427,14 @@ class Complex(object):
         for i in range(1, len(indices))]
 
   @property
-  def non_nested_sequence(self):
-    # TODO: Return is a unified non-nested domain sequence, merge with 
-    # nucleotide_sequence
-    pass
-
-  @property
   def nucleotide_sequence(self):
     """Return the complex sequence in form of a flat list of nucleotides. """
-    # TODO mixed sequences of domains
     lol = self.lol_sequence
     def my_base_sequence(seq) :
       if all(isinstance(d, Domain) for d in seq):
         return map(lambda x: x.base_sequence, seq)
+      elif not all(isinstance(d, str) for d in seq) :
+        raise NotImplementedError("mixed sequences are not supported")
       else :
         return seq
     return flatten(map(lambda x: my_base_sequence(x) + ['+'], lol))[:-1]
@@ -457,7 +445,6 @@ class Complex(object):
 
   @property
   def lol_structure(self):
-    # NOTE: It is not clear if this makes sense
     indices = [-1] + [i for i, x in enumerate(self._structure) if x == "+"]
     indices.append(len(self._structure))
     return [self._structure[indices[i-1]+1: indices[i]] 
@@ -465,13 +452,14 @@ class Complex(object):
 
   @property
   def nucleotide_structure(self):
-    # NOTE: It is not clear if this makes sense
     """Return the complex structure on nucleotide-level. """
     lol = zip(self.lol_sequence, self.lol_structure)
     def my_base_sequence(seq, sst) :
       if all(isinstance(d, Domain) for d in seq):
         tups = zip(seq, sst)
         return map(lambda (x,y): y * x.base_length, tups)
+      elif not all(isinstance(d, str) for d in seq) :
+        raise NotImplementedError("mixed sequences are not supported")
       else :
         return sst
     return flatten(map(lambda (x,y): my_base_sequence(x,y) + ['+'], lol))[:-1]
@@ -526,26 +514,35 @@ class Complex(object):
         if r.sequence == other.sequence and r.structure == other.structure:
           return True
       return False
+
   def __ne__(self, other):
     """ Returns True if the complexes are not equal. """
     return not self.__eq__(other)
 
 class TestTube(object):
-  """ A graph representation of a test tube containing nucleic acids.
+  """A reaction network of nucleic acids in a test-tube.
 
-  The nodes of the graph are complexes, the edges define a neighborhood
-  relation. 
+  Currently: The TestTube object is a datastructure that stores all Complex and
+  Doamin instances in a system. It provides an interface to initialize such a
+  system from text files (*.pil, *.dom) or to write these system into those
+  file formats. 
 
-  Node attributes:
-    - free energy
-    - concentration (mol/L, INF)
-
-  Edge attributes:
-    - transition rate
-  
+  NotYetImplemented: The future of the TestTube object should store the nucleic
+  acid system as a reaction network.  The nodes of the graph are complexes, the
+  edges define transitions between complexes. Possible attributes for nodes and
+  edges are free energies, concentrations, molecular counts, reaction rates,
+  etc. TestTube objects will be the primary interface to enumerate, simulate,
+  and verify nucleic acid system.
   """
 
   def __init__(self, complexes=None):
+    """Initialization of TestTube object. 
+
+    Arguments:
+      complexes <optional: list> = A list of Complex objects. 
+    
+    """
+
     if complexes :
       assert all(isinstance(c, Complex) for k,c in complexes.items())
       self._complexes = complexes
@@ -554,10 +551,34 @@ class TestTube(object):
 
     self._domains = None
     self._strands = None
+    self._reactions = None
 
   @property
   def complexes(self):
+    #TODO: return self._complexes.values()
     return self._complexes
+
+  def add_complex(self, cplx):
+    """Add a complex to the TestTube. 
+
+    A new complex resets .domains and .strands
+    """ 
+    if cplx.name in self._complexes :
+      assert self._complexes[cplx.name] is cplx
+    else :
+      self._complexes[cplx.name] = cplx
+      self._domains = None
+      self._strands = None
+
+  def rm_complex(self, cplx):
+    """Remove a Complex from the TestTube. 
+
+    Removing a complex resets .domains and .strands
+    """
+    if cplx.name in self._complexes :
+      del self._complexes[cplx.name]
+      self._domains = None
+      self._strands = None
 
   @property
   def strands(self):
@@ -583,6 +604,8 @@ class TestTube(object):
             self._strands[name] = s
     return self._strands
 
+  #@propert strand_names
+
   @property
   def domains(self):
     """Return a dictionary of Domain Objects present in the TestTube. 
@@ -598,12 +621,36 @@ class TestTube(object):
           self._add_domain(d)
     return self._domains
 
-  #def load_pilfile(self, pilfile):
-  #  from nuskell.parser import parse_pil_file
-  #  [complexes] = parse_pil_file(pilfile)
+  def _add_domain(self, domain):
+    if domain.name in self._domains :
+      # This might be too stringent, but == is currently equivalent.
+      assert self._domains[domain.name] is domain
+    else :
+      self._domains[domain.name] = domain
+ 
+  def __add__(self, other):
+    assert isinstance(other, TestTube)
+    combined = TestTube()
+    for k,v in self._complexes.items() :
+      combined.add_complex(v)
+    for k,v in other.complexes.items() :
+      combined.add_complex(v)
+    return combined
+
+class TestTubeIO(object):
+  """A wrapper class to handle I/O of TestTube objects."""
+
+  def __init__(self, ttube):
+    assert isinstance(ttube, TestTube)
+    self._testtube = ttube
+
+  @property
+  def testtube(self):
+    return self._testtube
+
   def write_domfile(self, domfile):
     with open(domfile, 'w') as dom:
-      domains = self.domains
+      domains = self._testtube.domains
 
       # Print Sequences
       for k, v in sorted(domains.items(), key=lambda x : x[1].id):
@@ -612,11 +659,13 @@ class TestTube(object):
             v.name, ''.join(v.sequence), v.length))
 
       # Print Complexes
-      for k, v in sorted(self._complexes.items()):
+      for k, v in sorted(self._testtube.complexes.items()):
         dom.write("{:s} = {:s} : {:s}\n".format(v.name, 
           ' '.join(map(str,v.sequence)), ' '.join(v.structure)))
-
     return domfile
+
+  def load_domfile(self, pilfile):
+    raise NotImplementedError
 
   def write_pilfile(self, pilfile):
     """Write the contents of TestTube() into a pilfile. 
@@ -632,7 +681,7 @@ class TestTube(object):
     structure c1 = s1 : .(((((((+)))))))
     """
     with open(pilfile, 'w') as pil :
-      domains = self.domains
+      domains = self._testtube.domains
 
       # Print Sequences
       for k, v in sorted(domains.items(), key=lambda x : x[1].id):
@@ -641,121 +690,23 @@ class TestTube(object):
             v.name, ''.join(v.sequence), v.length))
 
       # Print Strands
-      strands = self.strands
+      strands = self._testtube.strands
       for k, v in sorted(strands.items(), key=lambda x: int(x[0].split('_')[1])):
 
         pil.write("strand {:s} = {:s} : {:d}\n".format(k, 
           ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
 
       # Print Structures
-      for k, v in sorted(self._complexes.items()):
+      for k, v in sorted(self._testtube.complexes.items()):
         pil.write("structure {:s} = ".format(v.name))
         for s in v.lol_sequence :
           strand = tuple(map(str,s))
-          name = self._strand_names[strand]
+          name = self._testtube._strand_names[strand]
           pil.write("{:s} ".format(name))
         pil.write(": {:s}\n".format(''.join(v.nucleotide_structure)))
 
     return pilfile
 
-  def load_enum_cplxs(self, ecplxs, cplx_rename=None, domain_rename=None):
-    # Initialize dict of domains in system
-    domains = self.domains
-    for cx in ecplxs :
-      cplxname = cplx_rename(cx.name) if cplx_rename else cx.name
-      domseq = []
-      for s in cx.strands:
-        domseq.append('+')
-        for d in s.domains:
-          nucseq = d.sequence if d.sequence else 'N'*d.length
-          domname = domain_rename(d.name) if domain_rename else d.name
-          self._add_domain_by_name(domname, list(nucseq))
-          dom = self._domains[domname]
-          domseq.append(dom)
-      # remove the first '+' again
-      if len(domseq)>0: domseq = domseq[1:]
-      domstr = list(cx.dot_paren_string())
-      self._add_complex_by_name(cplxname, domseq, domstr)
-    return 
-
-  def rm_complex(self, cplx):
-    if cplx.name in self._complexes :
-      del self._complexes[cplx.name]
-      return True
-    else :
-      return False
-
-  def add_complex(self, cplx, check_domains=True):
-    if cplx.name in self._complexes :
-      return False
-    else :
-      # go over all domains, add domains
-      # print cplx, cplx.sequence, cplx.structure
-      # map(self.add_domain, cplx.sequence)
-      self._complexes[cplx.name] = cplx
-      self._domains = None
-      self._strands = None
-      return True
-
-  def _add_complex_by_name(self, name, sequence, structure, check_domains=True):
-    # NOTE: this function does not reset self._domains, because
-    # it assumes that self._domains is updated as well.
-    if name in self._complexes :
-      return False
-    else :
-      # go over all domains, add domains
-      # map(lambda x: self.add_domain_by_name(x.name, x.sequence), sequence)
-      self._complexes[name] = Complex(
-          sequence=sequence, structure=structure, name=name)
-      for d in sequence :
-        if d == '+' : continue
-        if d.name not in self._domains:
-          raise ValueError("Update domains accordingly!")
-      self._strands = None
-      return True
-
-  def _add_domain(self, domain):
-    # This method does not care about complementarity
-    if domain.name in self._domains :
-      return False
-    else :
-      self._domains[domain.name] = domain
-      return True
- 
-  def _add_domain_by_name(self, name, sequence):
-    """Adds a domain with a particular Name to the TestTube. 
-    
-    If a domain with the same name has been added before, there will be no
-    changes. Note that the Domain function does not allow to specify names that
-    end with digits, as such names are reserved for auto-generated domains.
-    """
-    if name in self._domains and self._domains[name] :
-      # Temporary placeholders for complement domains (None)
-      return False
-    elif name in self._domains :
-      if name+'*' not in self._domains:
-        raise ValueError("Complement Domain missing in the TestTube")
-      self._domains[name] = self._domains[name+'*'].get_ComplementDomain(
-          constraints=sequence)
-    else :
-      # Initialize new Domain
-      if name[-1] == '*':
-        tmp = Domain(constraints=list('N' * len(sequence)), name=name[:-1])
-        self._domains[name[:-1]] = None
-        self._domains[name] = tmp.get_ComplementDomain(constraints=sequence)
-      else :
-        self._domains[name] = Domain(constraints=sequence, name=name)
-    return True
- 
-  def concentrations(self):
-    pass
-
-  def __add__(self, other):
-    assert isinstance(other, TestTube)
-    combined = TestTube()
-    for k,v in self._complexes.items() :
-      combined.add_complex(v)
-    for k,v in other.complexes.items() :
-      combined.add_complex(v)
-    return combined
+  def load_pilfile(self, pilfile):
+    raise NotImplementedError
 

@@ -25,14 +25,7 @@ If you want to verify the equivalence between a formal CRN and an implementation
 
 ### local installation
 ```
-  python setup.py install --prefix=/your/destination/nuskell-x.y.r
-```
-  
-Do not forget to set your environment variables when using local installations:
-  
-```
-  export PATH=/your/destination/nuskell-x.y.r/bin:$PATH
-  export PYTHONPATH=/your/destination/nuskell-x.y.r/lib/python2.7/site-packages/:$PYTHONPATH
+  python setup.py install --user
 ```
   
 ## Version

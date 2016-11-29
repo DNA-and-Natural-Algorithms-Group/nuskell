@@ -7,8 +7,7 @@
 # Preprocessing and interface to peppercorn enumerator
 #
 
-from nuskell.parser import parse_dom_file
-from nuskell.objects import Domain, Complex, TestTube
+from nuskell.objects import TestTube, Complex
 
 import nuskell.include.peppercorn.utils as peputils
 from nuskell.include.peppercorn.enumerator import Enumerator
@@ -22,161 +21,200 @@ from nuskell.include.peppercorn.condense import condense_resting_states
 #   sys.exit("""nuskell depends on the peppercorn package
 #   -- download at http://dna.caltech.edu/peppercorn """)
 
-def peppercorn_enumerate(args, solution, condense = True, verbose=False):
-  """Nuskell interface to the enumerator. 
+class TestTubePeppercornIO(object):
+  """ A TestTube wrapperclass to communicate with the peppercorn enumerator.
 
-  Args:
-    args (Argparse Object): Arguments for the peppercorn enumerator
-    solution (TestTube()):  A set of complexes for enumeration
-  
-  Returns:
-    enum_crn ([[[re],[pr]],..]: A CRN of enumerated species
-    enum_solution (TestTube()): Enumerated complexes
+  This class reads a Nuskell TestTube object and translates it into a
+  Peppercorn Enumerator object. Both objects refer to the same complexes and
+  domains.
   """
-  enum = initialize_enumerator(solution)
-  set_enumargs(enum, args)
+  def __init__(self, ttube, args=None):
+    # Input
+    self._testtube = TestTube()
+    self._testtube += ttube
+    self._enumerator = self._initialize_peppercorn(ttube)
+    if args :
+      set_enum_args(self._enumerator, args)
 
-  enum.enumerate()
+    # If True, the enumerator has been called and the TestTube is up-to-date.
+    # only flips if used by the enumerate() function in *this* instance.
+    self._processed = False 
+    self._enum_to_ttube = dict()
 
-  if condense :
-    enum_crn = get_enum_crn_condense(enum, verbose)
-  else :
-    enum_crn = get_enum_crn(enum, verbose)
-  enum_solution = get_enum_solution(enum, solution, verbose)
+    # Output: Autoname will reset the naming of complexes of the peppercorn
+    # enumerator format and replace it with autmatic TestTube names. This is
+    # nice for readability, but it becomes harder to debug code.
+    self._autoname = False
+    self._enum_prefix = 'e'
+    self._enum_append = '' if self._autoname else '_'
 
-  return enum_crn, enum_solution
+  @property
+  def testtube(self):
+    if not self._processed and self._enumerator._resting_states != None:
+      raise ValueError('Enumerator has to be called within the IO object.')
+    return self._testtube
 
-def initialize_enumerator(solution) :
-  """Initialize the peppercorn enumerator object.
+  @property
+  def enumerator(self):
+    return self._enumerator
 
-  Args:
-    solution (nuskell.objects.TestTube()): A set of complexes
+  @property
+  def condense_reactions(self):
+    condensed = condense_resting_states(self.enumerator, compute_rates=True, k_fast=0.)
+    reactions = condensed['reactions']
 
-  Returns:
-    Enumerator (peppercorn.enumerator.Enumerator())
-  """
+    enum_crn = []
+    for r in sorted(reactions):
+      # print map(lambda x: map(str, x.complexes), r.reactants), '->', 
+      # print map(lambda x: map(str, x.complexes), r.products)
+      # print r.kernel_string()
 
-  # Translate to peppercorn domains
-  domains = {}
-  for n, d in solution.domains.items() :
-    if n[-1] == '*' :
-      new_dom = peputils.Domain(n[:-1], d.length, sequence=''.join(d.sequence), is_complement=True)
-    else :
-      new_dom = peputils.Domain(n, d.length, sequence=''.join(d.sequence))
-    domains[n] = new_dom
-  #print domains.values()
+      react = []
+      for rs in r.reactants:
+        react.append(self._enum_to_ttube[rs.complexes[0].name])
+        #if len(rs.complexes) > 1 :
+        #  print 'resting state', rs.complexes, react[-1]
 
-  # Translate to peppercorn strands
-  strands = {}
-  dom_to_strand = {}
-  for n, s in solution.strands.items() :
-    dom_to_strand[tuple(map(str,s))] = n
-    doms = []
-    for d in map(str, s) :
-      doms.append(domains[d])
-    strands[n] = peputils.Strand(n, doms)
-  #print strands.values()
+      prod = []
+      for rs in r.products:
+        prod.append(self._enum_to_ttube[rs.complexes[0].name])
+        #if len(rs.complexes) > 1 :
+        #  print 'resting state', rs.complexes
 
-  # Translate to peppercorn complexes
-  complexes = {}
-  for n, c in solution.complexes.items():
-    cplx_strands = []
-    for s in c.lol_sequence :
-      ns = dom_to_strand[tuple(map(str,s))]
-      cplx_strands.append(strands[ns])
-    complex_structure = peputils.parse_dot_paren(''.join(c.structure))
-    complex = peputils.Complex(n, cplx_strands, complex_structure)
-    complex.check_structure()
-    complexes[n] = complex		
-  #print complexes.values()
+      enum_crn.append([react, prod])
+    return enum_crn
 
-  domains = domains.values()
-  strands = strands.values()
-  complexes = complexes.values()
+  @property
+  def all_reactions(self):
+    enum_crn = []
+    for r in sorted(self.enumerator.reactions):
+      react = []
+      for re in map(str, r.reactants) :
+        if re in self._enum_to_ttube:
+          re = self._enum_to_ttube[re]
+        react.append(re)
+      prod = []
+      for pr in map(str, r.products) :
+        if pr in self._enum_to_ttube:
+          pr = self._enum_to_ttube[pr]
+        prod.append(pr)
+      #print r.kernel_string()
+      print [react, prod]
+      enum_crn.append([react, prod])
+    return enum_crn
 
-  return Enumerator(domains, strands, complexes)
+  def enumerate(self):
+    # Dangerous, if you were to call self._enumerator.enumerate() directly,
+    self._enumerator.enumerate()
+    self._get_resting_cplxs()
+    self._processed = True
 
-def enum_cplx_rename(x) :
-  """ A function to rename enumerator species names to a format 
-  which is compatible with nuskell.objects
-  """
-  x = 'e'+x if x[0].isdigit() else x
-  return x +'_' if x[-1].isdigit() else x
+  def _initialize_peppercorn(self, testtube):
+    """Initialize the peppercorn enumerator object.
 
-def enum_rs_rename(x) :
-  """ A function to rename enumerator species names to a format 
-  which is compatible with nuskell.objects
-  """
-  x = 'r'+x if x[0].isdigit() else x
-  return x +'_' if x[-1].isdigit() else x
+    Args:
+      testtube <nuskell.objects.TestTube()>: complexes, strands and domains
+      args <arparse.parser()>: arguments for the enumerator
 
+    Returns:
+      Enumerator <peppercorn.enumerator.Enumerator()>
+    """
 
-def enum_domain_rename(x) :
-  # NOTE: This function is obsolete, because domains are initialized using
-  # the original solution object. However, it translates domain names to be
-  # compatible with nuskell.objects
-  x = 'e'+x if x[0].isdigit() else x
-  if x[-1]=='*':
-    return x[:-1] + 'p' + '*'
-  elif x[-1].isdigit() :
-    return x + 'p'
-  else :
-    return x
-
-def get_enum_crn_condense(enum, verbose=False):
-  # Extract condensed reactions
-  condense_options={}
-  condensed = condense_resting_states(enum, **condense_options)
-  reactions = condensed['reactions']
-
-  enum_crn = []
-  for r in sorted(reactions):
-    #print map(lambda x: map(str, x.complexes), r.reactants), '->', 
-    #print map(lambda x: map(str, x.complexes), r.products)
-    #print r.kernel_string()
-
-    react = []
-    for rs in r.reactants:
-      if len(rs.complexes) == 1: 
-        react.append(enum_cplx_rename(str(rs.complexes[0])))
+    # Translate to peppercorn domains
+    domains = {}
+    for n, d in testtube.domains.items() :
+      if n[-1] == '*' :
+        new_dom = peputils.Domain(n[:-1], d.length, 
+            sequence=''.join(d.sequence), is_complement=True)
       else :
-        react.append(enum_rs_rename(rs.name))
+        new_dom = peputils.Domain(n, d.length, sequence=''.join(d.sequence))
+      domains[n] = new_dom
+    #print domains.values()
 
-    prod = []
-    for rs in r.products:
-      if len(rs.complexes) == 1: 
-        prod.append(enum_cplx_rename(str(rs.complexes[0])))
-      else :
-        prod.append(enum_rs_rename(rs.name))
+    # Translate to peppercorn strands
+    strands = {}
+    dom_to_strand = {}
+    for n, s in testtube.strands.items() :
+      dom_to_strand[tuple(map(str,s))] = n
+      doms = []
+      for d in map(str, s) :
+        doms.append(domains[d])
+      strands[n] = peputils.Strand(n, doms)
+    #print strands.values()
 
-    enum_crn.append([react, prod])
-  return enum_crn
+    # Translate to peppercorn complexes
+    complexes = {}
+    for n, c in testtube.complexes.items():
+      cplx_strands = []
+      for s in c.lol_sequence :
+        ns = dom_to_strand[tuple(map(str,s))]
+        cplx_strands.append(strands[ns])
+      complex_structure = peputils.parse_dot_paren(''.join(c.structure))
+      complex = peputils.Complex(n, cplx_strands, complex_structure)
+      complex.check_structure()
+      complexes[n] = complex		
+    #print complexes.values()
 
-def get_enum_crn(enum, verbose=False):
-  reactions = enum.reactions
-  enum_crn = []
-  for r in sorted(reactions):
-    react = map(enum_cplx_rename, map(str, r.reactants))
-    prod = map(enum_cplx_rename, map(str, r.products))
-    #print r.kernel_string()
-    #print [react, prod]
-    enum_crn.append([react, prod])
-  return enum_crn
+    domains = domains.values()
+    strands = strands.values()
+    complexes = complexes.values()
 
-def get_enum_solution(enum, solution, verbose=False):
-  # Extraction of complexes in the enumerated CRN:
-  enum_cplxs = TestTube()
-  enum_cplxs += solution
-  for rs in enum.resting_states:
-    enum_cplxs.load_enum_cplxs(rs.complexes, enum_cplx_rename)
+    return Enumerator(domains, strands, complexes)
 
-  return enum_cplxs
+  def _ecplx_rename(self, x):
+    """ A function to rename enumerator species names to a format 
+    which is compatible with nuskell.objects
+    """
+    assert x[0].isdigit()
+    assert x[-1].isdigit()
+    return self._enum_prefix + x + self._enum_append
 
-def set_enumargs(enum, args):
-  """Transfer options to Enumerator Object. 
+  def _get_resting_cplxs(self):
+    """Merge self.enumerator complexes into the self.testtube object. 
+
+    Note that the enumerator cannot generate new domains or new strands, it
+    only finds new complexes. This function adds all complexes that are
+    present in resting states in the system. Transient states are ignored.
+    """
+    oldcplxs = self._testtube.complexes.keys()
+    if not self._autoname and any(
+        map(lambda x:(x[0]==self._enum_prefix), oldcplxs)) :
+      raise Exception(self._enum_prefix, 
+          "Namespace prefix reserved for enumerated complexes")
+
+    domains = self._testtube.domains
+    for rs in self._enumerator.resting_states:
+      for cx in rs.complexes:
+        if cx.name in oldcplxs: 
+          self._enum_to_ttube[cx.name] = cx.name
+          continue
+        domseq = []
+        for sd in cx.strands:
+          domseq.append('+')
+          for do in sd.domains:
+            assert (do.name in domains)
+            dom = domains[do.name]
+            domseq.append(dom)
+        # remove the first '+' again
+        if len(domseq)>0: domseq = domseq[1:]
+        domstr = list(cx.dot_paren_string())
+        if self._autoname :
+          mycplx = Complex(sequence=domseq, structure=domstr, 
+              prefix=self._enum_prefix)
+        else :
+          cplxname = self._ecplx_rename(cx.name)
+          if cplxname in self._testtube.complexes:
+            raise ValueError("Complex found in muliple resting states?")
+          mycplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
+        self._testtube.add_complex(mycplx)
+        self._enum_to_ttube[cx.name] = mycplx.name
+    return 
+
+def set_enum_args(enum, args):
+  """Transfer options to self._enumerator object. 
   
-  Do NOT set Nuskell-defaults here. Defaults are set with the argparse object
-  of peppercorn: nuskell/include/peppercorn/enumerator.py 
+  Do NOT set Nuskell-defaults values here. Defaults are set with the argparse
+  object of peppercorn: nuskell/include/peppercorn/enumerator.py 
   
   """
 
@@ -185,6 +223,7 @@ def set_enumargs(enum, args):
   #enum.MAX_COMPLEX_SIZE   = 1000
   #enum.k_fast = 2.0
   #enum.REJECT_REMOTE = True
+
   if args.verbose is not None:
     import logging
     logger = logging.getLogger()
