@@ -39,15 +39,15 @@ def crn_document_setup():
   def T(x, tag):
     """ Return a *Tag* to distinguish (ir)reversible reactions """
     def TPA(tag):
-      return lambda s, l, t: [tag] + t.asList()
+      return lambda s, l, t: t.asList() + [tag]
     return x.setParseAction(TPA(tag))
   
   crn_DWC = "".join(
       [x for x in ParseElementEnhance.DEFAULT_WHITE_CHARS if x != "\n"])
   ParseElementEnhance.setDefaultWhitespaceChars(crn_DWC)
   
-  #identifier = W(alphas, alphanums+"_")
-  identifier = W(srange("[a-zA-Z_]"), srange("[a-zA-Z0-9_]"))
+  identifier = W(alphas, alphanums+"_")
+  #identifier = W(srange("[a-zA-Z_]"), srange("[a-zA-Z0-9_]"))
   
   reaction = T(G(O(delimitedList(identifier, "+"))) + \
              S("->") + \
@@ -78,10 +78,10 @@ def species(crn):
 
   :param crn: a chemical reaction network 
 
-  .. [['irreversible', ['A', 'B'], ['C','D']], 
-  ..  ['irreversible', [], ['A']], 
-  ..  ['irreversible', ['X'], []], 
-  ..  ['reversible', ['A', 'C'], ['X']], 
+  .. [[['A', 'B'], ['C','D'], 'irreversible'], 
+  ..  [[], ['A'], 'irreversible'], 
+  ..  [['X'], [], 'irreversible'], 
+  ..  [['A', 'C'], ['X'], 'reversible'], 
   ..  ['A', 'B', 'C', 'D', 'X'], []]
 
   :return: list of species.
@@ -89,8 +89,8 @@ def species(crn):
   species = set()
   for rxn in crn:
     # skip 'formal' or 'constant' statement
-    if rxn[0] != "irreversible" and rxn[0] != "reversible": continue
-    species = species.union(rxn[1]).union(rxn[2])
+    if type(rxn[0]) == list:
+      species = species.union(rxn[0]).union(rxn[1])
   return list(species)
 
 def _post_process(crn):
@@ -136,7 +136,7 @@ def _post_process(crn):
   constant_species = list(csp)
 
   for i in range(len(crn)):
-    if crn[i][0] != "reversible" and crn[i][0] != "irreversible":
+    if type(crn[i][0]) != list or type(crn[i][1]) != list :
       crn = crn[:i]
       break
   return (crn, formal_species, constant_species)
@@ -146,7 +146,7 @@ def split_reversible_reactions(crn):
   reactions, remove the 'reversible' and 'irreversible' tags.
   """
   new_crn = []
-  for [x, r, p] in crn:
+  for [r, p, x] in crn:
     assert (x == 'irreversible' or x == 'reversible')
     new_crn.append([r,p])
     if x == "reversible":
@@ -154,7 +154,7 @@ def split_reversible_reactions(crn):
   return new_crn
 
 def combine_reversible_reactions(crn) : 
-  """Condesnse two irreversible reactions into the corresponding reversible
+  """Condense two irreversible reactions into the corresponding reversible
   reactions, add 'reversible' and 'irreversible' tags.
   """
   if type(crn) != list:
@@ -165,7 +165,9 @@ def combine_reversible_reactions(crn) :
     if r in removed:
       continue
 
-    if len(r) == 3 : tag = r[2]
+    if len(r) == 3 : 
+      assert (r[2] == 'irreversible' or r[2] == 'reversible')
+      tag = r[2]
     else : tag = 'irreversible'
 
     for r2 in crn: 
@@ -174,8 +176,7 @@ def combine_reversible_reactions(crn) :
             tag = 'reversible' 
             removed.append(r2)
             break
-    r = [r[0],r[1],tag]
-    new_crn.append(r)
+    new_crn.append(r + [tag])
   return new_crn
 
 def parse_crn_file(filename):
@@ -190,10 +191,10 @@ def parse_crn_string(data):
     (crn, formal_species, constant_species).
 
     :returns: 
-    .. ([['irreversible', ['A', 'B'], ['C','D']], 
-    ..   ['irreversible', [], ['A']], 
-    ..   ['irreversible', ['X'], []], 
-    ..   ['reversible', ['A', 'C'], ['X']], 
+    .. ([[['A', 'B'], ['C','D'], 'irreversible'],
+    ..   [[], ['A'], 'irreversible'], 
+    ..   [['X'], [], 'irreversible'], 
+    ..   [['A', 'C'], ['X'], 'reversible'], 
     ..   ['A', 'B', 'C', 'D', 'X'], [] ])
     """
     crn_document = crn_document_setup()

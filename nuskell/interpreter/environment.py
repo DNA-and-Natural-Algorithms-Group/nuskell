@@ -752,8 +752,8 @@ class Environment(builtin_expressions):
 
     # replace every fs (str) with fs(NusComplex())
     crn_remap = map(
-        lambda x: [x[0]] + map( lambda y: map(
-            lambda z: self.formal_species_dict[z], y), x[1:]), crn_parsed)
+        lambda x: [x[2]] + map( lambda y: map(
+            lambda z: self.formal_species_dict[z], y), x[:2]), crn_parsed)
 
     crn_object = map(
         lambda x: Reaction(x[1], x[2], x[0] == "reversible"), crn_remap)
