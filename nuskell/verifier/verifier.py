@@ -131,8 +131,12 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
           if nx in input_fs :
             enum_to_formal[nx+"_i"]=Counter([nx])
           else :
-            # SB: this is just because I want to observe a case, 
-            # should be save to remove this else statement.
+            # NOTE: Sometimes spontanous reactions are implemented in a way
+            # that a species that looks like a formal species is actually a
+            # fuel species. In this case, it would actually be safe to just
+            # remove the history tag ...
+            # However, if you cannot remove the history tag, then this else
+            # statement should be safe to remove.
             raise ValueError('Unexpected constant species')
         else :
           if patternMatch(x, y, ignore=hist) :
@@ -142,8 +146,7 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
               enum_to_formal[nx+"_"+str(cnt)] = Counter([nx])
               remove_ihist.add(nx+"_i")
             else :
-              # SB: this is just because I want to observe a case, 
-              # should be save to remove this else statement.
+              # ... see NOTE above!
               raise ValueError('Unexpected constant species')
     else :
       if nx in input_fs :

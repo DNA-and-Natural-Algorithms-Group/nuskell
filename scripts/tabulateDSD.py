@@ -2,136 +2,18 @@
 
 import os
 import sys
-import string
 import argparse
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from pyparsing import ParseException
 
 from nuskell.compiler import translate
-from nuskell.enumeration import enumerate_crn_old
+from nuskell.enumeration import TestTubePeppercornIO
+from nuskell.verifier import preprocess, verify
+from nuskell.objects import TestTube, TestTubeIO
+from nuskell.parser import parse_crn_string
+from nuskell.parser import split_reversible_reactions
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
-
-def test_scheme_directory(input_crn, ts_dir, args, normalize = ''):
-  rawdata = [] # all data, but not in Pandas format
-  norm_values = []
-  if normalize : # then do the respective scheme first
-    crn_string = input_crn.replace('\n','; ')
-    print 'Scheme:', normalize, 'CRN:', crn_string
-    circuit_objects = try_to_compile(input_crn, ts_dir + normalize, args)
-
-    if circuit_objects == []:
-      raise SystemExit('Scheme for normalization failed!')
-    else :
-      plot_vars = [normalize, crn_string]
-      plot_values = num_circuit_properties(*circuit_objects)
-      # normalize everything to 1
-      norm_values = plot_values
-      plot_values = [float(x)/y for x,y in zip(plot_values, norm_values)]
-      rawdata.append(plot_vars + plot_values)
-
-  for scheme in os.listdir(ts_dir) :
-    #if len(rawdata) > 5 : break # testing
-    if scheme[-3:] != '.ts' : continue
-    if scheme == normalize : continue
-
-    crn_string = input_crn.replace('\n','; ')
-    print 'Scheme:', scheme, 'CRN:', crn_string
-    circuit_objects = try_to_compile(input_crn, ts_dir + scheme, args)
-
-    plot_vars = [scheme, crn_string]
-    if circuit_objects == []:
-      plot_values = [None, None, None, None]
-    else :
-      plot_values = num_circuit_properties(*circuit_objects)
-      # normalize everything to 1
-      if normalize :
-        plot_values = [float(x)/y for x,y in zip(plot_values, norm_values)]
-      
-      # Only append if it worked, but you can change the indnet to include NaNs
-      rawdata.append(plot_vars + plot_values)
-  return rawdata
-
-def num_circuit_properties(domains, strands, fs, cs, ecrn):
-  init = [None, None, None, None, None]
-
-  #print '# Number of Domains:', len(domains)
-  init[0] = len(domains) 
-  #print '# Lengths of Domains', [d.length for d in domains]
- 
-  #print '# Number of Strands:', len(strands)
-  init[1] = len(strands)
-  #print '# Lengths of Strands:', [s.length for s in strands]
-
-  #print '# Number of formal species:', len(fs)
-  #print '# Strands in each formal complex:', [len(clx.strands) for clx in fs]
-
-  #print '# Strands in each constant complex:', [len(clx.strands) for clx in cs]
-  init[2] = max([len(clx.strands) for clx in cs])
-
-  clen = 0
-  for clx in cs :
-    for snd in clx.strands :
-      clen += snd.length
-  #print '# Number of nucleotides in all complexes:',clen
-  init[3] = clen
-
-  #print '# Size of enum crn', len(ecrn)
-  init[4] = len(ecrn)
-
-  print clen, len(ecrn)
-
-  # print '# Number of constant species:', len(cs)
-  #init[2] = len(cs)
-  #init[3] = 500
-  # size of enumerated network
-  # total number of nucleotides
-  return init
-
-def try_to_compile(input_crn, scheme, args):
-  from nuskell.interpreter.environment import RuntimeError
-
-  try :
-    args.output = 'test'
-    pil = args.output+'.pil'
-    dom = args.output+'.dom'
-    domains, strands, fs, cs = translate(
-        input_crn, scheme, pilfile=pil, domfile=dom)
-
-    #if scheme[-12:] == 'lakin2011.ts' :
-    #  args.ignore_branch_4way = True
-    #else :
-    #  args.ignore_branch_4way = False
-
-    print input_crn, scheme
-
-    if input_crn == 'O1 <=> I1; O2 + I1 <=> I2 + O1; O3 + I2 + I1 <=> I3 + O2 + O1' and scheme[-12:] == 'lakin2011.ts' :
-      return []
-    elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
-        and scheme[-12:] == 'lakin2011.ts':
-      return []
-    #elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
-    #    and scheme[-18:] == 'soloveichik2010.ts':
-    #  return []
-    elif input_crn == 'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'\
-        and scheme[-15:] == 'srinivas2015.ts':
-      return []
-    else :
-      enum_crn, cplxs, slow_cplxs = enumerate_crn_old(args, dom)
-
-
-    return [domains, strands, fs, cs, enum_crn]
-  except ParseException as e:
-    print 'cannot parse the translation scheme'
-    return []
-  except RuntimeError as e:
-    print 'cannot translate the CRN using this scheme'
-    return []
-  except SystemExit as e:
-    print 'Scheme exits with:', e
-    return []
-
 
 def main():
   """Compare different Tranlation schemes for different CRNs.
@@ -144,6 +26,11 @@ def main():
       help="Specify directory that contains translation schemes" + \
         "files that has a *.ts ending will be interpreted as translation scheme")
 
+  parser.add_argument("--verify", default='bisimulation', action = 'store',
+      help="Specify name a verification method: \
+          (bisimulation, pathway, integrated, bisim-loop-search,\
+          bisim-depth-first, bisim-whole-graph)") 
+
   parser = get_peppercorn_args(parser)
 
   args = parser.parse_args()
@@ -154,62 +41,148 @@ def main():
   # input_crn = sys.stdin.readlines()
   # input_crn = "".join(input_crn)
 
-  #crn_list = []
-  crn_list = ['A + B -> B + B',
-              'A + B -> B + B; B + C -> C + C; A + C -> A + A',
-              'O1 <=> I1; O2 + I1 <=> I2 + O1; O3 + I2 + I1 <=> I3 + O2 + O1',
-              #'O1 <=> I1; I1 + O2 <=> O1 + I2; I1 + I2 + O3 <=> O1 + O2 + I3',
-              'A <=> A+A; A+B -> B+B; B -> ; A + C -> ; C <=> C + C'
-             ]
- 
-  crn_list.extend(['A -> ', '-> B', 'A -> B', 'A <=> B', 'A -> B + C'])
+  # A few common tests to find bugs in reaction schemes
+  reactions = [
+      'A -> ', 
+      '-> B', 
+      'A -> B', 
+      'A <=> B', 
+      'A -> A + A', 
+      'A + A -> A', 
+      'A + B -> B + B' ]
 
-  #crn_list.extend(['A <=> B \n A -> B + C \n A+B -> X+Y \n A+B ->B+B' ])
+  networks = [
+      'A + B -> B + B; B + C -> C + C; A + C -> A + A',
+      'A <=> A + A; A + B -> B + B; B -> ; A + C -> ; C <=> C + C',
+      'A <=> X; B + X <=> Y + A; C + Y + X <=> Z + B + A']
 
-  cols = ['Scheme', 'CRN', 
-      '# of Domains', '# of Strands', 
-      'max(Strand in Complex)', 
-      '# of Nucleotides in all Complexes', 
-      'size of enumerated CRN']
 
-  rawdata = []
-  for crn in crn_list:
-    rawdata.extend(
-        test_scheme_directory(
-          crn, args.ts_dir, args, normalize='qian2011_gen.ts')) 
-    print 
+  plotdata = [] # Scheme, CRN, Cost, Speed
+  for crn in reactions + networks:
+    for scheme in os.listdir(args.ts_dir) :
+      if scheme[-3:] != '.ts' : 
+        #print "# Ignoring file:", args.ts_dir + scheme
+        continue
 
-  print rawdata
+      #if scheme[0] != 's' and scheme[0] != 'q' : continue
 
-  df = pd.DataFrame(rawdata, columns=cols)
-  #print df
+      (fcrn, fs, cs) = parse_crn_string(crn) 
+      fcrn = split_reversible_reactions(fcrn)
 
+      # Settings that might be subject to change later
+      args.REJECT_REMOTE = False
+      args.MAX_COMPLEX_COUNT = 10000
+
+      print '\n# Scheme:', scheme, 'CRN:', crn
+      solution, _ = translate(crn, args.ts_dir + scheme, args.verbose)
+      
+      # TRANSLATION
+      # NOTE: The actual number of nucleotides is smaller for translations using history domains.
+      print 'Number of Nucleotides:',
+      print sum(map(len, 
+        map(lambda x: x.nucleotide_sequence, 
+          solution.complexes.values())))
+          #filter(lambda x: x.name not in fs, solution.complexes.values()))))
+
+      cost = sum(map(len, map(lambda x: x.nucleotide_sequence, solution.complexes.values())))
+
+      # ENUMERATION
+      if scheme == 'soloveichik2010_gen.ts':# and crn == 'A + A -> A':
+        print "# WARNING: changing eqivalence notion --reject-remote"
+        args.REJECT_REMOTE = True
+
+      if scheme == 'srinivas2015_gen.ts':# and crn == 'A + A -> A':
+        print "# WARNING: changing eqivalence notion --reject-remote"
+        args.REJECT_REMOTE = True
+
+      print "Size of enumerated network:",
+      peppercorn = TestTubePeppercornIO(solution, args)
+      peppercorn.enumerate()
+      #print peppercorn.condense_reactions
+
+      # Reduce the enumerated CRN and find an interpretation
+      enum_crn = peppercorn.condense_reactions
+      enum_solution = peppercorn.testtube
+      icrn, interpret = preprocess(fcrn, enum_crn, fs,
+          solution, enum_solution, verbose=(args.verbose>1))
+
+      print len(icrn)
+      speed = len(icrn)
+
+      # VERIFICATION
+      #print "\n# Verifying Implementation CRN:"
+      if len(crn) < 20 :
+        v, _ = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation',
+            verbose=(args.verbose>1))
+        if v:
+          print "{}: CRNs are bisimulation equivalent.".format(v)
+        else:
+          print "{}: CRNs are not bisimulation equivalent.".format(v)
+        vb = v
+
+        if scheme == 'srinivas2015_gen.ts' and crn == 'A -> A + A':
+          print "# WARNING: skipping pathway equivalence"
+          v = None
+        elif scheme == 'cardelli2011_2D_gen.ts' and crn == '-> B':
+          print "# WARNING: skipping pathway equivalence"
+          v = None
+        elif scheme == 'cardelli2011_2D_gen.ts' and crn == 'A -> A + A':
+          print "# WARNING: skipping pathway equivalence"
+          v = None
+        elif scheme == 'cardelli2011_2D_gen.ts' and crn == 'A + B -> B + B':
+          print "# WARNING: skipping pathway equivalence"
+          v = None
+        else :
+          v, _ = verify(fcrn, icrn, fs, interpret=interpret, method='pathway',
+              verbose=(args.verbose>1))
+          if v:
+            print "{}: CRNs are pathway equivalent.".format(v)
+          else:
+            print "{}: CRNs are not pathway equivalent.".format(v)
+        vp = v
+      else :
+        vb = None
+        vp = None
+
+      plotdata.append([scheme, crn, vb, vp, cost, speed])
+
+
+  # Results:
+  for p in plotdata: print p
+
+  # Normalize data to reference scheme/crn
+  normalize = 'soloveichik2010_gen.ts'
+  if normalize :
+    normdata = []
+    norm_values = filter(lambda x: x[0] == normalize, plotdata)
+    for n in norm_values: # A particular CRN
+      current = filter(lambda x: x[1] == n[1], plotdata)
+      for c in current:
+        normdata.append(c[:4] + [float(x)/y for x,y in zip(n[4:], c[4:])])
+      
+    for p in normdata: print p
+    plotdata = normdata
+
+
+  df = pd.DataFrame(plotdata, columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
+    'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
   sns.set(style="ticks", color_codes=True)
-
-  g = sns.PairGrid(data=df, hue='Scheme', size=4,
-      y_vars=["# of Nucleotides in all Complexes"], 
-      x_vars=["size of enumerated CRN"])
-
-  #g = sns.PairGrid(data=df, hue='Scheme', size=4,
-  #    x_vars=["max(Strand in Complex)"], 
-  #    y_vars=["# of Nucleotides in all Complexes"])
+  g = sns.PairGrid(data=df, hue='Translation scheme', size=4, 
+      hue_order=['srinivas2015_gen.ts', 'soloveichik2010_gen.ts', 'qian2011_gen.ts', 
+        'cardelli2011_FJ_gen.ts', 'cardelli2011_NM_gen.ts', 'cardelli2013_2D_gen.ts'],
+      y_vars=["relative counts of nucleotides"], 
+      x_vars=["relative size of DSD network"])
 
   #for ax in g.axes.flat: 
   #  ax.set_ylim(0,2)
   #  ax.set_xlim(0,2)
  
   g = g.map(plt.scatter)
-  g = g.add_legend()
+  g = g.add_legend(bbox_to_anchor=(1.5, 0.5))
+  #g = g.add_legend(loc=9, bbox_to_anchor=(0.5, -0.1), ncol=2)
 
-  pfile = 'compare.pdf'
-  plt.savefig(pfile)
-
-  # rawdata = []
-  # for crn in crn_list:
-  #   rawdata.extend(
-  #       test_scheme_directory(crn, args.ts_dir, args))
-
-  # print r for r in rawdata
+  pfile = 'mpp_plot.pdf'
+  plt.savefig(pfile, bbox_inches="tight")
 
 
 if __name__ == '__main__':

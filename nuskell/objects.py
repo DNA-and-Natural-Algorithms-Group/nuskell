@@ -17,6 +17,46 @@
 #     - read/write PIL files
 #     - enumerate species
 
+def pair_table(ss, chars=['.']):
+  """Return a secondary struture in form of pair table:
+
+  :param ss: secondary structure in dot-bracket format
+  :param base: choose between a pair-table with base 0 or 1
+  :param chars: a list of characters that are ignored, default: ['.']
+
+  :exmaple:
+     base=0: ((..)). => [5,4,-1,-1,1,0,-1]
+      i.e. start counting from 0, unpaired = -1
+     base=1: ((..)). => [7,6,5,0,0,2,1,0]
+      i.e. start counting from 1, unpaired = 0, pt[0]=len(ss)
+
+  :return: a pair-table
+  :return-type: list
+  """
+  stack=[];
+
+  pt=[-1] * len(ss);
+
+  for i, char in enumerate(ss):
+    if (char == '('):
+      stack.append(i);
+    elif (char == ')'):
+      try :
+        j=stack.pop();
+      except IndexError, e :
+        raise RuntimeError("Too many closing brackets in secondary structure")
+      pt[i]=j
+      pt[j]=i
+    elif (char == '+') :
+      pt[i] = '+'
+    elif (char not in set(chars)):
+      raise ValueError("unexpected character in sequence: '" + char + "'")
+
+  if stack != [] :
+    raise RuntimeError("Too many opening brackets in secondary structure")
+  return pt
+
+
 def find(l, key):
   for i in range(len(l)):
     if l[i] == key:
@@ -648,26 +688,24 @@ class TestTubeIO(object):
   def testtube(self):
     return self._testtube
 
-  def write_domfile(self, domfile):
-    with open(domfile, 'w') as dom:
-      domains = self._testtube.domains
+  def write_domfile(self, dom):
+    domains = self._testtube.domains
 
-      # Print Sequences
-      for k, v in sorted(domains.items(), key=lambda x : x[1].id):
-        if v.name[-1]=='*' : continue
-        dom.write("sequence {:s} = {:s} : {:d}\n".format(
-            v.name, ''.join(v.sequence), v.length))
+    # Print Sequences
+    for k, v in sorted(domains.items(), key=lambda x : x[1].id):
+      if v.name[-1]=='*' : continue
+      dom.write("sequence {:s} = {:s} : {:d}\n".format(
+          v.name, ''.join(v.sequence), v.length))
 
-      # Print Complexes
-      for k, v in sorted(self._testtube.complexes.items()):
-        dom.write("{:s} = {:s} : {:s}\n".format(v.name, 
-          ' '.join(map(str,v.sequence)), ' '.join(v.structure)))
-    return domfile
+    # Print Complexes
+    for k, v in sorted(self._testtube.complexes.items()):
+      dom.write("{:s} = {:s} : {:s}\n".format(v.name, 
+        ' '.join(map(str,v.sequence)), ' '.join(v.structure)))
 
-  def load_domfile(self, pilfile):
+  def load_domfile(self, domfile):
     raise NotImplementedError
 
-  def write_pilfile(self, pilfile):
+  def write_pilfile(self, pil):
     """Write the contents of TestTube() into a pilfile. 
 
     This function supports a particular version of pilfiles, used by nuskell
@@ -680,33 +718,153 @@ class TestTubeIO(object):
     strand s2 = d2* d1* : 7
     structure c1 = s1 : .(((((((+)))))))
     """
-    with open(pilfile, 'w') as pil :
-      domains = self._testtube.domains
+    domains = self._testtube.domains
 
-      # Print Sequences
-      for k, v in sorted(domains.items(), key=lambda x : x[1].id):
-        if v.name[-1]=='*' : continue
-        pil.write("sequence {:s} = {:s} : {:d}\n".format(
-            v.name, ''.join(v.sequence), v.length))
+    # Print Sequences
+    for k, v in sorted(domains.items(), key=lambda x : x[1].id):
+      if v.name[-1]=='*' : continue
+      pil.write("sequence {:s} = {:s} : {:d}\n".format(
+          v.name, ''.join(v.sequence), v.length))
 
-      # Print Strands
-      strands = self._testtube.strands
-      for k, v in sorted(strands.items(), key=lambda x: int(x[0].split('_')[1])):
+    # Print Strands
+    strands = self._testtube.strands
+    for k, v in sorted(strands.items(), key=lambda x: int(x[0].split('_')[1])):
 
-        pil.write("strand {:s} = {:s} : {:d}\n".format(k, 
-          ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
+      pil.write("strand {:s} = {:s} : {:d}\n".format(k, 
+        ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
 
-      # Print Structures
-      for k, v in sorted(self._testtube.complexes.items()):
-        pil.write("structure {:s} = ".format(v.name))
-        for s in v.lol_sequence :
-          strand = tuple(map(str,s))
-          name = self._testtube._strand_names[strand]
-          pil.write("{:s} ".format(name))
-        pil.write(": {:s}\n".format(''.join(v.nucleotide_structure)))
-
-    return pilfile
+    # Print Structures
+    for k, v in sorted(self._testtube.complexes.items()):
+      pil.write("structure {:s} = ".format(v.name))
+      for s in v.lol_sequence :
+        strand = tuple(map(str,s))
+        name = self._testtube._strand_names[strand]
+        pil.write("{:s} ".format(name))
+      pil.write(": {:s}\n".format(''.join(v.nucleotide_structure)))
 
   def load_pilfile(self, pilfile):
+    raise NotImplementedError
+
+  def write_dnafile(self, fh, formal=[]):
+    # assumes: toehold domain names start with 't'
+    # assumes: bottom domain ends with '*'
+
+    fh.write("def Fuel = 20\n")
+    fh.write("def Formal = 5\n")
+
+    first = True
+    for k, v in sorted(self._testtube.complexes.items()):
+
+      if first:
+        fh.write ('( ')
+        first=False
+      else :
+        fh.write ('| ')
+
+      if k in formal :
+        fh.write("Formal * ")
+      else :
+        fh.write("constant Fuel * ")
+
+      name = v.name
+      sequ = v.sequence
+      stru = v.structure
+
+      ptab = pair_table(stru)
+
+      dnaexpr = [[]]
+      pos = 0
+      for e, d in enumerate(ptab) :
+        if d == '+' :
+          flag = 'top' if flag == 'bound' else flag
+          expr = 'cut'
+
+        elif d == -1 :
+          toe = '^' if sequ[e].name[0] == 't' else ''
+          if sequ[e].name[-1] == '*' :
+            flag = 'bottom'
+            expr = sequ[e].name[:-1] + toe + '*'
+          else :
+            flag = 'top'
+            expr = sequ[e].name + toe
+
+        elif d > e : # '('
+          flag = 'bound'
+          toe = '^' if sequ[e].name[0] == 't' else ''
+          if sequ[e].name[-1] == '*' :
+            expr = sequ[e].name[:-1] + toe + '*'
+          else :
+            expr = sequ[e].name + toe
+
+          dnaexpr.append([])
+          pos += 1
+
+        elif d < e : # ')'
+          flag = 'bottom'
+          expr = None
+          pos -= 1
+          if pos < 0 :
+            raise Exception('too many closing base-pairs')
+          continue
+        else :
+          raise Exception('strange case:', e, d)
+
+        if dnaexpr[pos] == [] :
+          dnaexpr[pos] = [[flag, expr]]
+        else :
+          dnaexpr[pos].append([flag, expr])
+
+      # decode dnaexpr
+      dnaflat = []
+      for d in dnaexpr:
+        for dd in d :
+          dnaflat.append(dd)
+
+      # PRINT TO FILE
+      close = None
+      for e, d in enumerate(dnaflat) :
+        if d[1] == 'cut': 
+          fh.write(close)
+          close = None
+          if e == len(dnaflat)-1:
+            continue
+          if d[0] == 'bottom' :
+            fh.write('::')
+          else :
+            fh.write(':')
+          continue
+        
+        if d[0] == 'bottom' :
+          if close is None :
+            fh.write('{')
+            close = '}'
+          elif close == ']' or close == '>' :
+            fh.write('{}{'.format(close))
+            close = '}'
+
+        if d[0] == 'bound' :
+          if close is None :
+            fh.write('[')
+            close = ']'
+          elif close == '}' or close == '>' :
+            fh.write('{}['.format(close))
+            close = ']'
+
+        if d[0] == 'top' :
+          if close is None :
+            fh.write('<')
+            close = '>'
+          elif close == '}' or close == ']' :
+            fh.write('{}<'.format(close))
+            close = '>'
+        fh.write(" {} ".format(d[1]))
+      if close :
+        fh.write("{}\n".format(close))
+      else:
+        fh.write("\n")
+
+    fh.write (")\n")
+
+  def load_dnafile(self, dnafile):
     raise NotImplementedError
 
