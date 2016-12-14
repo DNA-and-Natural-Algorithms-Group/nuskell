@@ -911,14 +911,14 @@ def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
         if ic == []:
             print "Compiled CRN is empty"
             print
-            return fcrn == []
+            return (fcrn == [], None)
         print "Compiled CRN:"
         for rxn in ic:
             print "   ",
             printRxn(rxn)
         print
     elif ic == []:
-        return fcrn == []
+        return (fcrn == [], None)
     unknown = [i for i in range(len(fcrn))]
     out = searchc(fcrn, icrn, fs, unknown, intrp, 0, permissive,
                   [{}, 0, [[Counter(),Counter()],Counter()]])
