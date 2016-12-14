@@ -274,9 +274,10 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
   elif method == 'pathway':
     # NOTE: Adaptation to pathway interface
     pinter = dict()
-    for k,v in interpret.items() :
-      v = sorted(v.elements())[0]
-      pinter[k]=[v]
+    if interpret :
+      for k,v in interpret.items() :
+        v = sorted(v.elements())[0]
+        pinter[k]=[v]
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
         (enum_crn, pinter.keys()), pinter, False, interactive, verbose)
   elif method == 'integrated':
@@ -288,9 +289,10 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
     # implementation does not cover the full hybrid theory, only some special
     # cases and some kind of bisimulation.
     pinter = dict()
-    for k,v in interpret.items() :
-      v = sorted(v.elements())[0]
-      pinter[k]=[v]
+    if interpret :
+      for k,v in interpret.items() :
+        v = sorted(v.elements())[0]
+        pinter[k]=[v]
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
         (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
   else:
