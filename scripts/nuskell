@@ -13,25 +13,24 @@ from nuskell.verifier import preprocess
 from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
 def get_nuskell_args(parser) :
-  """ A collection of arguments for Nuskell 
-  nuskell reads and processes chemical reaction networks (CRNs). Three
-  different modes are supported to process this CRN:
-    
-    Translate a formal CRN to a domain-level (DOM) implementation CRN 
-      - requires a translation scheme file
+  """ A collection of arguments for Nuskell """
 
-    Compare a formal CRN to an implementation CRN using bisimulation
-      - requires an implementation CRN file 
-      - optionally reads an interpretation CRN 
-
-    .. Complain if both a translation scheme and an iCRN are specified.
-  """
-  # Enter the translation mode of Nuskell
+  # Options for the translation mode of Nuskell
   parser.add_argument("--ts", action = 'store',
       help="Specify path to the translation scheme")
 
-  parser.add_argument("--pilfile", action = 'store',
-      help="Specify path to a *.pil file.")
+  parser.add_argument("--readpil", action = 'store',
+      help=argparse.SUPPRESS)
+      #help="Read compiled CRN from pilfile. (As an alternative to --ts).")
+
+  parser.add_argument("--pilfile", action = 'store_true',
+      help="Print results in the *.pil file format.")
+
+  parser.add_argument("--domfile", action = 'store_true',
+      help="Print results in the *.dom file format.")
+
+  parser.add_argument("--dnafile", action = 'store_true',
+      help="Print results in the *.dna file format.")
 
   # Choose a verification method.
   parser.add_argument("--verify", default='', action = 'store',
@@ -43,26 +42,23 @@ def get_nuskell_args(parser) :
       help="Enumerate the implementation CRN.")
 
   parser.add_argument("--simulate", action = 'store_true',
-      help="Simulate the CRNs.")
+      help=argparse.SUPPRESS)
+      #help="Simulate the CRNs.")
 
-  parser.add_argument("-o", "--output", default='', action = 'store',
+  parser.add_argument("-o", "--output", default='domainlevel', action = 'store',
       help="Specify name of output file")
 
-  ## Enter the verification-only mode of Nuskell 
-  #parser.add_argument("--compare", nargs="+", action = 'store',
-  #    help="Specify path to an implementation CRN and (optionally) \
-  #    also to an interpretation CRN.")
   return parser
 
 def main() :
   """ The Nuskell compiler.  
   
   Commandline-parameters are collected in order to 
-    - translate formal CRNs into implementation CRNs. 
-    - verify the equivalence between formal CRN and enumerated CRN.
+    - translate formal CRNs into domainlevel strand displacement systems.
+    - verify the equivalence between formal CRN and enumerated implementation CRN.
 
   Output:
-    - Domain-level DSD circuits printed into .pil and/or .dom files
+    - Domain-level DSD circuits printed into .pil .dom and/or .dna files
     - Verbose information during verification
     - Result of verification
 
@@ -78,30 +74,32 @@ def main() :
   input_crn = "".join(input_crn)
   (fcrn, fs, cs) = parse_crn_string(input_crn) 
 
-  if args.output == '' :
-    args.output = 'implementation'
-
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   if args.ts : # Translate CRN using a translation scheme
+    # TODO: check if file exists, else check if built-in file exists, else find
+    # builtin-file with a similar name and report, else cry
+
     print "\nTranslating..."
-    pilfile = args.output + '.pil'
-    domfile = args.output + '.dom'
+    pilfile = args.output + '.pil' if args.pilfile else None
+    domfile = args.output + '.dom' if args.domfile else None
+    dnafile = args.output + '.dna' if args.dnafile else None
 
     solution, constant_solution = translate(input_crn, args.ts, 
         pilfile = pilfile,
         domfile = domfile,
+        dnafile = dnafile,
         verbose = (args.verbose > 1)) 
+    
+    if pilfile or domfile or dnafile :
+      print "Wrote file(s):",
+      if pilfile: print pilfile,
+      if domfile: print domfile,
+      if dnafile: print dnafile,
+      print
 
-    # experimental 
-    dnafile = args.output + '.dna'
-    with open(dnafile, 'w') as dnafh:
-      TestTubeIO(solution).write_dnafile(dnafh, formal = fs)
-
-    print "Wrote files:", pilfile, domfile, dnafile
-
-  elif args.pilfile : # Parse implementation species from a PIL file
+  elif args.readpil : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
     solution = TestTube()
     raise NotImplementedError
@@ -128,7 +126,7 @@ def main() :
     print "\nVerification preprocessing..."
     fcrn = split_reversible_reactions(fcrn)
 
-    if True :
+    if True:
       # Reduce the enumerated CRN and find an interpretation
       icrn, interpret = preprocess(fcrn, enum_crn, fs,
           solution, enum_solution, verbose=(args.verbose>1))
@@ -138,14 +136,14 @@ def main() :
       cs = filter(lambda x: x not in fs, solution.complexes)
       icrn = nuskell.verifier.verifier.removeSpecies(enum_crn, cs)
       icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
-      interpret = None
+      interpret = None #dict()
 
     if args.verbose :
       print "Implementation CRN:"
       printCRN(icrn, reversible = True)
 
     print "\nVerification using:", args.verify
-    if args.verbose :
+    if interpret and args.verbose :
       print "Partial interpretation:"
       for impl, formal in sorted(interpret.items()) :
         print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
