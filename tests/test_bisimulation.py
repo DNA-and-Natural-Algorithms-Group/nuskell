@@ -37,7 +37,7 @@ class BisimulationTests(unittest.TestCase):
     crn = split_reversible_reactions(crn)
     return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
-  def test_equivalence(self):
+  def test_roessler_qian_equivalence(self):
     if self.skip_slow : return
     (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
     (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
@@ -45,7 +45,61 @@ class BisimulationTests(unittest.TestCase):
     v, i = bisimulation.test(fcrn, icrn, fs)
     self.assertTrue(v)
 
-  def test_interface(self):
+  def test_qingdongthesis_solo(self):
+    (fcrn, fs) = self._parse_crn_file('tests/crns/crn6.crn')
+    (icrn, _) = self._parse_crn_file('tests/crns/crn6_qingdong_thesis.crn')
+
+    inter_01 = {'i778': Counter(['Y']),
+                'i575': Counter(['X']),
+                'i599': Counter(['C']),
+                'i2232': Counter(['A']),
+                'i73': Counter(['B'])}
+
+    inter_02 = {'i842': Counter(['Y', 'X', 'A']),
+                'i394': Counter(['X', 'Y', 'X']),
+                'i119': Counter(['X', 'B', 'A']),
+                'i2300': Counter(['A', 'C']),
+                'i778': Counter(['Y']),
+                'i575': Counter(['X']),
+                'i599': Counter(['C']),
+                'i2232': Counter(['A']),
+                'i73': Counter(['B'])}
+
+    if False :
+      # NOTE: These fail slowly (but take less than 10 min each)
+      v, _ = bisimulation.test(fcrn, icrn, fs, permissive='whole-graph')
+      self.assertFalse(v)
+
+      v, _ = bisimulation.test(fcrn, icrn, fs, permissive='depth-first')
+      self.assertFalse(v)
+
+    elif False :
+      # NOTE: These don't finish within 10 minutes
+      v, _ = bisimulation.test(fcrn, icrn, fs, permissive='loop-search')
+      self.assertTrue(v)
+
+      v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_01, permissive='loop-search')
+      self.assertTrue(v)
+
+    else :
+      # These tests pass quite fast!
+      v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_01)
+      self.assertTrue(v)
+
+      v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_01, permissive='depth-first')
+      self.assertTrue(v)
+
+      v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_02, permissive='whole-graph')
+      self.assertTrue(v)
+
+      v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_02, permissive='depth-first')
+      self.assertTrue(v)
+
+      v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_02, permissive='loop-search')
+      self.assertTrue(v)
+ 
+
+  def test_example_01(self):
     #A sample test to aggree on a new interface for bisimulation.  
     fcrn = "A->B"
     ecrn = "A<=>i19; i19<=>i39+X; i39->i71+i72"
@@ -75,7 +129,7 @@ class BisimulationTests(unittest.TestCase):
     argcheck['B'] = Counter(B=1)
     self.assertDictEqual(partial, argcheck)
 
-  def test_example(self):
+  def test_example_02(self):
     """A simple example of finding a bisimulation from group meeting."""
 
     fcrn = "A + B -> C + D ; A + C -> B + D"
@@ -108,7 +162,7 @@ class BisimulationTests(unittest.TestCase):
                             interpretation=partial, verbose=False)
     self.assertTrue(v)
 
-  def test_example_with_results(self):
+  def test_example_03(self):
     """ a follow-up on testing the groupmeeting example """
 
     fcrn = "A + B -> C + D ; A + C -> B + D"
@@ -196,7 +250,7 @@ class BisimulationTests(unittest.TestCase):
     self.assertTrue(v)
     self.assertDictEqual(inter2, i2)
 
-  def test_mini1(self):
+  def test_example_04(self):
     # Two valid interpretations
     fcrn = "B + B -> B"
     icrn = "B <=> x1; B + x1 -> x2 + x3; x2 -> B + x4"
@@ -231,11 +285,10 @@ class BisimulationTests(unittest.TestCase):
     self.assertTrue(v)
     self.assertDictEqual(i2, ifull2)
 
-  def test_species_names(self):
-    #TODO: naming species in certain ways breaks bisimulation
+  def test_example_05(self):
+    # Issue fixed: Naming species in certain ways broke bisimulation
     fcrn = "A+C->A+B"
 
-    #NOTE: replace x2 with e45 and it will not terminate!
     #icrn = "A <=> x1 + x2; C+x1 <=> x3 + x4; x3 -> A + B + x5"
     icrn = "A <=> x1 + e45; C + x1 <=> x3 + x4; x3 -> A + B + x5"
 
@@ -247,6 +300,34 @@ class BisimulationTests(unittest.TestCase):
              'C': Counter(['C'])}
 
     v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation = inter)
+    self.assertTrue(v)
+
+  def dont_test_cardelli2D(self):
+    fcrn = "-> A"
+    icrn = " <=> e68_; A + e163_ <=> e129_; e163_ -> e197_ + e198_; e68_ <=> e98_ + e99_; e98_ -> e127_ + e237_; e99_ -> e127_ + e129_"
+
+    (fcrn, fs) = self._parse_crn_string(fcrn)
+    (icrn, _) = self._parse_crn_string(icrn)
+
+    #ifull1 = {'B': Counter(['B']),
+    #         'x1': Counter(['B']),
+    #         'x2': Counter(['B','B']),
+    #         'x3': Counter(),
+    #         'x4': Counter()}
+
+    #ipart1 = {'A': Counter(['A']),
+    #         '_e129': Counter(['A']),
+    #         '_e237': Counter(),
+    #         '_e197': Counter()}
+
+
+    v, i = bisimulation.test(fcrn, icrn, fs)
+    print 'returned', v
+    print 'returned', i
+
+    for impl, formal in sorted(i[0].items()) :
+        print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
+
     self.assertTrue(v)
 
 if __name__ == '__main__':
