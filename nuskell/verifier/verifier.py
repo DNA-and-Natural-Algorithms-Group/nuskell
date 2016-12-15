@@ -137,8 +137,9 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
             # remove the history tag ...
             # However, if you cannot remove the history tag, then this else
             # statement should be safe to remove.
-            pass
+
             # raise ValueError('Unexpected constant species')
+            enum_to_formal[nx+"_i"]=Counter([])
         else :
           if patternMatch(x, y, ignore=hist) :
             cnt += 1
@@ -148,8 +149,9 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
               remove_ihist.add(nx+"_i")
             else :
               # ... see NOTE above!
-              pass
               # raise ValueError('Unexpected constant species')
+              enum_to_formal[nx+"_"+str(cnt)] = Counter([])
+              remove_ihist.add(nx+"_i")
     else :
       if nx in input_fs :
         enum_to_formal[nx]=Counter([nx])
@@ -278,8 +280,11 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
     pinter = dict()
     if interpret :
       for k,v in interpret.items() :
-        v = sorted(v.elements())[0]
-        pinter[k]=[v]
+        if v :
+          v = sorted(v.elements())[0]
+          pinter[k]=[v]
+        else :
+          pinter[k]=[]
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
         (enum_crn, pinter.keys()), pinter, False, interactive, verbose)
   elif method == 'integrated':
@@ -293,8 +298,11 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
     pinter = dict()
     if interpret :
       for k,v in interpret.items() :
-        v = sorted(v.elements())[0]
-        pinter[k]=[v]
+        if v :
+          v = sorted(v.elements())[0]
+          pinter[k]=[v]
+        else :
+          pinter[k]=[]
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
         (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
   else:

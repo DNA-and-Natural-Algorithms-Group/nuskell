@@ -5,7 +5,9 @@
 #
 #   Note: * This implements the `fork' and `join' gates from the paper,
 #           which are pointed out to be problematic in the paper. 
-#           Schemes are shown in Figs 4-8.
+#           Schemes are shown in Figs 4-7.
+#
+#         * Figure 8, garbage collection for join-gates is omitted here.
 #
 #         * In addition to the reactions describe in the paper, the 
 #           spontaneous reaction ' -> A' is implemented as 'f -> A' 
@@ -76,25 +78,7 @@ class joingate(x, y, z)
         a = short();
         b = long() };
 
-# Figure 8: join gate - garbage collection
-class joincleanup(r1, r2)
-    = [ "xb + yt c + d yb + a* yb* d* c* yt* xb* " 
-      | " ( +  ( ( + ( (  + .   )  )  )   )   )  ",
-        " c d " 
-      | " . . ",
-        " yb + yb* d* " 
-      | " (  +  )  . ",
-        " c + c* yt* "
-      | " ( +  )  .  "]
-    where {
-        xb = r1.xb;
-        yt = r1.yt;
-        c  = long();
-        d = short();
-        yb = r2.yb;
-        a = r2.a };
-
-module join2(x, y, z) = sum(map(infty, [gb, gt, r1, r2] + joincleanup(r1, r2)))
+module join2(x, y, z) = sum(map(infty, [gb, gt, r1, r2]))
   where 
     [gb, gt, r1, r2] = joingate(x, y, z);
 
