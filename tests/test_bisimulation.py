@@ -7,6 +7,7 @@ from nuskell.parser import parse_crn_file
 import nuskell.verifier.crn_bisimulation_equivalence as bisimulation
 
 class BisimulationTests(unittest.TestCase):
+  _skip_slow = True
   """Bisimulation Testing Class:
 
   Compares *formal* CRNs with *enumerated* CRNs.
@@ -17,8 +18,7 @@ class BisimulationTests(unittest.TestCase):
         sense for reproducability.
   """
   def setUp(self):
-    # Skip slow unittests unless you have a lot of time.
-    self.skip_slow = True
+    pass
 
   def tearDown(self):
     # clean up even if unittests failed
@@ -37,15 +37,15 @@ class BisimulationTests(unittest.TestCase):
     crn = split_reversible_reactions(crn)
     return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
+  @unittest.skipIf(_skip_slow, "skipping slow tests")
   def test_roessler_qian_equivalence(self):
-    if self.skip_slow : return
     (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
     (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
 
     v, i = bisimulation.test(fcrn, icrn, fs)
     self.assertTrue(v)
 
-  def test_qingdongthesis_solo(self):
+  def dont_test_qingdongthesis_solo(self):
     (fcrn, fs) = self._parse_crn_file('tests/crns/crn6.crn')
     (icrn, _) = self._parse_crn_file('tests/crns/crn6_qingdong_thesis.crn')
 
@@ -129,8 +129,9 @@ class BisimulationTests(unittest.TestCase):
     argcheck['B'] = Counter(B=1)
     self.assertDictEqual(partial, argcheck)
 
+  @unittest.skipIf(_skip_slow, "skipping slow tests")
   def test_example_02(self):
-    """A simple example of finding a bisimulation from group meeting."""
+    # """A simple example of finding a bisimulation from group meeting."""
 
     fcrn = "A + B -> C + D ; A + C -> B + D"
     icrn = "x1 -> x2 ; x3 + x4 <=> x5 ; x2 -> x6 + x8 ; x5 -> x7 ; " + \
@@ -162,8 +163,9 @@ class BisimulationTests(unittest.TestCase):
                             interpretation=partial, verbose=False)
     self.assertTrue(v)
 
+  @unittest.skipIf(_skip_slow, "skipping slow tests")
   def test_example_03(self):
-    """ a follow-up on testing the groupmeeting example """
+    #""" a follow-up on testing the groupmeeting example """
 
     fcrn = "A + B -> C + D ; A + C -> B + D"
     icrn = "x1 -> x2 ; x3 + x4 <=> x5 ; x2 -> x6 + x8 ; x5 -> x7 ; " + \

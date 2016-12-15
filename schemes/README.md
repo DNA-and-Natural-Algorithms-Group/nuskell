@@ -132,11 +132,9 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
   * `qian2011_gen.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
   
     A generalized scheme for translating arbitrary CRNs into DNA strand displacement systems. 
-    qian2011.ts and qian2011_gen.ts are identical.
 
-    **NOTE:** This scheme implements the reactions from the above paper, and it
-    does not verify correct for irreversible reactions. There are also *fixed*
-    versions of this scheme, which are unpublished. 
+    This scheme adds an irreversible step after reactants and products have been consumed and, therefore,
+    verifies correct on all input CRNs.
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 

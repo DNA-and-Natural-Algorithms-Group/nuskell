@@ -78,8 +78,6 @@ def main() :
   # Prepare CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   if args.ts : # Translate CRN using a translation scheme
-    # TODO: check if file exists, else check if built-in file exists, else find
-    # builtin-file with a similar name and report, else cry
 
     print "\nTranslating..."
     pilfile = args.output + '.pil' if args.pilfile else None

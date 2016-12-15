@@ -9,6 +9,9 @@
 
 """ Wrapper functions used by the nuskell compiler script. """
 
+import os
+import pkg_resources
+
 from nuskell.parser import parse_crn_string, parse_ts_file
 from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
@@ -16,6 +19,19 @@ from nuskell.parser import combine_reversible_reactions
 from nuskell.interpreter import interpret
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.objects import TestTube, TestTubeIO
+
+class InvalidSchemeError(Exception):
+  """Raise Error: Cannot find scheme."""
+
+  def __init__(self, ts_file, builtin=None):
+    self.message = "Cannot find translation scheme: {}\n".format(ts_file)
+
+    if builtin:
+      self.message += "You may want to use one of the built-in schemes instead:\n"
+      for s in os.listdir(builtin) :
+        self.message += " * {}\n".format(s) 
+ 
+    super(InvalidSchemeError, self).__init__(self.message) 
 
 def simulateTT():
   raise NotImplementedError
@@ -33,7 +49,7 @@ def printCRN(crn, reversible=True):
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
-def enumerateTT(testtube, args):
+def enumerateTT(testtube, args=None):
   """A wrapper function to enumerate species in a nuskell.TestTube object. """
   peppercorn = TestTubePeppercornIO(testtube, args)
   peppercorn.enumerate()
@@ -57,6 +73,17 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verb
     solution: A TestTube object 
     constant_soluiton: A TestTube object that contains only constant species
   """
+
+  if not os.path.isfile(ts_file):
+    builtin = 'schemes/' + ts_file
+
+    try :
+      ts_file = pkg_resources.resource_filename('nuskell', builtin)
+      print "Using scheme:", ts_file
+    except KeyError :
+      schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
+      raise InvalidSchemeError(ts_file, schemedir)
+
 
   ts = parse_ts_file(ts_file)
   (crn, formal_species, const_species) = parse_crn_string(input_crn)

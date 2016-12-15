@@ -58,9 +58,9 @@ class joingate(x, y, z)
       | "(  (  + (  ( + ( (  .  +  )  )  )   )   )   )   .",
         "a b zt"
       | ". .  .",
-        "xb yt"
+        "xb yt"       # r1
       | ".  .",
-        "yb a"
+        "yb a"        # r2
       | ".  ."]
     where {
         xt = x.t;
@@ -72,9 +72,27 @@ class joingate(x, y, z)
         a = short();
         b = long() };
 
-module join2(x, y, z) = infty(gb) + infty(gt) + infty(r1) + infty(r2)
-    where
-        [gb, gt, r1, r2] = joingate(x, y, z);
+# Figure 8: join gate - garbage collection
+class joincleanup(r1, r2)
+    = [ "xb + yt c + d yb + a* yb* d* c* yt* xb* " 
+      | " ( +  ( ( + ( (  + .   )  )  )   )   )  ",
+        " c d " 
+      | " . . ",
+        " yb + yb* d* " 
+      | " (  +  )  . ",
+        " c + c* yt* "
+      | " ( +  )  .  "]
+    where {
+        xb = r1.xb;
+        yt = r1.yt;
+        c  = long();
+        d = short();
+        yb = r2.yb;
+        a = r2.a };
+
+module join2(x, y, z) = sum(map(infty, [gb, gt, r1, r2] + joincleanup(r1, r2)))
+  where 
+    [gb, gt, r1, r2] = joingate(x, y, z);
 
 # r = list, p = single product
 module join(r, p) =
@@ -124,7 +142,13 @@ module joinfork(r, p) =
         where i = signal()
 
     elseif len(r) == 0 then
-      abort('reaction type not implemented')          
+      # abort('reaction type not implemented')          
+      if len(p) == 1 then
+        transducer(i, p[0]) + infty(i)
+        where i = signal()
+      else
+        fork(i, p) + infty(i)
+        where i = signal()
 
     elseif len(r) == 1 and len(p) == 1 then
         transducer(r[0], p[0])

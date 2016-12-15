@@ -137,7 +137,8 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
             # remove the history tag ...
             # However, if you cannot remove the history tag, then this else
             # statement should be safe to remove.
-            raise ValueError('Unexpected constant species')
+            pass
+            # raise ValueError('Unexpected constant species')
         else :
           if patternMatch(x, y, ignore=hist) :
             cnt += 1
@@ -147,7 +148,8 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
               remove_ihist.add(nx+"_i")
             else :
               # ... see NOTE above!
-              raise ValueError('Unexpected constant species')
+              pass
+              # raise ValueError('Unexpected constant species')
     else :
       if nx in input_fs :
         enum_to_formal[nx]=Counter([nx])

@@ -110,7 +110,15 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
     solution.add_complex(c)
     num += 1
 
-  # Greedy replace history-domains *before* reaction enumeration. 
+  ##############################################################################
+  # The following code is a greedy replacement of history-domains *before*
+  # reaction enumeration.  This seems to work just fine, but there might be an
+  # example where it makes a difference which produce domain is used to replace
+  # the history domain?  
+  # The primary reason why this is code is commented out is that the
+  # verification preprocessing for history schemes relies on finding history
+  # domains in the formal species, ... :-(
+
   #for nx, x in solution.complexes.items():
   #  hd = filter(lambda y:str(y)[0]=='h', x.sequence)
   #  if len(hd) == 1:

@@ -784,15 +784,21 @@ class TestTubeIO(object):
           if sequ[e].name[-1] == '*' :
             flag = 'bottom'
             expr = sequ[e].name[:-1] + toe + '*'
+          elif sequ[e].name[0] == 'h':
+            flag = 'top'
+            expr = '_'
           else :
             flag = 'top'
             expr = sequ[e].name + toe
+
 
         elif d > e : # '('
           flag = 'bound'
           toe = '^' if sequ[e].name[0] == 't' else ''
           if sequ[e].name[-1] == '*' :
             expr = sequ[e].name[:-1] + toe + '*'
+          elif sequ[e].name[0] == 'h':
+            raise Exception('unexpected bound history domain.')
           else :
             expr = sequ[e].name + toe
 

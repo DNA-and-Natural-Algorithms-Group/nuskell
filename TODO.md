@@ -1,11 +1,16 @@
 # Nuskell - Checklist for Release
 
 # Issues:
-  - identify rates for leaky remote-toehold binding in the soloveichik scheme (A+A->A)
   - write generalized version for lakin scheme (roessler)
   - Check whether there is a reason to keep qian2011_gen.ts separate from qian2011_fixed.ts
   - structure the scheme directory into {original, generalized, optimized, implementation}
+  - original only makes sense for schemes that do not verify, otherwise they are the same
+    as generalized, i.e. genralized by using A+B->X+Y using fuel-strands. ... maybe we can
+    make a directory 'verfied' for schemes that are known to be correct on every input?
+
   - is there a problem when the enumerator gets history-reduced systems in the first place?
+  - identify rates for leaky remote-toehold binding in the soloveichik scheme (A+A->A)
+  - reproduce results from QD bisimulation on soloveichik and roessler.
 
 ## Release 0.2:
 
@@ -16,12 +21,12 @@
   - add PIL I/O
   - add kernel I/O
   - add domain I/O
+  - add VisualDSD I/O
 
 ### Testing :
   - add schemes/ directory with well documented examples
   - unittesting for translation
   - unittesting for pathway-decomposition
-  - unittesting for enumeration
 
 ## Publication/Release 1.0:
 
@@ -29,7 +34,6 @@
   - crn-simulation [TestTube(object)]
   - optimization module
   - case-by-case analysis for implementation CRNs
-  - add VisualDSD I/O
 
 ### Documentation:
   - history domains

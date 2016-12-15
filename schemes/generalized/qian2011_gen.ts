@@ -3,7 +3,11 @@
 # Turing-universal computation with DNA polymers", DNA Computing and
 # Molecular Programming 16, 2010.
 #
-# Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+#   NOTE : This is the corrected version of the scheme in the above paper
+#          which was provided to us by the authors of that paper.
+#
+#
+# Coded by Seung Woo Shin (seungwoo.theory@gmail.com) and Erik Winfree (winfree@caltech.edu)
 #
 
 global toehold = short();
@@ -17,8 +21,7 @@ class formal(s) = "hist th recog"
 
 macro reactant(s)
     = ["a b +" | "( ( +",
-       "b* a*" | ") )",
-       "a b" | ". ."]
+       "b* a*" | ") )"]
     where {
         a = s.recog;
         b = s.th };
@@ -31,31 +34,58 @@ macro product(s)
         b = s.th;
         c = s.recog };
 
-class maingate(r, p)
-    = [["a b f + f* c d e*"
-     | "~ ~ ( + )  ~ ~ .",
-       "e f"
-     | ". ."], extra]
+macro revreactant(s)
+     = ["a b c +" | ". ( ( +",
+        "c* b*" | ") )"]
+     where {
+         a = s.hist;
+         b = s.th;
+         c = s.recog };
+
+macro revproduct(s)
+     = ["a b +" | "( ( +",
+        "b* a*" | ") )"]
+     where {
+         a = s.th;
+         b = s.hist };
+
+class maingate_uni(r, p)
+    = ["a f + g e + b f + f* c e* g* f* d e*"
+     | "~ ( + ( ( + ~ ( + )  ~ )  )  )  ~ .",
+       "e f g"
+     | ". . ."]
     where {
-        [a, temp, extra] = flip(map(reactant, r), 3);
-        d = reverse(temp);
+        [a, temp1] = flip(map(reactant, r), 2);
+        d = reverse(temp1);
         [b, temp2] = flip(map(product, p), 2);
         c = reverse(temp2);
         e = toehold;
-        f = long() };
+        f = long();
+        g = long() };
 
 class maingate_rev(r, p)
-    = ["a b + c d e*"
-     | "~ ~ + ~ ~ .",
-       extra]
+    = [ "a b + c d e*"
+      | "~ ~ + ~ ~ .",
+        "w x + e* y z"
+      | "~ ~ + .  ~ ~"]
     where {
-        [a, temp, extra] = flip(map(reactant, r), 3);
-        d = reverse(temp);
+        [a, temp1] = flip(map(reactant, r), 2);
+        d = reverse(temp1);
         [b, temp2] = flip(map(product, p), 2);
         c = reverse(temp2);
-        e = toehold};
+        e = toehold;
+        [w, temp3] = flip(map(revreactant, r), 2);
+        z = reverse(temp3);
+        [x, temp4] = flip(map(revproduct, p), 2);
+        y = reverse(temp4) };
 
-class suppgate(s)
+class reversefuelstrand(s)
+    = "a b" | ". ."
+    where {
+        a = s.recog;
+        b = s.th };
+
+class forwardfuelstrand(s)
     = "a b" | ". ."
     where {
         a = s.th;
@@ -63,12 +93,12 @@ class suppgate(s)
 
 module rxn(r) =
     if r.reversible then
-        infty(g) + sum(map(infty, map(suppgate, r.products))) + sum(map(infty, gates))
-        where
-            [g, gates] = maingate_rev(r.reactants, r.products)
+        infty(g) + infty(h) + sum(map(infty, map(forwardfuelstrand, r.products))) + sum(map(infty, map(reversefuelstrand, r.reactants)))
+        where 
+            [g, h] = maingate_rev(r.reactants, r.products)
     else
-        infty(g) + infty(h) + sum(map(infty, map(suppgate, r.products))) + sum(map(infty, gates))
+        infty(g) + infty(h) + sum(map(infty, map(forwardfuelstrand, r.products))) + sum(map(infty, map(reversefuelstrand, r.reactants)))
         where
-            [[g, h], gates] = maingate(r.reactants, r.products);
+            [g, h] = maingate_uni(r.reactants, r.products);
 
 module main(crn) = sum(map(rxn, rev_reactions(crn)))
