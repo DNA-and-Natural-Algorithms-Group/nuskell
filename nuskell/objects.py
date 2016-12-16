@@ -865,9 +865,9 @@ class TestTubeIO(object):
             close = '>'
         fh.write(" {} ".format(d[1]))
       if close :
-        fh.write("{}\n".format(close))
+        fh.write("{} (* {} *)\n".format(close, k))
       else:
-        fh.write("\n")
+        fh.write(" (* {} *)\n".format(k))
 
     fh.write (")\n")
 
