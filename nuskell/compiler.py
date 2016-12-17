@@ -99,7 +99,7 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verb
       TestTubeIO(solution).write_domfile(dom)
   if dnafile :
     with open(dnafile, 'w') as dna:
-      TestTubeIO(solution).write_dnafile(dna, formal=formal_species)
+      TestTubeIO(solution).write_dnafile(dna, formal=formal_species, crn=crn, ts=os.path.basename(ts_file))
 
   return solution, constant_solution
 
