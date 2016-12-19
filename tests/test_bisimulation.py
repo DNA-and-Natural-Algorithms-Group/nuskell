@@ -45,7 +45,7 @@ class BisimulationTests(unittest.TestCase):
     v, i = bisimulation.test(fcrn, icrn, fs)
     self.assertTrue(v)
 
-  def dont_test_qingdongthesis_solo(self):
+  def test_qingdongthesis_solo(self):
     (fcrn, fs) = self._parse_crn_file('tests/crns/crn6.crn')
     (icrn, _) = self._parse_crn_file('tests/crns/crn6_qingdong_thesis.crn')
 
@@ -65,15 +65,15 @@ class BisimulationTests(unittest.TestCase):
                 'i2232': Counter(['A']),
                 'i73': Counter(['B'])}
 
-    if False :
+    if True :
       # NOTE: These fail slowly (but take less than 10 min each)
       v, _ = bisimulation.test(fcrn, icrn, fs, permissive='whole-graph')
-      self.assertFalse(v)
+      self.assertTrue(v)
 
       v, _ = bisimulation.test(fcrn, icrn, fs, permissive='depth-first')
-      self.assertFalse(v)
+      self.assertTrue(v)
 
-    elif False :
+    if False :
       # NOTE: These don't finish within 10 minutes
       v, _ = bisimulation.test(fcrn, icrn, fs, permissive='loop-search')
       self.assertTrue(v)
@@ -81,7 +81,7 @@ class BisimulationTests(unittest.TestCase):
       v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_01, permissive='loop-search')
       self.assertTrue(v)
 
-    else :
+    if True :
       # These tests pass quite fast!
       v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_01)
       self.assertTrue(v)

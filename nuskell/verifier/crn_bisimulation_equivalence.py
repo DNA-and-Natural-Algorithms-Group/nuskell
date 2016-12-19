@@ -14,7 +14,10 @@ def printRxn(rxn):
     first = True
     for x in rxn[0]:
         if x[0] not in string.letters:
-            xname = "i" + x
+            try:
+                xname = "i" + x
+            except TypeError:
+                xname = x[1]
         else:
             xname = x
         if not first:
@@ -28,7 +31,10 @@ def printRxn(rxn):
     first = True
     for x in rxn[1]:
         if x[0] not in string.letters:
-            xname = "i" + x
+            try:
+                xname = "i" + x
+            except TypeError:
+                xname = x[1]
         else:
             xname = x
         if not first:
@@ -181,13 +187,16 @@ def enum(n, s, weights=None):
 # e.g. enum(2, [a, b]) = [ [[],[a,b]], [[a],[b]], [[b],[a]], [[a,b],[]] ]
 # if weights are given, enumerates all lists l of n multisets
 #  such that s = sum(weights[i] * l[i])
+# (if weights are not given, equivalent to weights[i] = 1 for all i)
     if weights is None:
         weights = [1] * n
     if n == 0:
         yield []
         return
-    if len(weights) < n or weights[0] < 0:
-        raise Exception
+    if len(weights) < n:
+        raise IndexError('{} weights given for {} parts'.format(len(weights),n))
+    elif weights[0] < 0:
+        raise ValueError('Negative weight given')
     elif weights[0] == 0:
         for j in enum(n-1, s, weights[1:]):
             yield [Counter()] + j
@@ -734,39 +743,42 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
         if T[k][c]:        
             ul = sicrn[k][0] - fcrn[c][0]
             kl = ul.keys()
+            vl = ul.values()
             nl = len(kl)
             sl = fcrn[c][0] - sicrn[k][0]
-            tmpl = enum(nl, sl, ul.values())
+            tmpl = enum(nl, sl, vl)
             ur = sicrn[k][1] - fcrn[c][1]
             kr = ur.keys()
+            vr = ur.values()
             nr = len(kr)
             sr = fcrn[c][1] - sicrn[k][1]
-            tmpr = enum(nr, sr, ur.values())
-            for i in tmpl:
+            tmpr = enum(nr, sr, vr)
+            for (i,j) in itertools.product(tmpl, tmpr):
+            # for i in tmpl:
                 intrpleft = dict(zip(kl, i))
-                for j in tmpr:
-                    intrpright = dict(zip(kr, j))
-                    checkCompatible = True
-                    for key in intrpleft:
-                        if key in intrpright and \
-                           any([intrpright[key][fsp] != intrpleft[key][fsp]
-                                for fsp in fs]):
-                            checkCompatible = False
-                            break
+                # for j in tmpr:
+                intrpright = dict(zip(kr, j))
+                checkCompatible = True
+                for key in intrpleft:
+                    if key in intrpright and \
+                       any([intrpright[key][fsp] != intrpleft[key][fsp]
+                            for fsp in fs]):
+                        checkCompatible = False
+                        break
 
-                    if not checkCompatible:
-                        continue
+                if not checkCompatible:
+                    continue
 
-                    itmp = intrp.copy()
-                    itmp.update(intrpleft)
-                    itmp.update(intrpright)
-                    out = searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck,
-                                  [intr, max_depth] + state[2:])
-                    if out[0]:
-                        return out
-                    else:
-                        state = out[1]
-                        intr, max_depth = state[0:2]
+                itmp = intrp.copy()
+                itmp.update(intrpleft)
+                itmp.update(intrpright)
+                out = searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck,
+                              [intr, max_depth] + state[2:])
+                if out[0]:
+                    return out
+                else:
+                    state = out[1]
+                    intr, max_depth = state[0:2]
     return [False, [intr, max_depth] + state[2:]]
 
 def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
@@ -805,40 +817,45 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
             if T[k][c]:
                 ul = sicrn[k][0] - fcrn[c][0]
                 kl = ul.keys()
+                vl = ul.values()
                 nl = len(kl)
                 sl = fcrn[c][0] - sicrn[k][0]
-                tmpl = enum(nl, sl, ul.values())
+                tmpl = enum(nl, sl, vl)
                 ur = sicrn[k][1] - fcrn[c][1]
                 kr = ur.keys()
+                vr = ur.values()
                 nr = len(kr)
                 sr = fcrn[c][1] - sicrn[k][1]
-                tmpr = enum(nr, sr, ur.values())
-                for i in tmpl:
+                tmpr = enum(nr, sr, vr)
+                for (i,j) in itertools.product(tmpl, tmpr):
+                # for i in tmpl:
                     intrpleft = dict(zip(kl, i))
-                    for j in tmpr:
-                        intrpright = dict(zip(kr, j))
+                    # tmpr = enum(nr, sr, vr)
+                    # for j in tmpr:
+                    intrpright = dict(zip(kr, j))
 
-                        checkCompatible = True
-                        for key in intrpleft:
-                            if key in intrpright and \
-                               any([intrpleft[key][fsp] != intrpright[key][fsp]
-                                    for fsp in fs]):
-                                checkCompatible = False
-                                break
+                    checkCompatible = True
+                    for key in intrpleft:
+                        if key in intrpright and \
+                           any([intrpleft[key][fsp] != intrpright[key][fsp]
+                                for fsp in fs]):
+                            checkCompatible = False
+                            break
 
-                        if not checkCompatible:
-                            continue
+                    if not checkCompatible:
+                        continue
 
-                        itmp = intrp.copy()
-                        itmp.update(intrpleft)
-                        itmp.update(intrpright)
-                        out = searchc(fcrn, icrn, fs, untmp, itmp, d+1,
-                                      permcheck, [intr, max_depth] + state[2:])
-                        if out[0]:
-                            return out
-                        else:
-                            state = out[1]
-                            intr, max_depth = state[0:2]
+                    itmp = intrp.copy()
+                    itmp.update(intrpleft)
+                    itmp.update(intrpright)
+                    out = searchc(fcrn, icrn, fs, untmp, itmp, d+1,
+                                  permcheck, [intr, max_depth] + state[2:])
+                    if out[0]:
+                        return out
+                    else:
+                        state = out[1]
+                        intr, max_depth = state[0:2]
+
     return [False, [intr, max_depth] + state[2:]]
 
 def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
@@ -874,6 +891,10 @@ def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
 
     global printing, gprinting, debug
     printing = gprinting and (verbose or debug)
+
+    if permissive not in ['whole-graph', 'loop-search', 'depth-first']:
+        raise ValueError('permissive test should be "whole-graph", "loop-search", or "depth-first"')
+
     icrn = copy.deepcopy(ic)
     for rxn in icrn:
         for k in rxn[0]:
@@ -907,7 +928,7 @@ def test(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
         for rxn in fcrn:
             print "   ",
             printRxn(rxn)
-            print
+        print
         if ic == []:
             print "Compiled CRN is empty"
             print
