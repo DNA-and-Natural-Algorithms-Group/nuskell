@@ -598,7 +598,7 @@ class TestTube(object):
     #TODO: return self._complexes.values()
     return self._complexes
 
-  def add_complex(self, cplx):
+  def add_complex(self, cplx, verbose=True):
     """Add a complex to the TestTube. 
 
     A new complex resets .domains and .strands
@@ -606,9 +606,17 @@ class TestTube(object):
     if cplx.name in self._complexes :
       assert self._complexes[cplx.name] is cplx
     else :
-      self._complexes[cplx.name] = cplx
-      self._domains = None
-      self._strands = None
+      # NOTE: This might become inefficient at some point, but it has been
+      # introduced to overcome issues with some translation schemes that
+      # produce the same fuel strand multiple times.
+      if (cplx.sequence, cplx.structure) in map(
+          lambda x: (x.sequence, x.structure), self._complexes.values()):
+        if verbose:
+          print 'WARNING: One complex, one name! Skipping complex:', cplx.name
+      else :
+        self._complexes[cplx.name] = cplx
+        self._domains = None
+        self._strands = None
 
   def rm_complex(self, cplx):
     """Remove a Complex from the TestTube. 
@@ -672,9 +680,9 @@ class TestTube(object):
     assert isinstance(other, TestTube)
     combined = TestTube()
     for k,v in self._complexes.items() :
-      combined.add_complex(v)
+      combined.add_complex(v, verbose=False)
     for k,v in other.complexes.items() :
-      combined.add_complex(v)
+      combined.add_complex(v, verbose=False)
     return combined
 
 class TestTubeIO(object):
