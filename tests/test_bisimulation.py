@@ -45,7 +45,9 @@ class BisimulationTests(unittest.TestCase):
     v, i = bisimulation.test(fcrn, icrn, fs)
     self.assertTrue(v)
 
+  @unittest.skipIf(_skip_slow, "skipping slow tests")
   def test_qingdongthesis_solo(self):
+    # An example where the choice of the permchecker matters ...
     (fcrn, fs) = self._parse_crn_file('tests/crns/crn6.crn')
     (icrn, _) = self._parse_crn_file('tests/crns/crn6_qingdong_thesis.crn')
 
@@ -66,7 +68,7 @@ class BisimulationTests(unittest.TestCase):
                 'i73': Counter(['B'])}
 
     if True :
-      # NOTE: These fail slowly (but take less than 10 min each)
+      # NOTE: These tests complete in less than 10 minutes
       v, _ = bisimulation.test(fcrn, icrn, fs, permissive='whole-graph')
       self.assertTrue(v)
 
