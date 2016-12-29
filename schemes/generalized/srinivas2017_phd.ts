@@ -1,13 +1,14 @@
-# Srinivas PhD Thesis (2015)
-# Figure 3.4
-
-# written by Stefan Badelt (badelt@caltech.edu)
-
-# Extending short() and long() to contain metadata for sequence design:
-# Defaults: 
-#   short = toehold, long = branch-migration
-#   top-strand: ATC, bottom-strand ATG
-#   top:'NNNNNN', bottom:'HHHHH',
+#
+# Niranjan Srinivas's translation scheme "Enzyme-free nucleic acid dynamical systems" 
+#   (2017, article submitted).
+#
+#   Note: The publication only discusses reactions with two reactants and two products.
+#         The generalization of the scheme implemented in this file can be found in 
+#         Niranjan's Thesis "Programming chemical kinetics: engineering dynamic reaction
+#         networks with DNA strand displacement." (2015)
+#
+# Coded by Stefan Badelt (badelt@caltech.edu)
+#
 
 class formal(s) = "? f m s" | ". . . ."
   where {
@@ -103,7 +104,6 @@ macro reactg(r, i) =
 
 module rxn(r) = sum(map(infty, react + produce))
   where {
-
     react = 
       if len(r.reactants) == 0 then 
         #-- needs a specific reactant-fuel
@@ -111,11 +111,6 @@ module rxn(r) = sum(map(infty, react + produce))
       else 
         #-- adjusts back and fuel to number of products
         srinivas_rgate(r.reactants, r.products);
-
-    # void = print('a', react);
-    # void = print('b', react[0]);
-    # void = print('c', react[0].fl);
-    # void = print('h', react[0].fl[0].h);
 
     produce = 
       if len(r.products) == 0 then 
@@ -129,12 +124,12 @@ module rxn(r) = sum(map(infty, react + produce))
         if len(r.reactants) == 0 then 
           srinivas_pgate(react, r.products, hist) where hist = react[0].fl[0].h
         else 
-          srinivas_pgate(r.reactants, r.products, hist) where hist = react[0].fl[0].h };
+          srinivas_pgate(r.reactants, r.products, hist) where hist = react[0].fl[0].h 
+  };
 
 module main(crn) = sum(map(rxn, crn)) 
   where 
     crn = irrev_reactions(crn)
-
 
 # If you have only one product, you need to make the flux different!
 
