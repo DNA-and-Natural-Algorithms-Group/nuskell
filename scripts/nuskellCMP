@@ -1,0 +1,249 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import signal
+import argparse
+import pkg_resources
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from nuskell import translate, enumerateTT, verify, printCRN
+
+from nuskell.parser import parse_crn_string, split_reversible_reactions
+from nuskell.objects import TestTube, TestTubeIO
+from nuskell.verifier import preprocess
+
+#TODO: cleanup here, defaults, etc...
+from nuskell.include.peppercorn.enumerator import get_peppercorn_args
+
+class TimeoutError(Exception):
+  pass
+
+def handler(signum, frame):
+  raise TimeoutError('Time over')
+
+def compare_schemes(reactions, schemedir, args):
+
+  vtime = args.verify_time
+
+  # Here are some potential hacks:
+  plotdata = [] # Scheme, CRN, Cost, Speed
+  for crn in reactions : 
+    for scheme in os.listdir(schemedir) :
+      if scheme[-3:] != '.ts' : 
+        #print "# Ignoring file:", args.ts_dir + scheme
+        continue
+
+      #if scheme[0] != 's' and scheme[0] != 'q' : continue
+      #if scheme[-7:] == 'noGC.ts': continue
+
+      (fcrn, fs, cs) = parse_crn_string(crn) 
+      fcrn = split_reversible_reactions(fcrn)
+
+      #NOTE: Settings that might be subject to change later
+      args.REJECT_REMOTE = False
+      args.MAX_COMPLEX_COUNT = 10000
+
+      print '\n# Scheme:', scheme, 'CRN:', crn
+      solution, _ = translate(crn, schemedir + scheme, args.verbose)
+      
+      # TRANSLATION
+      # NOTE: The actual number of nucleotides is smaller for translations using history domains.
+      print ' Number of Nucleotides:',
+      print sum(map(len, 
+        map(lambda x: x.nucleotide_sequence, 
+          solution.complexes.values())))
+          #filter(lambda x: x.name not in fs, solution.complexes.values()))))
+
+      cost = sum(map(len, map(lambda x: x.nucleotide_sequence, solution.complexes.values())))
+
+      # ENUMERATION
+      if scheme == 'soloveichik2010_v1.ts':# and crn == 'A + A -> A':
+        print "# WARNING: changing eqivalence notion --reject-remote"
+        args.REJECT_REMOTE = True
+
+      if scheme == 'srinivas2017_phd.ts':# and crn == 'A + A -> A':
+        print "# WARNING: changing eqivalence notion --reject-remote"
+        args.REJECT_REMOTE = True
+
+      print " Size of enumerated network:",
+      enum_solution, enum_crn = enumerateTT(solution, args)
+      icrn, interpret = preprocess(fcrn, enum_crn, fs,
+          solution, enum_solution, verbose=(args.verbose>1))
+
+      print len(icrn)
+      speed = len(icrn)
+
+      # VERIFICATION
+      #print "\n# Verifying Implementation CRN:"
+      signal.signal(signal.SIGALRM, handler)
+      signal.alarm(vtime)
+      try :
+        v, _ = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation',
+            verbose=(args.verbose>1))
+        if v:
+          print " {}: CRNs are bisimulation equivalent.".format(v)
+        else:
+          print " {}: CRNs are not bisimulation equivalent.".format(v)
+      except TimeoutError:
+        v = None
+        print " {}: Verification method did not terminate within {} seconds.".format(v, vtime)
+      finally:
+        signal.alarm(0)
+        vb = v
+
+      signal.alarm(vtime)
+      try :
+        v, _ = verify(fcrn, icrn, fs, interpret=interpret, method='pathway',
+            verbose=(args.verbose>1))
+        if v:
+          print " {}: CRNs are pathway equivalent.".format(v)
+        else:
+          print " {}: CRNs are not pathway equivalent.".format(v)
+      except TimeoutError as e:
+        v = None
+        print " {}: Verification method did not terminate within {} seconds.".format(v, vtime)
+      finally:
+        signal.alarm(0)
+        vp = v
+
+      plotdata.append([scheme, crn, vb, vp, cost, speed])
+  return plotdata
+
+
+def get_nuskell_args(parser) :
+  """ A collection of arguments for Nuskell """
+
+  # Options for the translation mode of Nuskell
+  parser.add_argument("--ts_dir", action = 'store',
+      help="Specify path to the translation scheme directory. " + \
+        "Only files that have a *.ts ending will be compared.")
+
+  parser.add_argument("--reference", action = 'store',
+      help="Specify a translation scheme that serves as a reference.")
+
+  parser.add_argument("-o", "--output", default='nuskell_compare.pdf', action = 'store',
+      help="Specify name of output file")
+
+  parser.add_argument("--verify-time", type=int, default=60,
+      help="Specify time [seconds] to wait for verification to complete.")
+
+  # Choose a verification method.
+  parser.add_argument("--verify", default='', action = 'store',
+      help="Specify the verification method: \
+          (bisimulation, pathway, integrated, bisim-loop-search,\
+          bisim-depth-first, bisim-whole-graph)") 
+
+  return parser
+
+def normalize(rawdata, scheme):
+  normdata = []
+  norm_values = filter(lambda x: x[0] == scheme, rawdata)
+  for n in norm_values: # A particular CRN
+    current = filter(lambda x: x[1] == n[1], rawdata)
+    for c in current:
+      normdata.append(c[:4] + [float(x)/y for x,y in zip(n[4:], c[4:])])
+    
+  return normdata
+
+def plot_it(df, pfile='nuskell_compare.pdf', hue_order=None):
+  sns.set(style="ticks", color_codes=True)
+  g = sns.PairGrid(data=df, hue='Translation scheme', size=4, 
+      hue_order=hue_order,
+      y_vars=["relative counts of nucleotides"], 
+      x_vars=["relative size of DSD network"])
+
+  #for ax in g.axes.flat: 
+  #  ax.set_ylim(0,2)
+  #  ax.set_xlim(0,2)
+ 
+  g = g.map(plt.scatter)
+  g = g.add_legend(bbox_to_anchor=(1.5, 0.5))
+  #g = g.add_legend(loc=9, bbox_to_anchor=(0.5, -0.1), ncol=2)
+
+  plt.savefig(pfile, bbox_inches="tight")
+
+def main():
+  """Compare different Tranlation schemes for different CRNs.
+
+  A number of descriptors are gathered in the main loop, stored in a DataFrame
+  and then plotted.
+  """
+  parser = argparse.ArgumentParser()
+
+  parser = get_nuskell_args(parser)
+  parser = get_peppercorn_args(parser)
+
+  args = parser.parse_args()
+
+  # ***************** #
+  # Process CRN input #
+  # _________________ #
+
+  # TODO: one CRN per line (reactions are ';' separated)
+  if True:
+    input_crn = sys.stdin.readlines()
+    input_crn = "".join(input_crn)
+    reactions = [input_crn]
+  else :
+    # A few common tests to find bugs in reaction schemes
+    reactions = [
+        'A -> ', 
+        '-> B', 
+        'A -> B', 
+        'A <=> B', 
+        'A -> A + A', 
+        'A + A -> A', 
+        'A + B -> B + B' ]
+
+    networks = [
+        'A + B -> B + B; B + C -> C + C; A + C -> A + A',
+        'A <=> A + A; A + B -> B + B; B -> ; A + C -> ; C <=> C + C',
+        'A <=> X; B + X <=> Y + A; C + Y + X <=> Z + B + A']
+    reactions += networks
+
+  print "Testing reactions:"
+  for rxn in reactions: 
+    print ' *', rxn
+
+  # ***************** #
+  # Process DIR input #
+  # _________________ #
+  
+  if args.ts_dir :
+    print "Comparing schemes in:", args.ts_dir
+  else :
+    print "Comparing default schemes:" 
+    args.ts_dir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
+
+  for ts in filter(lambda x: x[-3:] == '.ts', os.listdir(args.ts_dir)):
+    print ' *', ts
+
+  # ***************** #
+  # Process REF input #
+  # _________________ #
+  
+  if args.reference and args.reference not in os.listdir(args.ts_dir):
+    raise Exception('Reference scheme not found.')
+
+  plotdata = compare_schemes(reactions, args.ts_dir, args) # Scheme, CRN, Cost, Speed
+
+  # Results:
+  print 'Rawdata:'
+  for p in plotdata: print '', p
+
+  # Normalize data to --reference scheme
+  if args.reference :
+    plotdata = normalize(plotdata, args.reference)
+    print 'Normalized to {}:'.format(args.reference)
+    for p in plotdata: print '', p
+
+  df = pd.DataFrame(plotdata, columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
+    'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
+
+  plot_it(df, pfile=args.output)
+
+if __name__ == '__main__':
+  main()

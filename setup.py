@@ -36,6 +36,6 @@ setup(
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier', 
         'nuskell.include', 'nuskell.include.peppercorn'],
-    scripts=['scripts/nuskell']
+    scripts=['scripts/nuskell', 'scripts/nuskellCMP']
 )
 
