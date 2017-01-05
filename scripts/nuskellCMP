@@ -24,11 +24,28 @@ class TimeoutError(Exception):
 def handler(signum, frame):
   raise TimeoutError('Time over')
 
-def compare_schemes(reactions, schemedir, args):
+def compare_schemes(reactions, schemedir, 
+    pc_args = None, 
+    vnotions = ['pathway', 'bisimulation'],
+    vtime = 30, 
+    cmp_ecrn_size = True,
+    cmp_total_nuc = True,
+    verbose=0):
+  """Compare schemes for (multiple) CRNs.
 
-  vtime = args.verify_time
+  Arguments:
+    reactions <list[str]>: A list of CRN stings.
+    schemedir <str>: A path to a directory with translation schemes.
+    vtime <int>: Timeout of verification [seconds]
+    args <argparse()>: An object that contains arguments for peppercorn.
 
-  # Here are some potential hacks:
+  Note: This function contains hacks, i.e. it is not publication-ready:
+    * reject-remote hack for soloveichik-like schemes
+    * number of nucleotides is wrong for schemes with history domains.
+
+  
+  """
+
   plotdata = [] # Scheme, CRN, Cost, Speed
   for crn in reactions : 
     for scheme in os.listdir(schemedir) :
@@ -37,79 +54,66 @@ def compare_schemes(reactions, schemedir, args):
         continue
 
       #if scheme[0] != 's' and scheme[0] != 'q' : continue
-      #if scheme[-7:] == 'noGC.ts': continue
+      current = [scheme, crn]
 
       (fcrn, fs, cs) = parse_crn_string(crn) 
       fcrn = split_reversible_reactions(fcrn)
 
       #NOTE: Settings that might be subject to change later
-      args.REJECT_REMOTE = False
-      args.MAX_COMPLEX_COUNT = 10000
+      pc_args.REJECT_REMOTE = False
+      pc_args.MAX_COMPLEX_COUNT = 10000
 
       print '\n# Scheme:', scheme, 'CRN:', crn
-      solution, _ = translate(crn, schemedir + scheme, args.verbose)
+      solution, _ = translate(crn, schemedir + scheme)
       
-      # TRANSLATION
-      # NOTE: The actual number of nucleotides is smaller for translations using history domains.
-      print ' Number of Nucleotides:',
-      print sum(map(len, 
-        map(lambda x: x.nucleotide_sequence, 
-          solution.complexes.values())))
-          #filter(lambda x: x.name not in fs, solution.complexes.values()))))
+      if cmp_total_nuc :
+        # NOTE: The actual number of nucleotides is smaller for translations using history domains.
+        print ' Number of Nucleotides:',
+        print sum(map(len, 
+          map(lambda x: x.nucleotide_sequence, 
+            solution.complexes.values())))
+            #filter(lambda x: x.name not in fs, solution.complexes.values()))))
 
-      cost = sum(map(len, map(lambda x: x.nucleotide_sequence, solution.complexes.values())))
+        cost = sum(map(len, map(lambda x: x.nucleotide_sequence, solution.complexes.values())))
+        current.append(cost)
 
       # ENUMERATION
-      if scheme == 'soloveichik2010_v1.ts':# and crn == 'A + A -> A':
+      if scheme == 'soloveichik2010_v1.ts':
         print "# WARNING: changing eqivalence notion --reject-remote"
-        args.REJECT_REMOTE = True
+        pc_args.REJECT_REMOTE = True
 
       if scheme == 'srinivas2017_phd.ts':# and crn == 'A + A -> A':
         print "# WARNING: changing eqivalence notion --reject-remote"
-        args.REJECT_REMOTE = True
+        pc_args.REJECT_REMOTE = True
 
-      print " Size of enumerated network:",
-      enum_solution, enum_crn = enumerateTT(solution, args)
-      icrn, interpret = preprocess(fcrn, enum_crn, fs,
-          solution, enum_solution, verbose=(args.verbose>1))
+      enum_solution, enum_crn = enumerateTT(solution, pc_args)
+      icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution, verbose=(verbose>1))
 
-      print len(icrn)
-      speed = len(icrn)
+      if cmp_ecrn_size:
+        print " Size of enumerated network:",
+        print len(icrn)
+        speed = len(icrn)
+        current.append(speed)
 
       # VERIFICATION
-      #print "\n# Verifying Implementation CRN:"
-      signal.signal(signal.SIGALRM, handler)
-      signal.alarm(vtime)
-      try :
-        v, _ = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation',
-            verbose=(args.verbose>1))
-        if v:
-          print " {}: CRNs are bisimulation equivalent.".format(v)
-        else:
-          print " {}: CRNs are not bisimulation equivalent.".format(v)
-      except TimeoutError:
-        v = None
-        print " {}: Verification method did not terminate within {} seconds.".format(v, vtime)
-      finally:
-        signal.alarm(0)
-        vb = v
+      for meth in vnotions :
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(vtime)
+        try :
+          v, _ = verify(fcrn, icrn, fs, interpret=interpret, method=meth,
+              verbose=(verbose>1))
+          if v:
+            print " {}: CRNs are {} equivalent.".format(v, meth)
+          else:
+            print " {}: CRNs are not {} equivalent.".format(v, meth)
+        except TimeoutError:
+          v = None
+          print " {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
+        finally:
+          signal.alarm(0)
+          current.insert(2, v)
 
-      signal.alarm(vtime)
-      try :
-        v, _ = verify(fcrn, icrn, fs, interpret=interpret, method='pathway',
-            verbose=(args.verbose>1))
-        if v:
-          print " {}: CRNs are pathway equivalent.".format(v)
-        else:
-          print " {}: CRNs are not pathway equivalent.".format(v)
-      except TimeoutError as e:
-        v = None
-        print " {}: Verification method did not terminate within {} seconds.".format(v, vtime)
-      finally:
-        signal.alarm(0)
-        vp = v
-
-      plotdata.append([scheme, crn, vb, vp, cost, speed])
+      plotdata.append(current)
   return plotdata
 
 
@@ -127,7 +131,7 @@ def get_nuskell_args(parser) :
   parser.add_argument("-o", "--output", default='nuskell_compare.pdf', action = 'store',
       help="Specify name of output file")
 
-  parser.add_argument("--verify-time", type=int, default=60,
+  parser.add_argument("--verify-timeout", type=int, default=30,
       help="Specify time [seconds] to wait for verification to complete.")
 
   # Choose a verification method.
@@ -136,11 +140,16 @@ def get_nuskell_args(parser) :
           (bisimulation, pathway, integrated, bisim-loop-search,\
           bisim-depth-first, bisim-whole-graph)") 
 
-  return parser
+  return
 
-def normalize(rawdata, scheme):
+def normalize(rawdata, refscheme):
+  """Normalize results to reference scheme. 
+
+    Note: This function requires a particular format of 'rawdata'. 
+      You might have to adapte the code if you change verification...
+  """
   normdata = []
-  norm_values = filter(lambda x: x[0] == scheme, rawdata)
+  norm_values = filter(lambda x: x[0] == refscheme, rawdata)
   for n in norm_values: # A particular CRN
     current = filter(lambda x: x[1] == n[1], rawdata)
     for c in current:
@@ -148,36 +157,73 @@ def normalize(rawdata, scheme):
     
   return normdata
 
-def plot_it(df, pfile='nuskell_compare.pdf', hue_order=None):
-  sns.set(style="ticks", color_codes=True)
-  g = sns.PairGrid(data=df, hue='Translation scheme', size=4, 
-      hue_order=hue_order,
-      y_vars=["relative counts of nucleotides"], 
-      x_vars=["relative size of DSD network"])
+def plot_by_reference(df, pfile='nuskell_compare.pdf', ts_order=None):
+  # This is the old version, it does not support the different markers for 
+  # correct vs timeout vs incorrect.
+  if not ts_order:
+    ts_order = sorted(set(df['Translation scheme']))
 
-  #for ax in g.axes.flat: 
-  #  ax.set_ylim(0,2)
-  #  ax.set_xlim(0,2)
- 
+  g = sns.PairGrid(data=df, hue='Translation scheme', size=4,
+      x_vars=["relative size of DSD network"],
+      y_vars=["relative counts of nucleotides"])
   g = g.map(plt.scatter)
-  g = g.add_legend(bbox_to_anchor=(1.5, 0.5))
-  #g = g.add_legend(loc=9, bbox_to_anchor=(0.5, -0.1), ncol=2)
-
+  g = g.add_legend(bbox_to_anchor=(1.0, 0.5))
   plt.savefig(pfile, bbox_inches="tight")
+  return
 
-def main():
-  """Compare different Tranlation schemes for different CRNs.
+def plot_crn_by_crn(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
+  if not ts_order:
+    ts_order = sorted(set(df['Translation scheme']))
+  if not crn_order:
+    crn_order = sorted(set(df['CRN']))
 
-  A number of descriptors are gathered in the main loop, stored in a DataFrame
-  and then plotted.
-  """
-  parser = argparse.ArgumentParser()
+  def is_correct(x):
+    """Check if the scheme is equivalent according to any of the notions. """
+    equiv = list(x.filter(like='equivalent', axis=1).values[0])
+    if True in equiv :
+      return 'o'
+    elif None in equiv :
+      return 's'
+    else :
+      return 'D'
 
-  parser = get_nuskell_args(parser)
-  parser = get_peppercorn_args(parser)
+  sns.set(style="ticks", color_codes=True)
+  with sns.color_palette("hls", n_colors=len(ts_order)) :
+    g = sns.FacetGrid(df, col="CRN", col_order=crn_order, col_wrap=3,
+        hue='Translation scheme', hue_order=ts_order)
+    g = g.map(plt.scatter, "relative size of DSD network", "relative counts of nucleotides")
+    
+    if True:
+      for (crn, ax) in zip(crn_order, g.axes.flat) :
+        # TODO: add a legend for 'D', 's', 'o'.
+        #ax.annotate(c, xy=(10, 553))
+        #ax.annotate(crn, xy=(8, 245))
+        ax.set_axis_bgcolor("lightgray")
+        for col, ts in enumerate(ts_order) :
+          # NOTE: filter is dangerous because it may match multiple entries, however, not if you
+          # match including the parenthesis.
+          tcdf = df.filter(like="('{}', '{}')".format(ts, crn), axis=0)
+          #print 'tst', crn, ts, tcdf.values
+          ax = plt.scatter("relative size of DSD network", "relative counts of nucleotides", 
+              data=tcdf, marker=is_correct(tcdf), c=sns.color_palette()[col])
+          #sns.regplot("relative size of DSD network", "relative counts of nucleotides", data=tcdf, 
+          #    ax=ax, marker=is_correct(tcdf), fit_reg=False)
 
-  args = parser.parse_args()
 
+    g = g.add_legend() #bbox_to_anchor=(1.0, 0.4))
+    plt.savefig(pfile, bbox_inches="tight")
+
+  # OLDCODE:
+  # row, col = g.axes.shape
+  # for i in range(row):
+  #   for j in range(col):
+  #     ax = g.axes[i, j]
+  #     ax.set_axis_bgcolor("lightgray")
+  # g.axes[0,0].annotate("Test1", xy=(8, 245))
+  # g.axes[0,1].annotate("Test2", xy=(16, 553))
+
+def main(args):
+  """Compare multiple tranlation schemes for a given CRN. """
   # ***************** #
   # Process CRN input #
   # _________________ #
@@ -185,13 +231,13 @@ def main():
   # TODO: one CRN per line (reactions are ';' separated)
   if True:
     input_crn = sys.stdin.readlines()
-    input_crn = "".join(input_crn)
+    input_crn = "".join(map(lambda x: x.rstrip(), input_crn))
     reactions = [input_crn]
   else :
     # A few common tests to find bugs in reaction schemes
     reactions = [
         'A -> ', 
-        '-> B', 
+        '-> B',
         'A -> B', 
         'A <=> B', 
         'A -> A + A', 
@@ -228,7 +274,18 @@ def main():
   if args.reference and args.reference not in os.listdir(args.ts_dir):
     raise Exception('Reference scheme not found.')
 
-  plotdata = compare_schemes(reactions, args.ts_dir, args) # Scheme, CRN, Cost, Speed
+  # ********* #
+  # MAIN LOOP #
+  # _________ #
+  
+  # Scheme, CRN, Cost, Speed
+  plotdata = compare_schemes(reactions, args.ts_dir,
+      pc_args = args,
+      cmp_ecrn_size = True,
+      cmp_total_nuc = True,
+      vnotions = ['pathway', 'bisimulation'],
+      vtime = args.verify_timeout,
+      verbose=args.verbose)
 
   # Results:
   print 'Rawdata:'
@@ -239,11 +296,24 @@ def main():
     plotdata = normalize(plotdata, args.reference)
     print 'Normalized to {}:'.format(args.reference)
     for p in plotdata: print '', p
+    idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
+    df = pd.DataFrame(plotdata, index=idx, 
+        columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
+          'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
+    plot_by_reference(df, pfile=args.output)
 
-  df = pd.DataFrame(plotdata, columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
-    'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
+  else :
+    idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
+    df = pd.DataFrame(plotdata, index=idx, 
+        columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
+          'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
 
-  plot_it(df, pfile=args.output)
+    plot_crn_by_crn(df, pfile=args.output)
 
 if __name__ == '__main__':
-  main()
+  parser = argparse.ArgumentParser()
+  get_nuskell_args(parser)
+  get_peppercorn_args(parser)
+  args = parser.parse_args()
+
+  main(args)
