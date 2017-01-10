@@ -306,8 +306,7 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
     v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
         (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
   else:
-    print "Verification method unknown."
-    v = False
+    raise RuntimeError('Unknown verification method.')
 
   return v, i
 
