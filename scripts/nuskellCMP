@@ -204,7 +204,7 @@ def plot_crn_by_crn(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=No
           # match including the parenthesis.
           tcdf = df.filter(like="('{}', '{}')".format(ts, crn), axis=0)
           #print 'tst', crn, ts, tcdf.values
-          ax = plt.scatter("relative size of DSD network", "relative counts of nucleotides", 
+          ax.scatter("relative size of DSD network", "relative counts of nucleotides", 
               data=tcdf, marker=is_correct(tcdf), c=sns.color_palette()[col])
           #sns.regplot("relative size of DSD network", "relative counts of nucleotides", data=tcdf, 
           #    ax=ax, marker=is_correct(tcdf), fit_reg=False)
