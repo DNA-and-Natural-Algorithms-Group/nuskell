@@ -11,12 +11,9 @@ import matplotlib.pyplot as plt
 
 from nuskell import translate, enumerateTT, verify, printCRN
 
-from nuskell.parser import parse_crn_string, split_reversible_reactions
+from nuskell.parser import parse_crn_string, parse_crn_file, split_reversible_reactions
 from nuskell.objects import TestTube, TestTubeIO
 from nuskell.verifier import preprocess
-
-#TODO: cleanup here, defaults, etc...
-from nuskell.include.peppercorn.enumerator import get_peppercorn_args
 
 class TimeoutError(Exception):
   pass
@@ -86,7 +83,7 @@ def compare_schemes(reactions, schemedir,
         print "# WARNING: changing eqivalence notion --reject-remote"
         pc_args.REJECT_REMOTE = True
 
-      enum_solution, enum_crn = enumerateTT(solution, pc_args)
+      enum_solution, enum_crn = enumerateTT(solution, condensed = not args.enum_uncondensed, args=pc_args)
       icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution, verbose=(verbose>1))
 
       if cmp_ecrn_size:
@@ -116,32 +113,6 @@ def compare_schemes(reactions, schemedir,
       plotdata.append(current)
   return plotdata
 
-
-def get_nuskell_args(parser) :
-  """ A collection of arguments for Nuskell """
-
-  # Options for the translation mode of Nuskell
-  parser.add_argument("--ts_dir", action = 'store',
-      help="Specify path to the translation scheme directory. " + \
-        "Only files that have a *.ts ending will be compared.")
-
-  parser.add_argument("--reference", action = 'store',
-      help="Specify a translation scheme that serves as a reference.")
-
-  parser.add_argument("-o", "--output", default='nuskell_compare.pdf', action = 'store',
-      help="Specify name of output file")
-
-  parser.add_argument("--verify-timeout", type=int, default=30,
-      help="Specify time [seconds] to wait for verification to complete.")
-
-  # Choose a verification method.
-  parser.add_argument("--verify", default='', action = 'store',
-      help="Specify the verification method: \
-          (bisimulation, pathway, integrated, bisim-loop-search,\
-          bisim-depth-first, bisim-whole-graph)") 
-
-  return
-
 def normalize(rawdata, refscheme):
   """Normalize results to reference scheme. 
 
@@ -167,7 +138,7 @@ def plot_by_reference(df, pfile='nuskell_compare.pdf', ts_order=None):
       x_vars=["relative size of DSD network"],
       y_vars=["relative counts of nucleotides"])
   g = g.map(plt.scatter)
-  g = g.add_legend(bbox_to_anchor=(1.0, 0.5))
+  g = g.add_legend(bbox_to_anchor=(1.5, 0.8))
   plt.savefig(pfile, bbox_inches="tight")
   return
 
@@ -228,31 +199,48 @@ def main(args):
   # Process CRN input #
   # _________________ #
 
+  if args.plot and (args.plot[-4:] != '.pdf' and args.plot[-4:] != '.png'):
+    raise SystemExit('Please choose a file format (*.pdf, *png) for your plot: {}'.format(args.plot))
+
   # TODO: one CRN per line (reactions are ';' separated)
-  if True:
+  if args.crn_dir:
+    print "Compiling CRNs in:", args.crn_dir
+    reactions = []
+    for crnfile in filter(lambda x: x[-4:] == '.crn', os.listdir(args.crn_dir)):
+      print ' *', crnfile
+      with open(args.crn_dir+crnfile) as fcrn :
+        react = ''
+        for l in fcrn.readlines():
+          react += l.strip() + '; '
+      reactions.append(react[:-2])
+      #(fcrn, fs, cs) = parse_crn_file(args.crn_dir+crnfile)
+      #reactions.append(fcrn)
+
+  else :
     input_crn = sys.stdin.readlines()
     input_crn = "".join(map(lambda x: x.rstrip(), input_crn))
     reactions = [input_crn]
-  else :
-    # A few common tests to find bugs in reaction schemes
-    reactions = [
-        'A -> ', 
-        '-> B',
-        'A -> B', 
-        'A <=> B', 
-        'A -> A + A', 
-        'A + A -> A', 
-        'A + B -> B + B' ]
+    print "Compiling CRN:"
+    for rxn in reactions: 
+      print ' *', rxn
 
-    networks = [
-        'A + B -> B + B; B + C -> C + C; A + C -> A + A',
-        'A <=> A + A; A + B -> B + B; B -> ; A + C -> ; C <=> C + C',
-        'A <=> X; B + X <=> Y + A; C + Y + X <=> Z + B + A']
-    reactions += networks
+  #else :
+  #  # A few common tests to find bugs in reaction schemes
+  #  reactions = [
+  #      'A -> ', 
+  #      '-> B',
+  #      'A -> B', 
+  #      'A <=> B', 
+  #      'A -> A + A', 
+  #      'A + A -> A', 
+  #      'A + B -> B + B' ]
 
-  print "Testing reactions:"
-  for rxn in reactions: 
-    print ' *', rxn
+  #  networks = [
+  #      'A + B -> B + B; B + C -> C + C; A + C -> A + A',
+  #      'A <=> A + A; A + B -> B + B; B -> ; A + C -> ; C <=> C + C',
+  #      'A <=> X; B + X <=> Y + A; C + Y + X <=> Z + B + A']
+  #  reactions += networks
+
 
   # ***************** #
   # Process DIR input #
@@ -300,20 +288,112 @@ def main(args):
     df = pd.DataFrame(plotdata, index=idx, 
         columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
           'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
-    plot_by_reference(df, pfile=args.output)
+    if args.plot :
+      plot_by_reference(df, pfile=args.plot)
 
-  else :
+  elif args.plot :
     idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
     df = pd.DataFrame(plotdata, index=idx, 
         columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
           'pathway equivalent', 'relative counts of nucleotides', 'relative size of DSD network'])
+    plot_crn_by_crn(df, pfile=args.plot)
 
-    plot_crn_by_crn(df, pfile=args.output)
+def get_nuskellCMP_args(parser) :
+  """ A collection of arguments for Nuskell """
+
+  parser.add_argument("--ts_dir", action = 'store',
+      help="Specify path to the translation scheme directory. " + \
+        "Only files that have a *.ts ending will be compared.")
+
+  parser.add_argument("--crn_dir", action = 'store',
+      help="Specify path to a CRN directory. " + \
+        "Only files that have a *.crn ending will be compared.")
+
+  parser.add_argument("--reference", action = 'store',
+      help="Specify a translation scheme that serves as a reference.")
+
+  parser.add_argument("--verify", default='', action = 'store',
+      help="Specify the verification method: \
+          (bisimulation, pathway, integrated, bisim-loop-search,\
+          bisim-depth-first, bisim-whole-graph)") 
+
+  parser.add_argument("--verify-timeout", type=int, default=30,
+      help="Specify time [seconds] to wait for verification to complete.")
+
+  parser.add_argument("--plot", default='nuskell_compare.pdf', action = 'store',
+      help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
+
+  parser.add_argument("-v", "--verbose", action='count', default=0,
+      help="Print more output (-vv for extra debugging information)")
+
+  return
+
+def get_peppercorn_args(parser):
+  """Selected arguments for the peppercorn interface. """
+  parser.add_argument('--max-complex-size', default=100, type=int, dest='MAX_COMPLEX_SIZE', 
+      metavar='<int>',
+      help="Peppercorn: Maximum number of strands allowed in a complex" + \
+          "(used to prevent polymerization)")
+  parser.add_argument('--max-complex-count', default=1000, type=int, dest='MAX_COMPLEX_COUNT',
+      metavar='<int>',
+      help="Peppercorn: Maximum number of complexes that may be enumerated" + \
+          "before the enumerator halts.")
+  parser.add_argument('--max-reaction-count', default=10000, type=int, dest='MAX_REACTION_COUNT',
+      metavar='<int>',
+      help="Peppercorn: Maximum number of reactions that may be enumerated " + \
+          "before the enumerator halts.")
+
+  parser.add_argument('--reject-remote', action='store_true', dest='REJECT_REMOTE',
+      help="Peppercorn: Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
+  parser.add_argument('--ignore-branch-3way', action='store_true',
+      help="Peppercorn: Ignore 3-way branch migration events during enumeration.")
+  parser.add_argument('--ignore-branch-4way', action='store_true',
+      help="Peppercorn: Ignore 4-way branch migration events during enumeration.")
+
+  # TODO: explain these options in more deatail!
+  parser.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
+      metavar='<int>',
+      help="Peppercorn: Maximum number of bases that will be released spontaneously "+\
+          "in a 1-1 `open` reaction" )
+  parser.add_argument('--release-cutoff-1-n', type=int, default=6, dest='RELEASE_CUTOFF_1_N',
+      metavar='<int>',
+      help="Peppercorn: Maximum number of bases that will be released spontaneously " + \
+          "in a 1-n `open` reaction.")
+  parser.add_argument('--release-cutoff', type=int, default=None, dest='RELEASE_CUTOFF',
+      metavar='<int>',
+      help="Peppercorn: Maximum number of bases that will be released spontaneously " +\
+          "in an `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting " + \
+          "--release-cutoff-1-1 and --release-cutoff-1-n to the same value)")
+
+  parser.add_argument('--no-max-helix', action='store_true',
+      help="Peppercorn: Don't apply 'max helix at a time' semantics to " +\
+          "3-way branch migration reactions.")
+  parser.add_argument('--legacy-unzip', action='store_true', dest='LEGACY_UNZIP',
+      help="Peppercorn: Apply legacy 'UNZIP=True' behavior. Note: --legacy-unzip" + \
+      "mode will have no effect, if max helix semantics are disabled (--no-max-helix)")
+
+  # NOTE: Output formatting: this option is not directly passed on to peppercorn
+  parser.add_argument('--enum-uncondensed', action='store_true',
+      help="Peppercorn: Don't condense reactions into only resting complexes")
+
+  # NOTE: The option --no-rates was removed, because peppercorn always computes
+  # rates, but you may choose to ignore them for condensed reaction graphs. 
+  # k-fast enables to prune the condensed network, leaving the default of 0 M/s, has
+  # the same effect.
+
+  parser.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
+      help="Unimolecular reactions slower than this rate will be discarded")
+
+  parser.add_argument('--k-fast', default=0.0, type=float, metavar='<flt>',
+      help="Unimolecular reactions slower than this rate will be marked as slow")
+
+  return
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  get_nuskell_args(parser)
+  get_nuskellCMP_args(parser)
   get_peppercorn_args(parser)
   args = parser.parse_args()
 
   main(args)
+

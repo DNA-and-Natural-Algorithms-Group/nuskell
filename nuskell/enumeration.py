@@ -34,6 +34,7 @@ class TestTubePeppercornIO(object):
     self._testtube += ttube
     self._enumerator = self._initialize_peppercorn(ttube)
     if args :
+      # NOTE: does not set the 'condensed' option
       set_enum_args(self._enumerator, args)
 
     # If True, the enumerator has been called and the TestTube is up-to-date.
@@ -60,7 +61,8 @@ class TestTubePeppercornIO(object):
 
   @property
   def condense_reactions(self):
-    condensed = condense_resting_states(self.enumerator, compute_rates=True, k_fast=0.)
+    condensed = condense_resting_states(self.enumerator, 
+        compute_rates = True, k_fast=self.enumerator.k_fast)
     reactions = condensed['reactions']
 
     enum_crn = []
@@ -81,6 +83,11 @@ class TestTubePeppercornIO(object):
         #if len(rs.complexes) > 1 :
         #  print 'resting state', rs.complexes
 
+      #TODO: Note, use the following lines to return reaction rates!
+      # rate_units = "/M" * (r.arity[0]-1) + "/s"
+      # rate_const = "[%12.8g %s]" % (r.rate(), rate_units) 
+      # print [react, prod, rate_const]
+
       enum_crn.append([react, prod])
     return enum_crn
 
@@ -98,13 +105,20 @@ class TestTubePeppercornIO(object):
         if pr in self._enum_to_ttube:
           pr = self._enum_to_ttube[pr]
         prod.append(pr)
+
       #print r.kernel_string()
-      print [react, prod]
+      #TODO: Note, use the following lines to return reaction rates!
+      # rate_units = "/M" * (r.arity[0]-1) + "/s"
+      # rate_const = "[%12.8g %s]" % (r.rate(), rate_units) 
+      # print [react, prod, rate_const]
+
       enum_crn.append([react, prod])
     return enum_crn
 
   def enumerate(self):
-    # Dangerous, if you were to call self._enumerator.enumerate() directly,
+    # You may call self._enumerator.enumerate() directly, but then the testtube
+    # object will not be updated afterwards. So this wrapper makes sure
+    # everythings done properly, and signals that using self._processed=True
     self._enumerator.enumerate()
     self._get_resting_cplxs()
     self._processed = True
@@ -212,19 +226,14 @@ class TestTubePeppercornIO(object):
 
 def set_enum_args(enum, args):
   """Transfer options to self._enumerator object. 
-  
-  Do NOT set Nuskell-defaults values here. Defaults are set with the argparse
-  object of peppercorn: nuskell/include/peppercorn/enumerator.py 
+
+  Do NOT change default values here. These are supposed to be the defaults of
+  peppercorn!  Defaults for nuskell or any other script using this library are
+  set with the argparse object of your script, e.g. nuskell: scripts/nuskell.
   
   """
 
-  #enum.MAX_REACTION_COUNT = 5000000
-  #enum.MAX_COMPLEX_COUNT  = 100000
-  #enum.MAX_COMPLEX_SIZE   = 1000
-  #enum.k_fast = 2.0
-  #enum.REJECT_REMOTE = True
-
-  if args.verbose is not None:
+  if hasattr(args, 'verbose'):
     import logging
     logger = logging.getLogger()
     if args.verbose == 1:
@@ -234,49 +243,71 @@ def set_enum_args(enum, args):
     elif args.verbose >= 3:
       logger.setLevel(logging.NOTSET)
 
-  if args.k_slow is not None:
-    enum.k_slow = args.k_slow
-  if args.k_fast is not None:
-    enum.k_fast = args.k_fast
-
-  if args.MAX_REACTION_COUNT is not None:
-    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
-
-  if args.MAX_COMPLEX_COUNT is not None:
-    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
-
-  if args.MAX_COMPLEX_SIZE is not None:
+  if hasattr(args, 'MAX_COMPLEX_SIZE'):
     enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
+  else :
+    enum.MAX_COMPLEX_SIZE = 6
 
-  if args.RELEASE_CUTOFF is not None:
-    enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
+  if hasattr(args, 'MAX_COMPLEX_COUNT'):
+    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
+  else :
+    enum.MAX_COMPLEX_COUNT = 200
 
-  if args.RELEASE_CUTOFF_1_1 is not None:
-    enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF_1_1
+  if hasattr(args, 'MAX_REACTION_COUNT'):
+    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
+  else :
+    enum.MAX_REACTION_COUNT = 1000
 
-  if args.RELEASE_CUTOFF_1_N is not None:
-    enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF_1_N
-
-  if args.REJECT_REMOTE is not None:
+  if hasattr(args, 'REJECT_REMOTE'):
     enum.REJECT_REMOTE = args.REJECT_REMOTE
+  else :
+    enum.REJECT_REMOTE = False
 
-  if args.UNZIP is not None:
-    enum.UNZIP = args.UNZIP
-
-  if args.LEGACY_UNZIP is not None:
-    enum.LEGACY_UNZIP = args.LEGACY_UNZIP
-
-  # TODO: what is this?
-  # enum.DFS = not args.bfs
-
-  # Modify enumeration events based on command line options.
-  if args.ignore_branch_3way:
+  if hasattr(args, 'ignore_branch_3way') and args.ignore_branch_3way:
     if reactions.branch_3way in enum.FAST_REACTIONS:
       enum.FAST_REACTIONS.remove(reactions.branch_3way)
 
-  if args.ignore_branch_4way:
+  if hasattr(args, 'ignore_branch_4way') and args.ignore_branch_4way:
     if reactions.branch_4way in enum.FAST_REACTIONS:
       enum.FAST_REACTIONS.remove(reactions.branch_4way)
+
+  if hasattr(args, 'RELEASE_CUTOFF_1_1'):
+    enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF_1_1
+  else :
+    enum.RELEASE_CUTOFF_1_1 = 6
+
+  if hasattr(args, 'RELEASE_CUTOFF_1_N'):
+    enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF_1_N
+  else :
+    enum.RELEASE_CUTOFF_1_N = 6
+
+  if hasattr(args, 'RELEASE_CUTOFF'):
+    if args.RELEASE_CUTOFF is not None :
+      enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF 
+      enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF
+      enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
+  else :
+    enum.RELEASE_CUTOFF = None
+
+  if hasattr(args, 'UNZIP'):
+    enum.UNZIP = args.UNZIP
+  else :
+    enum.UNZIP = True
+
+  if hasattr(args, 'LEGACY_UNZIP'):
+    enum.LEGACY_UNZIP = args.LEGACY_UNZIP
+  else :
+    enum.LEGACY_UNZIP = False
+
+  if hasattr(args, 'k_slow'):
+    enum.k_slow = args.k_slow
+  else :
+    enum.k_slow = 0.0
+
+  if hasattr(args, 'k_fast'):
+    enum.k_fast = args.k_fast
+  else :
+    enum.k_slow = 0.0
 
   return
 

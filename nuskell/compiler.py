@@ -49,13 +49,17 @@ def printCRN(crn, reversible=True):
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
-def enumerateTT(testtube, args=None):
+def enumerateTT(testtube, condensed=True, args=None):
   """A wrapper function to enumerate species in a nuskell.TestTube object. """
   peppercorn = TestTubePeppercornIO(testtube, args)
   peppercorn.enumerate()
   enum_testtube = peppercorn.testtube
-  enum_crn = peppercorn.condense_reactions
-  #enum_crn = peppercorn.all_reactions
+
+  if condensed :
+    enum_crn = peppercorn.condense_reactions
+  else :
+    enum_crn = peppercorn.all_reactions
+
   return enum_testtube, enum_crn
 
 def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verbose = False):
