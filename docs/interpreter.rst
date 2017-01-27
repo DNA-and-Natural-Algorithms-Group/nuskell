@@ -1,5 +1,5 @@
 nuskell.interpreter
-=================
+===================
 
 API documentation of the nuskell.compiler library
 
