@@ -53,8 +53,7 @@ def pil_document_setup():
   # NOTE: Remove S(White()) for backward compatiblility: )) is not allowed anymore.
   loop = (Combine(sense + S("(")) + S(White()) + O(pattern) + S(White()) + asense)
 
-  expression = (loop | sbreak | sense)
-  pattern << G(OneOrMore(expression))
+  pattern << G(OneOrMore(loop | sbreak | sense))
 
   cplx = G(T(identifier + S("=") + OneOrMore(pattern) + OneOrMore(LineEnd().suppress()),'complex'))
 

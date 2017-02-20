@@ -17,6 +17,8 @@
 #     - read/write PIL files
 #     - enumerate species
 
+from nuskell.parser import parse_pil_file
+
 def pair_table(ss, chars=['.']):
   """Return a secondary struture in form of pair table:
 
@@ -752,7 +754,6 @@ class TestTubeIO(object):
 
   def load_pilfile(self, pilfile):
     """Parses a pil file written in KERNEL notation! """
-    from nuskell.parser.pil_parser import parse_pil_file
     ppil = parse_pil_file(pilfile)
 
     def resolve_loops(loop):
