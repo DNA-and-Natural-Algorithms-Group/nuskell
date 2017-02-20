@@ -30,12 +30,12 @@ class EnumerationTests(unittest.TestCase):
     parser = argparse.ArgumentParser()
     self.args = parser.parse_args([])
 
-    self.args.verbose = False
+    self.args.verbose = 0
 
     # Use default behavior
-    self.args.MAX_COMPLEX_SIZE = None
-    self.args.MAX_COMPLEX_COUNT = None
-    self.args.MAX_REACTION_COUNT = None
+    self.args.MAX_COMPLEX_SIZE = 100
+    self.args.MAX_COMPLEX_COUNT = 1000
+    self.args.MAX_REACTION_COUNT = 1000
 
     # Reduce enumerator output
     self.args.REJECT_REMOTE = False
@@ -43,15 +43,14 @@ class EnumerationTests(unittest.TestCase):
     self.args.ignore_branch_4way = False
 
     # Use default behavior
+    self.args.RELEASE_CUTOFF_1_1 = 6
+    self.args.RELEASE_CUTOFF_1_N = 6
     self.args.RELEASE_CUTOFF = None
-    self.args.RELEASE_CUTOFF_1_1 = None
-    self.args.RELEASE_CUTOFF_1_N = None
-    self.args.k_slow = None
-    self.args.k_fast = None
+    self.args.k_slow = 0.0
+    self.args.k_fast = 0.0
 
-    # TODO: what is this actually?
-    self.args.UNZIP = None
-    self.args.LEGACY_UNZIP = None
+    self.args.UNZIP = True
+    self.args.LEGACY_UNZIP = False
 
   def tearDown(self):
     pass
