@@ -58,16 +58,15 @@ def crn_document_setup():
   
   expr = G(reaction | rev_reaction) 
 
-  reactline = expr + ZeroOrMore(S(";") + expr) + S(LineEnd())
+  reactline = expr + ZeroOrMore(S(";") + expr)
 
-  formal = G(L("formal") + S(L("=") + \
+  formal = G(O(S(";")) + L("formal") + S(L("=") + \
              L("{")) + delimitedList(identifier) + S("}"))
-  constant = G(L("constant") + S(L("=") + \
+
+  constant = G(O(S(";")) + L("constant") + S(L("=") + \
                L("{")) + delimitedList(identifier) + S("}"))
   
-  crn = ZeroOrMore(reactline | S(LineEnd())) + \
-        O(formal) + ZeroOrMore(S(LineEnd())) + \
-        O(constant) + ZeroOrMore(S(LineEnd()))
+  crn = ZeroOrMore(reactline + O(S(LineEnd()))) + O(formal) + ZeroOrMore(S(LineEnd())) + O(constant) + ZeroOrMore(S(LineEnd()))
   
   document = StringStart() + crn + StringEnd()
   document.ignore(pythonStyleComment)

@@ -290,7 +290,7 @@ class Domain(IUPAC_translator):
     if '' in new :
       raise ValueError("Constraints cannot be satisfied")
     else :
-      self.sequence = new
+      self._sequence = new
 
   def get_ComplementDomain(self, compseq):
     """This function initializes or updates a ComplementDomain. 
@@ -751,7 +751,65 @@ class TestTubeIO(object):
       pil.write(": {:s}\n".format(''.join(v.nucleotide_structure)))
 
   def load_pilfile(self, pilfile):
-    raise NotImplementedError
+    """Parses a pil file written in KERNEL notation! """
+    from nuskell.parser.pil_parser import parse_pil_file
+    ppil = parse_pil_file(pilfile)
+
+    def resolve_loops(loop):
+      """ Return a sequence, structure pair from kernel format with parenthesis. """
+      sequen = []
+      struct = []
+      for dom in loop :
+        if isinstance(dom, str):
+          sequen.append(dom)
+          if dom == '+' :
+            struct.append('+')
+          else :
+            struct.append('.')
+        elif isinstance(dom, list):
+          struct[-1] = '('
+          old = sequen[-1]
+          se, ss = resolve_loops(dom)
+          sequen.extend(se)
+          struct.extend(ss)
+          sequen.append(old + '*' if old[-1] != '*' else old[:-1])
+          struct.append(')')
+      return sequen, struct
+
+    domains = []
+    for line in ppil :
+      if line[0] == 'domain':
+        domains.append(Domain(name=line[1]+'_', sequence = list('N'* int(line[2]))))
+      elif line[0] == 'complex':
+        name = line[1]+'_'
+        sequence, structure = resolve_loops(line[2])
+
+        for e in range(len(sequence)):
+          d = sequence[e]
+          if d == '+': continue
+          if d[-1] == '*' : 
+            dname = d[:-1] + '_'
+            dom = filter(lambda x: x.name == dname, domains)
+            if len(dom) < 1 :
+              raise RuntimeError('Missing domain specification', d)
+            elif len(dom) > 1 :
+              raise RuntimeError('Conflicting matches for domain specification', d)
+            sequence[e] = dom[0].get_ComplementDomain(list('R'*dom[0].length))
+
+          else :
+            dname = d + '_'
+            dom = filter(lambda x: x.name == dname, domains)
+            if len(dom) < 1 :
+              raise RuntimeError('Missing domain specification', d)
+            elif len(dom) > 1 :
+              raise RuntimeError('Conflicting matches for domain specification', d)
+            sequence[e] = dom[0]
+
+        self._testtube.add_complex(Complex(sequence = sequence, structure = structure, name=name))
+      else :
+        raise NotImplementedError('Weird expression returned from pil_parser!')
+
+    return self._testtube
 
   def write_dnafile(self, fh, formal=[], crn=None, ts=None):
     """ Write a TestTube Object into VisualDSD *.dna format.

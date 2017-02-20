@@ -175,8 +175,7 @@ def main() :
   elif args.readpil : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
     solution = TestTube()
-    raise NotImplementedError
-    solution.load_pilfile(args.pilfile)
+    TestTubeIO(solution).load_pilfile(args.readpil)
   else :
     # NOTE: At some point Nuskell should choose translation schemes automatically.
     #raise NotImplementedError("Automated choice of translation scheme is not implemented")
@@ -185,6 +184,11 @@ def main() :
     for s in os.listdir(schemedir) :
       print " --ts {}".format(s) 
     raise SystemExit
+
+  if args.verbose :
+    print "Complexes in Solution: "
+    for k,v in solution.complexes.items():
+      print ' ', v.name, map(str,v.sequence), v.structure
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
