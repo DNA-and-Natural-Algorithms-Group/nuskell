@@ -89,25 +89,25 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
   for k,v in fs_result.items():
     v.flatten_cplx
     #print type(v), k, map(str, v.sequence), v.structure
-    if k in solution.complexes :
+    if k in map(str, solution.complexes) :
       raise ValueError("Overwriting existing name")
-    c = Complex(name = k, 
+    new = Complex(name = k, 
         sequence = v.sequence, 
         structure = v.structure)
-    solution.add_complex(c)
+    solution.add_complex(new, (10, False), sanitycheck=True)
 
   #for k,v in solution.complexes.items():
   #  print type(v), v, map(str, v.sequence), v.structure
 
   num=1
-  for k,v in cs_solution.complexes.items():
+  for cplx in cs_solution.complexes:
     rename = 'f{}_'.format(str(num))
-    # Make sure nobody calls calls formal species like fuel species
-    if rename in solution.complexes :
-      raise ValueError("Duplicate fuel species name!")
-    c = Complex(sequence = v.sequence, structure = v.structure, 
-        name = rename)
-    solution.add_complex(c)
+    cplx.name = rename
+    ## Make sure nobody calls calls formal species like fuel species
+    #if rename in map(str, solution.complexes) :
+    #  raise ValueError("Duplicate fuel species name!")
+    new = Complex(sequence = cplx.sequence, structure = cplx.structure, name = rename)
+    solution.add_complex(new, cs_solution.complex_concentration(cplx), sanitycheck=True)
     num += 1
 
   ##############################################################################

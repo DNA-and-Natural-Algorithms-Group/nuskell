@@ -33,8 +33,60 @@ class InvalidSchemeError(Exception):
  
     super(InvalidSchemeError, self).__init__(self.message) 
 
-def simulateTT():
-  raise NotImplementedError
+def add_reaction_rates(crn, prefix=''):
+  """ 
+
+  Args:
+    crn ([[A,B],[X,Y]]): A crn with only irreversible reactions
+    prefix (string) : A prefix for every species, is required if
+      species are represented as numbers.
+  
+  """
+  rate = 0.8
+  newcrn = []
+  for r in crn:
+    nr = [[],[]]
+    if len(r) != 2 : 
+      raise Exception('The CRN does not have the required format')
+    else :
+      nr[0] = map(lambda x : prefix+x, r[0])
+      nr[1] = map(lambda x : prefix+x, r[1])
+    nr.append(rate)
+    newcrn.append(nr)
+  return newcrn
+
+def simulateTT(crn1, crn2, sorted_vars = [], verbose = False):
+  """
+  """
+  from crnsimulator import crn_to_ode, writeODElib
+
+  odename = 'ozzy'+'_crn1'
+
+  crn1k = add_reaction_rates(crn1, prefix='')
+  crn2k = add_reaction_rates(crn2, prefix='')
+  # TODO: add prefix here as well
+  sorted_vars = map(lambda x:''+x, sorted_vars)
+
+  print sorted_vars
+
+  V, M, J, R = crn_to_ode(crn1k)
+  print V
+  crn1_ofile = writeODElib(V, M, jacobian = J, rdict = R, odename = odename)
+  print 'Input CRN simulator written into:', crn1_ofile
+  print 'execute with: python {}'.format(crn1_ofile)
+
+  # TODO: (1) sort species in a reasonable way:
+  #   formal, constant, rest
+  #   pass a dictionary with default concentrations to write
+
+  concvect = [0,0,5,9, 1e-9]
+
+  odename = 'ozzy'+'_crn2'
+  V, M, J, R = crn_to_ode(crn2k)
+  crn2_ofile = writeODElib(V, M, jacobian = J, rdict = R, odename = odename, concvect = concvect)
+  print 'Enumerated implementation CRN simulator written into:', crn2_ofile
+  print 'execute with: python {}'.format(crn2_ofile)
+  return crn1_ofile, crn2_ofile
 
 def printCRN(crn, reversible=True):
   """A wrapper function to print CRNs. """

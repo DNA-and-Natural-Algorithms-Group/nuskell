@@ -17,6 +17,7 @@
 #     - read/write PIL files
 #     - enumerate species
 
+import networkx as nx
 from nuskell.parser import parse_pil_file
 
 def pair_table(ss, chars=['.']):
@@ -57,7 +58,6 @@ def pair_table(ss, chars=['.']):
   if stack != [] :
     raise RuntimeError("Too many opening brackets in secondary structure")
   return pt
-
 
 def find(l, key):
   for i in range(len(l)):
@@ -432,10 +432,10 @@ class Complex(object):
       self._name = prefix + str(self.id)
 
     if sequence == [] :
-      raise ValueError('Complex: requires Sequence and Structure Argument')
+      raise ValueError('Complex() requires Sequence and Structure Argument')
 
     if len(sequence) != len(structure) :
-      raise ValueError("Complex: sequence and structure must have same length")
+      raise ValueError("Complex() sequence and structure must have same length")
     self._sequence = sequence
     self._structure = structure
 
@@ -562,61 +562,163 @@ class Complex(object):
     return not self.__eq__(other)
 
 class TestTube(object):
-  """A reaction network of nucleic acids in a test-tube.
+  """A reaction network of nucleic acid complexes.
 
-  Currently: The TestTube object is a datastructure that stores all Complex and
-  Doamin instances in a system. It provides an interface to initialize such a
-  system from text files (*.pil, *.dom) or to write these system into those
-  file formats. 
+  **Description:**
+    TestTube() objects are Nuskell's standard interface to enumerate and
+    simulate nucleic acid systems.  Domain-level reaction networks are
+    enumerated using the Python package ``Peppercorn'' and simulated using the
+    Python package ``crnsimulator''. TestTube() can be exported to standard data
+    structures, e.g. to verify the equivalence between two TestTube() objects.
 
-  NotYetImplemented: The future of the TestTube object should store the nucleic
-  acid system as a reaction network.  The nodes of the graph are complexes, the
-  edges define transitions between complexes. Possible attributes for nodes and
-  edges are free energies, concentrations, molecular counts, reaction rates,
-  etc. TestTube objects will be the primary interface to enumerate, simulate,
-  and verify nucleic acid system.
+    Single or multiple Complex() and/or Reaction() objects can be accessed,
+    added and removed from the system.  TestTube() provides (optional) assert
+    statements checking if Complex() and Domain() instances have been
+    duplicated, but they might be time-consuming for large networks.
+
+    Built-in functions can process domain-level networks to remove strands with
+    wildcard-domains (also called history-domains). 
+    There are a few options to replace a wildcard-strand:
+      * replace with any single-stranded matching strand in the TestTube()
+      * replace with all single-stranded matching strands in the TestTube()
+      * replace with any matching strand in the TestTube()
+      * replace with all matching strands in the TestTube()
+      * remove the wildcard-domain.
+    It is recommended to adjust experimental protocols to the method chosen here.
+
+  **Structure:**
+    TestTube() is based on networkx.MultiDiGraph(), with two types of nodes: (a)
+    nuskell.Complex() and (b) nuskell.Reaction().  The graph is bipartite, edges
+    are directed (from reactants to prodcuts), they connect reactants to a
+    reaction node and a reaction node to products.
+    
+    TestTube() provides an additional *concentration* attribute and *constant*
+    atribute to Complex() nodes, as well as a rate attribute to Reaction()
+    nodes. These attributes are accessed when writing ODE systems and
+    (optionally) updated after simulations. This means a TestTube() **can** be
+    initialized without using Complex() and Reaction() objects, but by using a
+    consistent naming scheme.
+
+  **Developers:**
+    It is recommended to store all other node attributes (e.g. free energies,
+    etc.) directly in the nuskell.Complex() and nuskell.Reaction() objects.
+    TestTube() does not provide an I/O interface for file formats. There is a
+    separate TestTubeIO() object explicitly to parse and write compatible file
+    formats (*.pil, *.dom, *.dna, etc.).
+
+  **TODO:**
+    The interface allows boolean operations for TestTube(): AND, OR, NOT, XOR
+    The interface allows set operations for TestTube(): UNION, ...
   """
 
-  def __init__(self, complexes=None):
+  # A global TestTube() variable to make (time-consuming) sanity-checks when
+  # separate instances are subject to boolean or arithmetic opertions.
+  sanitychecks = True
+  warnings = True
+
+  def __init__(self, complexes=None, reactions=None):
     """Initialization of TestTube object. 
 
     Arguments:
-      complexes <optional: list> = A list of Complex objects. 
+      complexes <optional: dic()> =  A dictionary of complex names that stores
+        a tuple of [0]: the respective Complex() object or None, [1]: the
+        concentration, and [2]: boolean value to specify if the concentration
+        stays constant during a simulation: True = constant; False = initial
+        For example: complexes['A'] = (None, 100, True) is a new
+        species called 'A', which has no Complex() object initialized, and
+        remains constant at 100 [nM] concentration.
+
+        Note: The constant attribute defaults to False if not specified, in
+        which case the concentrations specify the initial state and might be
+        updated after a simulation.
     
     """
+    self._RG = nx.MultiDiGraph() 
 
     if complexes :
-      assert all(isinstance(c, Complex) for k,c in complexes.items())
-      self._complexes = complexes
-    else :
-      self._complexes = dict()
+      for name, data in complexes.items():
+        if len(data) == 2 or len(data) == 3:
+          assert isinstance(data[0], (Complex, None))
+          assert isinstance(data[1], (float, None))
+          if len(data) == 3:
+            assert isinstance(data[2], bool)
+        else :
+          raise RuntimeError('wrong initialization of arguments for TestTube()')
+
+        cplx = data[0]
+        conc = data[1]
+        const = data[2] if len(data) == 3 else False
+        if cplx :
+          self._RG.add_node(cplx, concentration=conc, constant=const) 
+        else :
+          self._RG.add_node(name, concentration=conc, constant=const) 
+
+    if reactions :
+      # Also reactions have to be uniquely adressable
+      for name, react in reactions.items():
+        if isinstance(react, Reaction) :
+          self._RG.add_node(Reaction, rate=Reaction.rate)
+          for r in Reaction.reactants :
+            assert self._RG.has_node(r)
+            self._RG.add_edge_from(r, Reaction)
+          for p in Reaction.products:
+            assert self._RG.has_node(p)
+            self._RG.add_edge_from(Reaction, p)
+        elif isinstance(react, list):
+          assert len(react) == 3
+          self._RG.add_node(name, rate=react[2])
+          for r in react[0]:
+            assert self._RG.has_node(r)
+            self._RG.add_edge_from(r, name)
+          for p in react[1]:
+            assert self._RG.has_node(p)
+            self._RG.add_edge_from(name, p)
 
     self._domains = None
     self._strands = None
-    self._reactions = None
+
+  @property
+  def ReactionGraph(self):
+    return self._RG
+  
+  @ReactionGraph.setter
+  def ReactionGraph(self, RG):
+    self._RG = RG
+    self._domains = None
+    self._strands = None
 
   @property
   def complexes(self):
-    #TODO: return self._complexes.values()
-    return self._complexes
+    # sorted = sorted(CG.nodes(data=True), key=lambda x: x[1]['concentration'], reverse=False)
+    return self._RG.nodes()
 
-  def add_complex(self, cplx, verbose=True):
+  def complex_concentration(self, cplx):
+    return self._RG.node[cplx]['concentration'], self._RG.node[cplx]['constant']
+
+  def add_complex(self, cplx, (conc, const), sanitycheck=True):
     """Add a complex to the TestTube. 
 
     A new complex resets .domains and .strands
     """ 
-    if cplx.name in self._complexes :
-      assert self._complexes[cplx.name] is cplx
+    if not isinstance(cplx, Complex) :
+      #TODO: do the formal stuff later
+      raise NotImplementedError
+
+    if self._RG.has_node(cplx):
+      # Same Name, same object!
+      assert self._RG[cplx] is cplx, Warning("Conflicting Complex Objects")
+      assert self._RG[cplx]['concentration'] == conc, Warning("Conflicting complex concentrations")
+      assert self._RG[cplx]['const'] == const, Warning("Conflicting complex concentrations")
     else :
       # NOTE: This might become inefficient at some point, but it has been
       # introduced to overcome issues with some translation schemes that
       # produce the same fuel strand multiple times.
-      if (cplx.sequence, cplx.structure) in map(
-          lambda x: (x.sequence, x.structure), self._complexes.values()):
-        if verbose:
-          print 'WARNING: One complex, one name! Skipping complex:', cplx.name
+      if sanitycheck and (cplx.sequence, cplx.structure) in map(
+          lambda x: (x.sequence, x.structure), self._RG.nodes()):
+        print 'WARNING: One complex, one name! Skipping complex:', cplx.name, \
+            map(str, cplx.sequence), cplx.structure
       else :
-        self._complexes[cplx.name] = cplx
+        self._RG.add_node(cplx, concentration=conc, constant=const) 
         self._domains = None
         self._strands = None
 
@@ -625,8 +727,10 @@ class TestTube(object):
 
     Removing a complex resets .domains and .strands
     """
-    if cplx.name in self._complexes :
-      del self._complexes[cplx.name]
+    if self._RG.has_node(cplx):
+      if G.in_edges(cplx) or G.out_edges(cplx):
+        raise RuntimeError("Cannot remove a complex engaged in reactions.")
+      self._RG.remove_node(cplx)
       self._domains = None
       self._strands = None
 
@@ -645,16 +749,14 @@ class TestTube(object):
       count = 0
       self._strands = dict()
       self._strand_names = dict()
-      for n, c in self._complexes.items():
-        for s in c.lol_sequence :
+      for cplx in self._RG.nodes_iter():
+        for s in cplx.lol_sequence :
           strand = tuple(map(str,s))
           if strand not in self._strand_names :
             name = 'strand_{}'.format(count); count += 1
             self._strand_names[strand] = name
             self._strands[name] = s
     return self._strands
-
-  #@propert strand_names
 
   @property
   def domains(self):
@@ -665,27 +767,63 @@ class TestTube(object):
     """
     if not self._domains :
       self._domains = dict()
-      for n, c in self._complexes.items():
-        for d in c.sequence :
+      for cplx in self._RG.nodes_iter():
+        for d in cplx.sequence :
           if d == '+' : continue
-          self._add_domain(d)
+          if d.name in self._domains :
+            assert self._domains[d.name] is d
+          else :
+            self._domains[d.name] = d
     return self._domains
-
-  def _add_domain(self, domain):
-    if domain.name in self._domains :
-      # This might be too stringent, but == is currently equivalent.
-      assert self._domains[domain.name] is domain
-    else :
-      self._domains[domain.name] = domain
  
+  def enumerate_reactions(self, args):
+    # call peppercorn to enumerate the reaction network starting from all
+    # complexes in the testtube.
+    # initialized a 'networkx' MultiDiGraph()
+    raise NotImplementedError
+
+  def add_irrev_reaction(self, reaction):
+    # reaction = irreversible: [[react],[prod],rate]
+    raise NotImplementedError
+
+  @property
+  def reactions(self):
+    raise NotImplementedError
+
+  def compose(self, other):
+    assert isinstance(other, TestTube)
+    combined = TestTube()
+    return nx.compose(self.ReactionGraph, other.ReactionGraph)
+
+
   def __add__(self, other):
     assert isinstance(other, TestTube)
     combined = TestTube()
-    for k,v in self._complexes.items() :
-      combined.add_complex(v, verbose=False)
-    for k,v in other.complexes.items() :
-      combined.add_complex(v, verbose=False)
+
+    # global TestTube() variable
+    if not TestTube.sanitychecks :
+      if TestTube.warnings :
+        raise Warning('TestTube() - sanity checks turned off!')
+      combined.ReactionGraph = nx.compose(self.ReactionGraph, other.ReactionGraph)
+
+    elif False and len(other.complexes) > len(self.complexes) :
+      combined.ReactionGraph = other.ReactionGraph
+      map(lambda c : combined.add_complex(c, self.complex_concentration(c), 
+        sanitycheck=True), self.complexes)
+
+    else :
+      combined.ReactionGraph = self.ReactionGraph
+      map(lambda c : combined.add_complex(c, other.complex_concentration(c), 
+        sanitycheck=True), other.complexes)
+      #map(lambda (x, y): combined.add_complex(x, sanitycheck=True, **y), other.complexes)
     return combined
+
+  def __radd__(self, other):
+    # Reverse add is used for: sum([Testtube1, Testtube2, ...])
+    if other == 0:
+      return self
+    else:
+      return self.__add__(other)
 
 class TestTubeIO(object):
   """A wrapper class to handle I/O of TestTube objects."""
@@ -708,9 +846,9 @@ class TestTubeIO(object):
           v.name, ''.join(v.sequence), v.length))
 
     # Print Complexes
-    for k, v in sorted(self._testtube.complexes.items()):
-      dom.write("{:s} = {:s} : {:s}\n".format(v.name, 
-        ' '.join(map(str,v.sequence)), ' '.join(v.structure)))
+    for cplx in sorted(self._testtube.complexes):
+      dom.write("{:s} = {:s} : {:s}\n".format(cplx.name, 
+        ' '.join(map(str,cplx.sequence)), ' '.join(cplx.structure)))
 
   def load_domfile(self, domfile):
     raise NotImplementedError
@@ -744,13 +882,13 @@ class TestTubeIO(object):
         ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
 
     # Print Structures
-    for k, v in sorted(self._testtube.complexes.items()):
-      pil.write("structure {:s} = ".format(v.name))
-      for s in v.lol_sequence :
+    for cplx in sorted(self._testtube.complexes):
+      pil.write("structure {:s} = ".format(cplx.name))
+      for s in cplx.lol_sequence :
         strand = tuple(map(str,s))
         name = self._testtube._strand_names[strand]
         pil.write("{:s} ".format(name))
-      pil.write(": {:s}\n".format(''.join(v.nucleotide_structure)))
+      pil.write(": {:s}\n".format(''.join(cplx.nucleotide_structure)))
 
   def load_pilfile(self, pilfile):
     """Parses a pil file written in KERNEL notation! """
@@ -806,7 +944,8 @@ class TestTubeIO(object):
               raise RuntimeError('Conflicting matches for domain specification', d)
             sequence[e] = dom[0]
 
-        self._testtube.add_complex(Complex(sequence = sequence, structure = structure, name=name))
+        self._testtube.add_complex(Complex(sequence = sequence, structure =
+          structure, name=name), (float("inf"), True))
       else :
         raise NotImplementedError('Weird expression returned from pil_parser!')
 
@@ -845,7 +984,7 @@ class TestTubeIO(object):
     fh.write("def Formal = 5\n\n")
 
     first = True
-    for k, v in sorted(self._testtube.complexes.items()):
+    for cplx in sorted(self._testtube.complexes):
 
       if first:
         fh.write ('( ')
@@ -853,14 +992,14 @@ class TestTubeIO(object):
       else :
         fh.write ('| ')
 
-      if k in formal :
+      if cplx.name in formal :
         fh.write("Formal * ")
       else :
         fh.write("constant Fuel * ")
 
-      name = v.name
-      sequ = v.sequence
-      stru = v.structure
+      name = cplx.name
+      sequ = cplx.sequence
+      stru = cplx.structure
 
       ptab = pair_table(stru)
 
@@ -957,12 +1096,25 @@ class TestTubeIO(object):
             close = '>'
         fh.write(" {} ".format(d[1]))
       if close :
-        fh.write("{} (* {} *)\n".format(close, k))
+        fh.write("{} (* {} *)\n".format(close, name))
       else:
-        fh.write(" (* {} *)\n".format(k))
+        fh.write(" (* {} *)\n".format(name))
 
     fh.write (")\n")
 
   def load_dnafile(self, dnafile):
     raise NotImplementedError
+
+class Reaction(object):
+  """ A formal reaction object. 
+
+  Stores common attributes such as reactants, products, rates, rtype, etc.
+  """
+
+  def __init__(self, reactants, products, rtype = None, rate = None):
+    """ """
+    self._reactants = sorted(reactants)
+    self._products = sorted(products)
+    self._type = rtype
+    self._rate = rate
 

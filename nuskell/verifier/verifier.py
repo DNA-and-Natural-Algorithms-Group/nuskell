@@ -117,19 +117,20 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
   enum_rename = dict()    # Rename 
   remove_ihist = set()
 
-  for nx, x in init_cplxs.complexes.items() :
-    if 'h' in map(lambda x:x[0], map(str, x.sequence)) :
-      hist = filter(lambda x:x[0]=='h', map(str, x.sequence))
+  # nx, x
+  for icplx in init_cplxs.complexes :
+    if 'h' in map(lambda x:x[0], map(str, icplx.sequence)) :
+      hist = filter(lambda x:x[0]=='h', map(str, icplx.sequence))
       if len(hist) > 1:
         raise ValueError("multiple history domains!")
       else :
         hist = hist[0]
       cnt = 0
-      for ny, y in enum_cplxs.complexes.items() :
-        if nx == ny : # formal species!
-          enum_rename[ny] = nx + "_i"
-          if nx in input_fs :
-            enum_to_formal[nx+"_i"]=Counter([nx])
+      for ecplx in enum_cplxs.complexes :
+        if icplx.name == ecplx.name : # formal species!
+          enum_rename[ecplx.name] = icplx.name + "_i"
+          if icplx.name in input_fs :
+            enum_to_formal[icplx.name+"_i"]=Counter([icplx.name])
           else :
             # NOTE: Sometimes spontanous reactions are implemented in a way
             # that a species that looks like a formal species is actually a
@@ -139,22 +140,22 @@ def get_interpretation(input_fs, init_cplxs, enum_cplxs):
             # statement should be safe to remove.
 
             # raise ValueError('Unexpected constant species')
-            enum_to_formal[nx+"_i"]=Counter([])
+            enum_to_formal[icplx.name+"_i"]=Counter([])
         else :
-          if patternMatch(x, y, ignore=hist) :
+          if patternMatch(icplx, ecplx, ignore=hist) :
             cnt += 1
-            enum_rename[ny] = nx + "_" + str(cnt)
-            if nx in input_fs :
-              enum_to_formal[nx+"_"+str(cnt)] = Counter([nx])
-              remove_ihist.add(nx+"_i")
+            enum_rename[ecplx.name] = icplx.name + "_" + str(cnt)
+            if icplx.name in input_fs :
+              enum_to_formal[icplx.name+"_"+str(cnt)] = Counter([icplx.name])
+              remove_ihist.add(icplx.name+"_i")
             else :
               # ... see NOTE above!
               # raise ValueError('Unexpected constant species')
-              enum_to_formal[nx+"_"+str(cnt)] = Counter([])
-              remove_ihist.add(nx+"_i")
+              enum_to_formal[icplx.name+"_"+str(cnt)] = Counter([])
+              remove_ihist.add(icplx.name+"_i")
     else :
-      if nx in input_fs :
-        enum_to_formal[nx]=Counter([nx])
+      if icplx.name in input_fs :
+        enum_to_formal[icplx.name]=Counter([icplx.name])
 
   # removing initial history species, if replaceable
   map(lambda x: enum_to_formal.pop(x), remove_ihist)
@@ -221,7 +222,8 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
     for r in combine_reversible_reactions(enum_crn): printRxn(r)
 
   # Remove all constant Species and duplicate Reactions from the enumerated CRN
-  cs = filter(lambda x: x not in input_fs, init_cplxs.complexes)
+  cs = filter(lambda x: x not in input_fs, map(str, init_cplxs.complexes))
+
   enum_crn = removeSpecies(enum_crn, cs)
   enum_crn = removeDuplicates(enum_crn)
 

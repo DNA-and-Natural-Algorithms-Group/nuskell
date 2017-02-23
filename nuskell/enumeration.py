@@ -84,9 +84,9 @@ class TestTubePeppercornIO(object):
         #  print 'resting state', rs.complexes
 
       #TODO: Note, use the following lines to return reaction rates!
-      # rate_units = "/M" * (r.arity[0]-1) + "/s"
-      # rate_const = "[%12.8g %s]" % (r.rate(), rate_units) 
-      # print [react, prod, rate_const]
+      #rate_units = "/M" * (r.arity[0]-1) + "/s"
+      #rate_const = "[%12.8g %s]" % (r.rate(), rate_units) 
+      #print [react, prod, rate_const]
 
       enum_crn.append([react, prod])
     return enum_crn
@@ -121,6 +121,7 @@ class TestTubePeppercornIO(object):
     # everythings done properly, and signals that using self._processed=True
     self._enumerator.enumerate()
     self._get_resting_cplxs()
+    #self._get_reaction_networkx()
     self._processed = True
 
   def _initialize_peppercorn(self, testtube):
@@ -158,15 +159,15 @@ class TestTubePeppercornIO(object):
 
     # Translate to peppercorn complexes
     complexes = {}
-    for n, c in testtube.complexes.items():
+    for cplx in testtube.complexes:
       cplx_strands = []
-      for s in c.lol_sequence :
+      for s in cplx.lol_sequence :
         ns = dom_to_strand[tuple(map(str,s))]
         cplx_strands.append(strands[ns])
-      complex_structure = peputils.parse_dot_paren(''.join(c.structure))
-      complex = peputils.Complex(n, cplx_strands, complex_structure)
+      complex_structure = peputils.parse_dot_paren(''.join(cplx.structure))
+      complex = peputils.Complex(cplx.name, cplx_strands, complex_structure)
       complex.check_structure()
-      complexes[n] = complex		
+      complexes[cplx.name] = complex		
     #print complexes.values()
 
     domains = domains.values()
@@ -183,6 +184,10 @@ class TestTubePeppercornIO(object):
     assert x[-1].isdigit()
     return self._enum_prefix + x + self._enum_append
 
+  def _get_reaction_networkx(self):
+    """ Merge the reaction network into self.testtube object. """
+    pass
+
   def _get_resting_cplxs(self):
     """Merge self.enumerator complexes into the self.testtube object. 
 
@@ -190,7 +195,7 @@ class TestTubePeppercornIO(object):
     only finds new complexes. This function adds all complexes that are
     present in resting states in the system. Transient states are ignored.
     """
-    oldcplxs = self._testtube.complexes.keys()
+    oldcplxs = map(str, self._testtube.complexes)
     if not self._autoname and any(
         map(lambda x:(x[0]==self._enum_prefix), oldcplxs)) :
       raise Exception(self._enum_prefix, 
@@ -217,10 +222,10 @@ class TestTubePeppercornIO(object):
               prefix=self._enum_prefix)
         else :
           cplxname = self._ecplx_rename(cx.name)
-          if cplxname in self._testtube.complexes:
+          if cplxname in map(str,self._testtube.complexes):
             raise ValueError("Complex found in muliple resting states?")
           mycplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
-        self._testtube.add_complex(mycplx)
+        self._testtube.add_complex(mycplx, (0, False))
         self._enum_to_ttube[cx.name] = mycplx.name
     return 
 

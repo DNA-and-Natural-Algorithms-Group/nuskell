@@ -6,7 +6,7 @@ import signal
 import argparse
 import pkg_resources
 
-from nuskell import translate, enumerateTT, verify, printCRN
+from nuskell import translate, enumerateTT, verify, printCRN, simulateTT
 from nuskell.compiler import InvalidSchemeError
 
 from nuskell.parser import parse_crn_string, split_reversible_reactions
@@ -187,14 +187,28 @@ def main() :
 
   if args.verbose :
     print "Complexes in Solution: "
-    for k,v in solution.complexes.items():
-      print ' ', v.name, map(str,v.sequence), v.structure
+    for cplx in solution.complexes:
+      print ' ', cplx.name, map(str, cplx.sequence), cplx.structure
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
+    # Alternative: 
+    #
+    # solution.enumerate_reactions(args, condensed = True)
+
+    # cs = solution.constant_species      # node._conc = 100 (nM) ; node.constant = True 
+    # fs = solution.formal_species        # node._conc = 10 (nM)  ; node.constant = False
+    # is = solution.intermediate_species  # node._conc = None     ; node.constant = False
+
+    # This means we need to read the information of what is constant/formal from 
+    # (1) the translation scheme or (2) the pil-file!
+
+    # ecrn = solution.reactions(rates=True, reversible = False)
+    # odes = solution.write_odes(fname='myodes.py')
+
     condensed = not args.enum_uncondensed
     enum_solution, enum_crn = enumerateTT(solution, condensed, args)
 
@@ -216,7 +230,7 @@ def main() :
     else :
       # Reduce the enumerated CRN without finding an interpretation
       import nuskell.verifier.verifier
-      cs = filter(lambda x: x not in fs, solution.complexes)
+      cs = filter(lambda x: x not in fs, map(str, solution.complexes))
       icrn = nuskell.verifier.verifier.removeSpecies(enum_crn, cs)
       icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
       interpret = None #dict()
@@ -259,7 +273,8 @@ def main() :
   # Simulate CRNs in a TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.simulate :
-    raise NotImplementedError
+    cs = filter(lambda x: x not in fs, map(str, solution.complexes))
+    fODEs, iODEs = simulateTT(fcrn, enum_crn, sorted_vars = sorted(fs) + sorted(cs), verbose = False)
 
 if __name__ == '__main__':
   main()
