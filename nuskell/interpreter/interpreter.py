@@ -107,7 +107,7 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
     #if rename in map(str, solution.complexes) :
     #  raise ValueError("Duplicate fuel species name!")
     new = Complex(sequence = cplx.sequence, structure = cplx.structure, name = rename)
-    solution.add_complex(new, cs_solution.complex_concentration(cplx), sanitycheck=True)
+    solution.add_complex(new, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
     num += 1
 
   ##############################################################################

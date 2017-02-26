@@ -222,8 +222,7 @@ def preprocess(irrev_crn, enum_crn, input_fs, init_cplxs, enum_cplxs,
     for r in combine_reversible_reactions(enum_crn): printRxn(r)
 
   # Remove all constant Species and duplicate Reactions from the enumerated CRN
-  cs = filter(lambda x: x not in input_fs, map(str, init_cplxs.complexes))
-
+  cs = map(str, init_cplxs.constant_species)
   enum_crn = removeSpecies(enum_crn, cs)
   enum_crn = removeDuplicates(enum_crn)
 

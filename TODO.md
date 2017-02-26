@@ -1,5 +1,11 @@
 # Nuskell - Checklist for Release
 
+# NEW:
+  - TestTube() reaction networkx
+  - translation-schemes with const_nM(x, 100), init_nM(x, 100) or infty(x)
+    - but what if a species is introduced at multiple sites at the same time? 
+  - modularity-branch
+
 # Issues:
   - write generalized version for lakin scheme (roessler)
   - Check whether there is a reason to keep qian2011_gen.ts separate from qian2011_fixed.ts

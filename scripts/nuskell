@@ -6,12 +6,13 @@ import signal
 import argparse
 import pkg_resources
 
-from nuskell import translate, enumerateTT, verify, printCRN, simulateTT
+from nuskell import translate, verify, printCRN
 from nuskell.compiler import InvalidSchemeError
 
 from nuskell.parser import parse_crn_string, split_reversible_reactions
-from nuskell.objects import TestTube, TestTubeIO
-from nuskell.verifier import preprocess
+from nuskell.objects import TestTube, TestTubeIO 
+from nuskell.enumeration import TestTubePeppercornIO
+from nuskell.verifier import removeSpecies
 
 class TimeoutError(Exception):
   pass
@@ -149,6 +150,7 @@ def main() :
   input_crn = sys.stdin.readlines()
   input_crn = "".join(input_crn)
   (fcrn, fs, cs) = parse_crn_string(input_crn) 
+  fcrn = split_reversible_reactions(fcrn)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare CRN and TestTube
@@ -178,7 +180,6 @@ def main() :
     TestTubeIO(solution).load_pilfile(args.readpil)
   else :
     # NOTE: At some point Nuskell should choose translation schemes automatically.
-    #raise NotImplementedError("Automated choice of translation scheme is not implemented")
     print "Please specify a translation scheme, see option --ts. For example:"
     schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
     for s in os.listdir(schemedir) :
@@ -195,45 +196,47 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
-    # Alternative: 
-    #
-    # solution.enumerate_reactions(args, condensed = True)
 
-    # cs = solution.constant_species      # node._conc = 100 (nM) ; node.constant = True 
-    # fs = solution.formal_species        # node._conc = 10 (nM)  ; node.constant = False
-    # is = solution.intermediate_species  # node._conc = None     ; node.constant = False
+    # TODO: how do we decide what is a formal, constant or fuel species?
+    # constant species are kept at constant concentrations (I2 AND NOT I1)
+    # fuel species are at high concentrations (I2 AND NOT I1)
+    # transient species are species at low concentrations (NOT I1)
+    # formal species are defined elsewhere (I1 AND I2)
 
-    # This means we need to read the information of what is constant/formal from 
-    # (1) the translation scheme or (2) the pil-file!
+    cs = map(str, solution.constant_species) # node['constant'] = True
+    #fuels = map(str, solution.fuel_species) # node['concentration'] >= 100 nM
 
-    # ecrn = solution.reactions(rates=True, reversible = False)
-    # odes = solution.write_odes(fname='myodes.py')
+    solution.enumerate_reactions(args, condensed = True)
 
-    condensed = not args.enum_uncondensed
-    enum_solution, enum_crn = enumerateTT(solution, condensed, args)
-
-    if args.verbose :
-      print "Enumerated CRN:"
-      printCRN(enum_crn, reversible = True)
+    enum_crn = []
+    for r in solution.reactions:
+      if args.verbose:
+        print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+      rxn = [map(str,r.reactants),map(str,r.products)]
+      enum_crn.append(rxn)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify :
     print "\nVerification preprocessing..."
-    fcrn = split_reversible_reactions(fcrn)
 
-    if True:
-      # Reduce the enumerated CRN and find an interpretation
-      icrn, interpret = preprocess(fcrn, enum_crn, fs,
-          solution, enum_solution, verbose=(args.verbose>1))
-    else :
-      # Reduce the enumerated CRN without finding an interpretation
-      import nuskell.verifier.verifier
-      cs = filter(lambda x: x not in fs, map(str, solution.complexes))
-      icrn = nuskell.verifier.verifier.removeSpecies(enum_crn, cs)
-      icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
-      interpret = None #dict()
+    interpret = solution.interpret_species(fs)
+    # Do the same thing with remaining species? No need of the interpretation,
+    # but it is important to prune the network if there are constant species
+    # with history-domains...
+    # tmp = solution.interpret_species(cs=)
+
+    icrn = []
+    for r in solution.reactions:
+      if args.verbose:
+        print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+      rxn = [map(str,r.reactants),map(str,r.products)]
+      icrn.append(rxn)
+
+    cs = map(str, solution.constant_species) # node['constant'] = True
+    icrn = removeSpecies(icrn, cs)
+    # icrn = solution.reactions(rates=True, reversible = False)
 
     if args.verbose :
       print "Implementation CRN:"
@@ -273,8 +276,24 @@ def main() :
   # Simulate CRNs in a TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.simulate :
-    cs = filter(lambda x: x not in fs, map(str, solution.complexes))
-    fODEs, iODEs = simulateTT(fcrn, enum_crn, sorted_vars = sorted(fs) + sorted(cs), verbose = False)
+    print "\nWriting executable simulator scripts:", args.output+'_fCRN.py', args.output+'_iCRN.py'
+    # Simulate the formal CRN using crnsimulator
+    from crnsimulator import crn_to_ode, writeODElib
+    # Add rate=1 to every reaction
+    scrn = map(lambda x: x + [1], fcrn)
+    V, M, J, R = crn_to_ode(scrn)
+    fFile = writeODElib(V, M, jacobian = J, rdict = R, odename = args.output+'_fCRN')
+
+    if args.verbose :
+      print 'Wrote formal CRN simulator:', fFile
+      print ' - execute with: python {}'.format(fFile)
+
+    # Simulate the interpretation CRN using crnsimulator
+    iFile = solution.simulate_crn(args.output + '_iCRN')
+    if args.verbose :
+      print 'Wrote implementation CRN simulator:', iFile
+      print ' - execute with: python {}'.format(iFile)
+
 
 if __name__ == '__main__':
   main()

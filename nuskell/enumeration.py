@@ -7,7 +7,7 @@
 # Preprocessing and interface to peppercorn enumerator
 #
 
-from nuskell.objects import TestTube, Complex
+from nuskell.objects import TestTube, Complex, Reaction
 
 import nuskell.include.peppercorn.utils as peputils
 from nuskell.include.peppercorn.enumerator import Enumerator
@@ -22,32 +22,50 @@ from nuskell.include.peppercorn.condense import condense_resting_states
 #   -- download at http://dna.caltech.edu/peppercorn """)
 
 class TestTubePeppercornIO(object):
-  """ A TestTube wrapperclass to communicate with the peppercorn enumerator.
+  """ A Wrapperclass to communicate between ``Nuskell'' and ``Peppercorn''.
 
-  This class reads a Nuskell TestTube object and translates it into a
-  Peppercorn Enumerator object. Both objects refer to the same complexes and
-  domains.
+  This class reads a ``Nuskell'' TestTube() object, translates it into a
+  ``Peppercorn'' Enumerator() object, enumerates, and updates both the
+  Enumerator() and the TestTube() object with the new reactions.
+
+  Alternatively, it may simply read a ``Peppercorn'' Enumerator() object and
+  return a ``Nuskell'' TestTube() object. For example, one might start with an
+  enumerated DSD network, transfer it to a TestTube() object for sequence design
+  and then load it back into the Enumerator().
+
+  Both objects refer to the same complexes and domains.
   """
-  def __init__(self, ttube, args=None):
-    # Input
-    self._testtube = TestTube()
-    self._testtube += ttube
-    self._enumerator = self._initialize_peppercorn(ttube)
-    if args :
-      # NOTE: does not set the 'condensed' option
-      set_enum_args(self._enumerator, args)
+
+  condensed = True
+
+  def __init__(self, testtube=None, enumerator=None, pargs=None, nargs=None,
+      rename = False):
+
+    if not (bool(testtube) != bool(enumerator)) : # NOT XOR
+      raise ValueError("Need to specify either TestTube() or Enumerator(), but not both!")
+    
+    # Autoname resets Peppercorn() complex names and replace it with TestTube()
+    # complex names. Two dictionaries store the mapping of names in TestTube()
+    # and Enumerator() objects.
+    self._autoname = rename
+    self._enum_prefix = 'e'
+    self._enum_append = '' if self._autoname else '_'
+    self._enumN_to_ttubeO = dict()
+    self._ttubeN_to_enumO = dict()
 
     # If True, the enumerator has been called and the TestTube is up-to-date.
     # only flips if used by the enumerate() function in *this* instance.
     self._processed = False 
-    self._enum_to_ttube = dict()
 
-    # Output: Autoname will reset the naming of complexes of the peppercorn
-    # enumerator format and replace it with autmatic TestTube names. This is
-    # nice for readability, but it becomes harder to debug code.
-    self._autoname = False
-    self._enum_prefix = 'e'
-    self._enum_append = '' if self._autoname else '_'
+    if testtube :
+      self._testtube = testtube
+      self._enumerator = self.testtube_to_enumerator(self._testtube) #NOTE Complexes only!!!
+    elif enumerator :
+      raise NotImplementedError
+      self._enumerator = enumerator
+      self._testtube = self.enumerator_to_testtube(self._enumerator)
+
+    set_peppercorn_args(self._enumerator, pargs)
 
   @property
   def testtube(self):
@@ -59,77 +77,20 @@ class TestTubePeppercornIO(object):
   def enumerator(self):
     return self._enumerator
 
-  @property
-  def condense_reactions(self):
-    condensed = condense_resting_states(self.enumerator, 
-        compute_rates = True, k_fast=self.enumerator.k_fast)
-    reactions = condensed['reactions']
-
-    enum_crn = []
-    for r in sorted(reactions):
-      # print map(lambda x: map(str, x.complexes), r.reactants), '->', 
-      # print map(lambda x: map(str, x.complexes), r.products)
-      # print r.kernel_string()
-
-      react = []
-      for rs in r.reactants:
-        react.append(self._enum_to_ttube[rs.complexes[0].name])
-        #if len(rs.complexes) > 1 :
-        #  print 'resting state', rs.complexes, react[-1]
-
-      prod = []
-      for rs in r.products:
-        prod.append(self._enum_to_ttube[rs.complexes[0].name])
-        #if len(rs.complexes) > 1 :
-        #  print 'resting state', rs.complexes
-
-      #TODO: Note, use the following lines to return reaction rates!
-      #rate_units = "/M" * (r.arity[0]-1) + "/s"
-      #rate_const = "[%12.8g %s]" % (r.rate(), rate_units) 
-      #print [react, prod, rate_const]
-
-      enum_crn.append([react, prod])
-    return enum_crn
-
-  @property
-  def all_reactions(self):
-    enum_crn = []
-    for r in sorted(self.enumerator.reactions):
-      react = []
-      for re in map(str, r.reactants) :
-        if re in self._enum_to_ttube:
-          re = self._enum_to_ttube[re]
-        react.append(re)
-      prod = []
-      for pr in map(str, r.products) :
-        if pr in self._enum_to_ttube:
-          pr = self._enum_to_ttube[pr]
-        prod.append(pr)
-
-      #print r.kernel_string()
-      #TODO: Note, use the following lines to return reaction rates!
-      # rate_units = "/M" * (r.arity[0]-1) + "/s"
-      # rate_const = "[%12.8g %s]" % (r.rate(), rate_units) 
-      # print [react, prod, rate_const]
-
-      enum_crn.append([react, prod])
-    return enum_crn
-
   def enumerate(self):
     # You may call self._enumerator.enumerate() directly, but then the testtube
     # object will not be updated afterwards. So this wrapper makes sure
     # everythings done properly, and signals that using self._processed=True
     self._enumerator.enumerate()
-    self._get_resting_cplxs()
-    #self._get_reaction_networkx()
+    self._testtube += self.enumerator_to_testtube(self._enumerator)
     self._processed = True
 
-  def _initialize_peppercorn(self, testtube):
+  def testtube_to_enumerator(self, testtube): # Does not add reactions!
     """Initialize the peppercorn enumerator object.
 
     Args:
       testtube <nuskell.objects.TestTube()>: complexes, strands and domains
-      args <arparse.parser()>: arguments for the enumerator
+      tN_to_eO <dict()>: Mapping from testtube names to enumerator Objects()
 
     Returns:
       Enumerator <peppercorn.enumerator.Enumerator()>
@@ -168,6 +129,9 @@ class TestTubePeppercornIO(object):
       complex = peputils.Complex(cplx.name, cplx_strands, complex_structure)
       complex.check_structure()
       complexes[cplx.name] = complex		
+
+      self._enumN_to_ttubeO[cplx.name] = cplx
+      self._ttubeN_to_enumO[cplx.name] = complex
     #print complexes.values()
 
     domains = domains.values()
@@ -188,48 +152,92 @@ class TestTubePeppercornIO(object):
     """ Merge the reaction network into self.testtube object. """
     pass
 
-  def _get_resting_cplxs(self):
-    """Merge self.enumerator complexes into the self.testtube object. 
+  def enumerator_to_testtube(self, enumerator):
+    """Merge Enumerator() complexes into the TestTube() object. 
 
     Note that the enumerator cannot generate new domains or new strands, it
     only finds new complexes. This function adds all complexes that are
     present in resting states in the system. Transient states are ignored.
     """
-    oldcplxs = map(str, self._testtube.complexes)
-    if not self._autoname and any(
-        map(lambda x:(x[0]==self._enum_prefix), oldcplxs)) :
-      raise Exception(self._enum_prefix, 
-          "Namespace prefix reserved for enumerated complexes")
+    condensed = TestTubePeppercornIO.condensed
+    ttcomplexes = dict()
 
-    domains = self._testtube.domains
-    for rs in self._enumerator.resting_states:
-      for cx in rs.complexes:
-        if cx.name in oldcplxs: 
-          self._enum_to_ttube[cx.name] = cx.name
-          continue
-        domseq = []
-        for sd in cx.strands:
-          domseq.append('+')
-          for do in sd.domains:
-            assert (do.name in domains)
-            dom = domains[do.name]
-            domseq.append(dom)
-        # remove the first '+' again
-        if len(domseq)>0: domseq = domseq[1:]
-        domstr = list(cx.dot_paren_string())
-        if self._autoname :
-          mycplx = Complex(sequence=domseq, structure=domstr, 
-              prefix=self._enum_prefix)
-        else :
-          cplxname = self._ecplx_rename(cx.name)
-          if cplxname in map(str,self._testtube.complexes):
-            raise ValueError("Complex found in muliple resting states?")
-          mycplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
-        self._testtube.add_complex(mycplx, (0, False))
-        self._enum_to_ttube[cx.name] = mycplx.name
-    return 
+    domains = enumerator.domains
+    # The enumerator cannot find new domains, so if there is a testtube object
+    # already, then we might as well save some effort and use the testtube
+    # domains directly
+    if self._testtube : 
+      dNames = map(lambda x: x.name, domains)
+      tDomains = self._testtube.domains
+      assert all(map(lambda d: d in tDomains, dNames))
+      domains = tDomains
+    else :
+      # translate domains to nuskell.Domain format, easy...
+      raise NotImplementedError
 
-def set_enum_args(enum, args):
+    if condensed :
+      enum_complexes = enumerator.resting_complexes
+    else :
+      # resting_complexes + transient_complexes
+      enum_complexes = enumerator.complexes
+
+    for cx in enum_complexes:
+      if cx.name in self._enumN_to_ttubeO :
+        ttcplx = self._enumN_to_ttubeO[cx.name] 
+        ttcomplexes[cx.name] = (ttcplx, None, None)
+        continue
+      domseq = []
+      for sd in cx.strands:
+        domseq.append('+')
+        for do in sd.domains:
+          assert (do.name in domains)
+          dom = domains[do.name]
+          domseq.append(dom)
+      # remove the first '+' again
+      if len(domseq)>0: domseq = domseq[1:]
+      domstr = list(cx.dot_paren_string())
+      if self._autoname :
+        ttcplx = Complex(sequence=domseq, structure=domstr, 
+            prefix=self._enum_prefix)
+      else :
+        cplxname = self._ecplx_rename(cx.name)
+        if cplxname in ttcomplexes:
+          raise ValueError("Complex found in muliple resting states?")
+        ttcplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
+
+      ttcomplexes[ttcplx.name] = (ttcplx, None, None) 
+      self._enumN_to_ttubeO[cx.name] = ttcplx
+      self._ttubeN_to_enumO[ttcplx.name] = cx
+
+    crn = dict()
+    if condensed:
+      condensed = condense_resting_states(enumerator, 
+          compute_rates = True, k_fast=enumerator.k_fast)
+      reactions = condensed['reactions']
+      for r in reactions:
+        # NOTE: takes only the *first complex* of resting states as representative
+        react = []
+        for rs in r.reactants:
+          react.append(self._enumN_to_ttubeO[rs.complexes[0].name])
+        prod = []
+        for rs in r.products:
+          prod.append(self._enumN_to_ttubeO[rs.complexes[0].name])
+        rxn = Reaction(react, prod, rate=r.rate(), rtype = r.name)
+        crn[rxn.name] = rxn
+    else :
+      for r in enumerator.reactions:
+        react = []
+        for re in r.reactants :
+          react.append(self._enumN_to_ttubeO[re.name])
+        prod = []
+        for pr in r.products :
+          prod.append(self._enumN_to_ttubeO[pr.name])
+        rxn = Reaction(react, prod, rate=r.rate(), rtype = r.name)
+        crn[rxn.name] = rxn
+
+    return TestTube(complexes=ttcomplexes, reactions=crn)
+
+def set_peppercorn_args(enum, args):
   """Transfer options to self._enumerator object. 
 
   Do NOT change default values here. These are supposed to be the defaults of
