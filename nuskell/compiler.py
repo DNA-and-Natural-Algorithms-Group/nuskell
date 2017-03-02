@@ -46,15 +46,6 @@ def printCRN(crn, reversible=True):
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
-def enumerateTT(solution, condensed=True, args=None):
-  # Wrapper providing an alternative to TestTube().enumerate()
-  print DeprecationWarning('enumerateTT: Deprecated function')
-  TestTubePeppercornIO.condensed = True
-  interface = TestTubePeppercornIO(testtube = solution, enumerator = None, pargs = args)
-  interface.enumerate()
-  solution += interface.testtube
-  return 
-
 def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verbose = False):
   """A formal chemical reaction network (CRN) is translated into domain level
   representation (DOM) of a DNA strand displacement circuit (DSD).  The

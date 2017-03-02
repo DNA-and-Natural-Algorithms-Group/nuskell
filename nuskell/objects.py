@@ -322,7 +322,6 @@ class Domain(IUPAC_translator):
     return self._name[-1:] == '*'
 
   # def add_complements(self, other):
-  #   # TODO: Check if constraints or subdomains are really complementary!
   #   raise Warning("add_complements: Experimental Feature.")
   #   for c in other :
   #     other.add_complements(set(self))
@@ -440,7 +439,6 @@ class Complex(object):
       raise ValueError("Complex() sequence and structure must have same length")
     self._sequence = sequence
     self._structure = structure
-    self._interpretation = interpret
 
   @property
   def name(self):
@@ -453,14 +451,6 @@ class Complex(object):
     if name[-1].isdigit() :
       raise ValueError('Complex name must not end with a digit!', name)
     self._name = name
-
-  @property
-  def interpretation(self):
-    return self._interpretation
-
-  @interpretation.setter
-  def interpretation(self, interpret):
-    self._interpretation = interpret
 
   @property
   def sequence(self):
@@ -656,7 +646,7 @@ class TestTube(object):
 
         cplx = data[0]
         conc = data[1]
-        const = data[2] if len(data) == 3 else False
+        const = data[2] if len(data) == 3 else None
         if cplx :
           self._RG.add_node(cplx, concentration=conc, constant=const) 
         else :
@@ -715,10 +705,12 @@ class TestTube(object):
     self._RG.node[cplx]['concentration'] = concentration
     self._RG.node[cplx]['constant'] = constant
 
-  @property
-  def constant_species(self):
-    """ Returns species that are at constant concentration """
-    return [n for n, att in self._RG.node.items() if isinstance(n, Complex) and att['constant']]
+  def present_species(self, exclude=[], th=0):
+    """ Returns species with concentration greater than a threshold, if they
+    are not explicitly excluded, e.g. because they are formal species.
+    """
+    return [n for n, att in self._RG.node.items() if \
+        isinstance(n, Complex) and att['concentration'] > th and n.name not in exclude]
 
   def interpret_species(self, species, prune=True):
     """Get an interpretation dictionary.
@@ -854,7 +846,7 @@ class TestTube(object):
       # consuming these molecules.
       # Alternative: enumerate again using history-replaced species.
       rxns = self.reactions
-      [prev, total] = [set(), set(interpretation.keys() + map(str,self.constant_species))]
+      [prev, total] = [set(), set(interpretation.keys() + map(str,self.present_species(exclude=map(str,species))))]
       while prev != total:
         prev = set(list(total))
         for rxn in rxns:
@@ -869,12 +861,6 @@ class TestTube(object):
       #TODO: the network still contains nodes that are obsolete!
     return interpretation
 
-  def get_interpretation(self, species, wildcard='?'):
-    pass
-
-  def implementation_network(self, constant_species = False):
-    pass
-
   def add_complex(self, cplx, (conc, const), sanitycheck=True):
     """Add a complex to the TestTube. 
 
@@ -885,7 +871,6 @@ class TestTube(object):
       raise NotImplementedError
 
     if self._RG.has_node(cplx):
-      #TODO: need to decide where and how concentrations can be overwritten
       if conc is not None:
         if self._RG.node[cplx]['concentration'] is None :
           self._RG.node[cplx]['concentration'] = conc
@@ -923,24 +908,24 @@ class TestTube(object):
       self._domains = None
       self._strands = None
 
-  def add_reaction(self, react):
+  def add_reaction(self, react, sanitycheck=True):
     """Add an irreversible reaction to the TestTube.  """ 
 
-    print Warning('add_reaction: lazy implementation')
     if not isinstance(react, Reaction) :
-      #TODO: do the formal stuff later
+      #TODO: do the formal stuff once we need it...
       raise NotImplementedError
 
     if self._RG.has_node(react):
-      #TODO: check if it is the same reaction
-      pass
+      assert self._RG.node[react]['rate'] == react.rate
     else :
-      # NOTE: This might become inefficient at some point, but it has been
-      # introduced to overcome issues with some translation schemes that
-      # produce the same fuel strand multiple times.
-      if False and sanitycheck :
-        #Check if the very same reaction exists as a different node.
-        pass
+      # NOTE: This might become inefficient at some point, but there might be
+      # cases where reactions are duplicated, so we check if the very same
+      # reaction exists as a different node:
+      if sanitycheck and filter(lambda x: 
+          (set(x.reactants) == set(react.reactants) and \
+           set(x.products) == set(react.products) and x.name == react.name), 
+          self.reactions):
+        raise Warning('duplicate!!!')
       else :
         self._RG.add_node(react, rate=react.rate)
         for r in react.reactants :
@@ -996,7 +981,7 @@ class TestTube(object):
             self._domains[d.name] = d
     return self._domains
  
-  def enumerate_reactions(self, args, condensed = True):
+  def enumerate_reactions(self, args=None, condensed = True):
     # Initialize Object for communication between the ``Peppercorn''
     # Enumerator() and this TestTube()
     from nuskell.enumeration import TestTubePeppercornIO
@@ -1023,7 +1008,7 @@ class TestTube(object):
         concentration = self._RG.node[r]['concentration']
         const = self._RG.node[r]['constant']
         if concentration == float('inf') :
-          concentration = 10
+          concentration = 100 * 1e-9
         elif concentration is None :
           concentration = 0.
 

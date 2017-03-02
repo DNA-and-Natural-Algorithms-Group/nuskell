@@ -472,7 +472,7 @@ class builtin_functions(object):
     if args[0].sequence == [] and args[0].structure == [] :
       return TestTube()
     else :
-      return TestTube(complexes={args[0].name: (args[0], float("inf"), True)})
+      return TestTube(complexes={args[0].name: (args[0], float("inf"), None)})
       #return TestTube(complexes={args[0].name: (args[0], float("inf"))})
 
     # Translate NusCompex -> Complex, so that the environment returns a 

@@ -33,6 +33,7 @@ class VerificationPreprocessingTests(unittest.TestCase):
     # clean up even if unittests failed
     pass
 
+  @unittest.skip("Depricated")
   def test_patternMatch(self):
     # single stranded complexes
     self.assertTrue(verifier.patternMatch(self.cplx1,self.cplx2))
