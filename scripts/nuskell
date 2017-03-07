@@ -5,7 +5,6 @@ import sys
 import signal
 import argparse
 import pkg_resources
-from crnsimulator import ReactionGraph
 
 from nuskell import translate, verify, printCRN
 from nuskell.compiler import InvalidSchemeError
@@ -14,6 +13,18 @@ from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.objects import TestTube, TestTubeIO 
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies
+
+class LibError(Exception):
+  """Raise Error: Library not found."""
+
+  def __init__(self, library, download=None):
+    self.message = "{} not found.\n".format(library)
+    self.message += "|==== \n"
+    if download:
+      self.message += "|Download: {}\n".format(download)
+    self.message += "|====\n"
+
+    super(LibError, self).__init__(self.message) 
 
 class TimeoutError(Exception):
   pass
@@ -276,6 +287,12 @@ def main() :
   # Simulate CRNs in a TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.simulate :
+    try:
+      __import__('crnsimulator')
+    except ImportError:
+      raise LibError('crnsimulator', 'http://www.github.com/bad-ants-fleet/crnsimulator')
+ 
+    from crnsimulator import ReactionGraph
     print "\nWriting executable simulator scripts:", args.output+'_fCRN.py', args.output+'_iCRN.py'
     # Simulate the formal CRN using crnsimulator
 
