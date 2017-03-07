@@ -5,6 +5,7 @@ import sys
 import signal
 import argparse
 import pkg_resources
+from crnsimulator import ReactionGraph
 
 from nuskell import translate, verify, printCRN
 from nuskell.compiler import InvalidSchemeError
@@ -191,7 +192,7 @@ def main() :
     for cplx in solution.complexes:
       print ' ', cplx.name, map(str, cplx.sequence), cplx.structure
 
-  #NOTE: At this point we have defined at least two kinds of species:
+  # NOTE: At this point we have defined at least two kinds of species:
   # formal species = species that are present in the input CRN
   # fuel species = all non-formal species that have concentration > 0 nM
   # In many cases, fuel species have 'infinite' concentration at this point,
@@ -277,19 +278,19 @@ def main() :
   if args.simulate :
     print "\nWriting executable simulator scripts:", args.output+'_fCRN.py', args.output+'_iCRN.py'
     # Simulate the formal CRN using crnsimulator
-    from crnsimulator import crn_to_ode, writeODElib
 
     # Add rate=1 to every reaction
     scrn = map(lambda x: x + [1], fcrn)
-    V, M, J, R = crn_to_ode(scrn)
-    fFile = writeODElib(V, M, jacobian = J, rdict = R, odename = args.output+'_fCRN')
+    CRG = ReactionGraph(scrn)
+    fFile, _ = CRG.write_ODE_lib(sorted(CRG.species), 
+            filename = args.output+'_fCRN')
 
     if args.verbose :
-      print 'Wrote formal CRN simulator:', fFile
+      print 'Wrote formal CRN simulator:', fFile 
       print ' - execute with: python {}'.format(fFile)
 
     # Simulate the interpretation CRN using crnsimulator
-    iFile = solution.simulate_crn(args.output + '_iCRN')
+    iFile, _ = solution.simulate_crn(args.output + '_iCRN')
     if args.verbose :
       print 'Wrote implementation CRN simulator:', iFile
       print ' - execute with: python {}'.format(iFile)

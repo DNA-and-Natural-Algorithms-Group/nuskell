@@ -998,10 +998,8 @@ class TestTube(object):
     from crnsimulator import writeODElib
     import sympy
 
-    rate_dict = True
     oR = dict()
     conc = dict()
-    crn = []
     ode = dict()
     for r in self._RG.nodes_iter() :
       if isinstance(r, Complex) : 
@@ -1015,11 +1013,8 @@ class TestTube(object):
         conc[str(r)] = concentration
         continue
 
-      if rate_dict :
-        rate = 'k'+str(len(oR.keys()))
-        oR[rate] = str(r.rate)
-      else :
-        rate = str(r.rate)
+      rate = 'k'+str(len(oR.keys()))
+      oR[rate] = str(r.rate)
 
       reactants = []
       for reac in self._RG.predecessors_iter(r) :
@@ -1043,8 +1038,6 @@ class TestTube(object):
         else :
           ode[x]= [[rate] + reactants]
 
-      crn.append([reactants, products, rate])
-
     if sorted_vars :
       assert len(sorted_vars()) == len(ode.keys())
       oV = sorted_vars
@@ -1061,8 +1054,8 @@ class TestTube(object):
     oM = sympy.Matrix(oM)
     oJ = None
 
-    oFile = writeODElib(oV, oM, jacobian=oJ, rdict=oR, concvect=oC, odename=odename)
-    return oFile
+    oFile, oname = writeODElib(oV, oM, jacobian=oJ, rdict=oR, concvect=oC, filename=odename)
+    return oFile, oname
 
   def __add__(self, other):
     assert isinstance(other, TestTube)
