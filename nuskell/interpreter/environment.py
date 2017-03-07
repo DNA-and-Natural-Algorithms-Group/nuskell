@@ -472,12 +472,26 @@ class builtin_functions(object):
     if args[0].sequence == [] and args[0].structure == [] :
       return TestTube()
     else :
-      return TestTube(complexes={args[0].name: args[0]})
+      return TestTube(complexes={args[0].name: (args[0], float("inf"), None)})
+      #return TestTube(complexes={args[0].name: (args[0], float("inf"))})
+
     # Translate NusCompex -> Complex, so that the environment returns a 
     # Standard TestTube Object.
     #standard = Complex(sequence=args[0].sequence, structure=args[0].structure)
     #return TestTube(complexes={standard.name: standard})
 
+  @staticmethod
+  def const_nM(args) :
+    if not isinstance(args[0], Complex):
+      raise RuntimeError("The first argument of `const_nM' should be a Complex")
+    if type(args[1]) != float:
+      raise RuntimeError("The second argument of `const_nM' should be a concentration <float>")
+    args[0].flatten_cplx
+    if args[0].sequence == [] and args[0].structure == [] :
+      return TestTube()
+    else :
+      return TestTube(complexes={args[0].name: (args[0], args[1])})
+ 
   #@staticmethod
   #def unique(args) :
   #  if type(args[0]) != int:

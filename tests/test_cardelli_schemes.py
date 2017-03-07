@@ -1,139 +1,105 @@
 import unittest
 from collections import Counter
 
-from nuskell import translate, enumerateTT, verify
-from nuskell.verifier import preprocess
+from nuskell import translate, verify
+from nuskell.verifier import removeSpecies
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 
-@unittest.skip("skipping slow tests")
 class CardelliSchemes(unittest.TestCase):
-
   def setUp(self):
     self.cFJ_original = 'schemes/original/cardelli2011_FJ.ts'
     self.cNM_original = 'schemes/original/cardelli2011_NM.ts'
     self.c2D_original = 'schemes/original/cardelli2013_2D.ts'
+
+  def tearDown(self):
+    pass
+ 
+  def _get_verification_data(self, input_crn, scheme):
+    (fcrn, fs, _) = parse_crn_string(input_crn)
+    solution, _ = translate(input_crn, scheme)
+    fuels = map(str, solution.present_species(exclude=fs))
+    solution.enumerate_reactions()
+    interpretation = solution.interpret_species(fs, prune=True)
+    icrn = []
+    for r in solution.reactions:
+      rxn = [map(str,r.reactants),map(str,r.products)]
+      icrn.append(rxn)
+    vcrn = removeSpecies(icrn, fuels)
+    fcrn = split_reversible_reactions(fcrn)
+    return fcrn, vcrn, fs, interpretation
  
   def test_TT_ApB_XpY_irrev(self):
     input_crn = "A + B -> X + Y"
 
-    (fcrn, fs, _) = parse_crn_string(input_crn)
-
-    scheme = self.cFJ_original
-
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
-
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
+   
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
     self.assertTrue(v)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
     self.assertTrue(v)
 
   def test_TT_ApB_XpY_rev(self):
     input_crn = "A + B <=> X + Y"
-    (fcrn, fs, _) = parse_crn_string(input_crn)
-    fcrn = split_reversible_reactions(fcrn)
-    scheme = self.cFJ_original
 
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
 
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
-    self.assertTrue(v)
+    #TODO: does not terminate
+    #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
+    #self.assertTrue(v)
 
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
     self.assertTrue(v)
 
   def test_FF_A_B_irrev(self):
     input_crn = "A -> B"
-    (fcrn, fs, _) = parse_crn_string(input_crn)
-    fcrn = split_reversible_reactions(fcrn)
-    scheme = self.cFJ_original
 
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
 
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
     self.assertFalse(v)
 
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
     self.assertFalse(v)
 
   def test_TF_A_B_rev(self):
     input_crn = "A <=> B"
-    (fcrn, fs, _) = parse_crn_string(input_crn)
-    fcrn = split_reversible_reactions(fcrn)
-    scheme = self.cFJ_original
 
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
 
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
     self.assertTrue(v)
 
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
     self.assertFalse(v)
 
   def test_FF_A_f_rev(self):
     input_crn = "A <=> "
-    (fcrn, fs, _) = parse_crn_string(input_crn)
-    fcrn = split_reversible_reactions(fcrn)
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
 
-    scheme = self.cFJ_original
-
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
-
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
-    self.assertFalse(v)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
-    self.assertFalse(v)
-
-    #TODO: see why bisimulation is not correct!!
-    scheme = self.cNM_original
-
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
-
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
-    self.assertFalse(v)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
     self.assertTrue(v)
 
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
+    self.assertFalse(v)
+
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_original)
+
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
+    self.assertTrue(v)
+
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
+    self.assertTrue(v)
 
   def test_FF_ApB_f_rev(self):
     input_crn = "A +B <=> "
-    (fcrn, fs, _) = parse_crn_string(input_crn)
-    fcrn = split_reversible_reactions(fcrn)
+    fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.c2D_original)
 
-    scheme = self.c2D_original
+    #TODO: does not terminate
+    #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation')
+    #self.assertTrue(v)
 
-    solution, _ = translate(input_crn, scheme)
-    enum_solution, enum_crn = enumerateTT(solution)
-
-    icrn, interpret = preprocess(fcrn, enum_crn, fs, solution, enum_solution)
-
-    # TODO: takes surprisingly long!!
-    #v, i = verify(fcrn, icrn, fs, interpret=interpret, method='bisimulation')
-    #self.assertFalse(v)
-
-    v, i = verify(fcrn, icrn, fs, interpret=interpret, method='pathway')
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway')
     self.assertFalse(v)
-
-
 
 if __name__ == '__main__':
   unittest.main()

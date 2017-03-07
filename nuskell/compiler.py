@@ -33,9 +33,6 @@ class InvalidSchemeError(Exception):
  
     super(InvalidSchemeError, self).__init__(self.message) 
 
-def simulateTT():
-  raise NotImplementedError
-
 def printCRN(crn, reversible=True):
   """A wrapper function to print CRNs. """
   if reversible :
@@ -48,19 +45,6 @@ def printCRN(crn, reversible=True):
       print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
-
-def enumerateTT(testtube, condensed=True, args=None):
-  """A wrapper function to enumerate species in a nuskell.TestTube object. """
-  peppercorn = TestTubePeppercornIO(testtube, args)
-  peppercorn.enumerate()
-  enum_testtube = peppercorn.testtube
-
-  if condensed :
-    enum_crn = peppercorn.condense_reactions
-  else :
-    enum_crn = peppercorn.all_reactions
-
-  return enum_testtube, enum_crn
 
 def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verbose = False):
   """A formal chemical reaction network (CRN) is translated into domain level

@@ -1,2 +1,2 @@
 #Import verification interface
-from verifier import preprocess, verify
+from verifier import verify, removeSpecies

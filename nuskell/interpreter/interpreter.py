@@ -89,90 +89,26 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
   for k,v in fs_result.items():
     v.flatten_cplx
     #print type(v), k, map(str, v.sequence), v.structure
-    if k in solution.complexes :
+    if k in map(str, solution.complexes) :
       raise ValueError("Overwriting existing name")
-    c = Complex(name = k, 
+    new = Complex(name = k, 
         sequence = v.sequence, 
         structure = v.structure)
-    solution.add_complex(c)
+    solution.add_complex(new, (10, False), sanitycheck=True)
 
   #for k,v in solution.complexes.items():
   #  print type(v), v, map(str, v.sequence), v.structure
 
   num=1
-  for k,v in cs_solution.complexes.items():
+  for cplx in cs_solution.complexes:
     rename = 'f{}_'.format(str(num))
-    # Make sure nobody calls calls formal species like fuel species
-    if rename in solution.complexes :
-      raise ValueError("Duplicate fuel species name!")
-    c = Complex(sequence = v.sequence, structure = v.structure, 
-        name = rename)
-    solution.add_complex(c)
+    cplx.name = rename
+    ## Make sure nobody calls calls formal species like fuel species
+    #if rename in map(str, solution.complexes) :
+    #  raise ValueError("Duplicate fuel species name!")
+    new = Complex(sequence = cplx.sequence, structure = cplx.structure, name = rename)
+    solution.add_complex(new, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
     num += 1
 
-  ##############################################################################
-  # The following code is a greedy replacement of history-domains *before*
-  # reaction enumeration.  This seems to work just fine, but there might be an
-  # example where it makes a difference which produce domain is used to replace
-  # the history domain?  
-  # The primary reason why this is code is commented out is that the
-  # verification preprocessing for history schemes relies on finding history
-  # domains in the formal species, ... :-(
-
-  #for nx, x in solution.complexes.items():
-  #  hd = filter(lambda y:str(y)[0]=='h', x.sequence)
-  #  if len(hd) == 1:
-  #    if '+' in x.sequence:
-  #      raise NotImplementedError("history domain in multistranded complex!")
-  #    hd = hd[0]
-  #    for ns, s in solution.strands.items():
-  #      if x.sequence == s : 
-  #        continue
-  #      if patternMatch(x.sequence, s, ignore=str(hd)):
-  #        dummy = Complex(s, x.structure, name=x.name)
-  #        solution.rm_complex(x)
-  #        solution.add_complex(dummy)
-  #        break
-  #  elif len(hd) > 1:
-  #    raise NotImplementedError("multiple history domains in one complex!")
-
   return solution, cs_solution
-
-def patternMatch(x, y, ignore = '?'):
-  """Matches two complexes if they are the same, ignoring history domains. 
-
-  Note: The strand order of the second complex changes to the strand order of
-  the first complex, if there is a rotation under which both complexes are
-  patternMatched.
-
-  Args: 
-    x (Complex()) : A nuskell Complex() object.
-    y (Complex()) : A nuskell Complex() object.
-
-  Returns: True/False
-  """
-  if len(x) != len(y) :
-    return False
-
-  def pM_check(pMx, pMy):
-    """Recursively parse the current sequences and structures. 
-
-    Args: 
-      pMx [seqX,strX]: A list of two lists (sequence, structrure)
-      pMy [seqY,strY]: A list of two lists (sequence, structrure)
-
-    Returns: True/False
-    """
-    if len(pMx) == 0 :
-      return True
-
-    if pMx[0] != ignore and pMy[0] != ignore and pMx[0] != pMy[0]:
-      return False
-    return pM_check(pMx[1:], pMy[1:])
-
-  pMx = map(str, x)
-  pMy = map(str, y)
-  if pM_check(pMx,pMy) :
-    return True
-  return False
 

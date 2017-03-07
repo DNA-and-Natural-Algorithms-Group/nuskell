@@ -5,13 +5,15 @@ import sys
 import signal
 import argparse
 import pkg_resources
+from crnsimulator import ReactionGraph
 
-from nuskell import translate, enumerateTT, verify, printCRN
+from nuskell import translate, verify, printCRN
 from nuskell.compiler import InvalidSchemeError
 
 from nuskell.parser import parse_crn_string, split_reversible_reactions
-from nuskell.objects import TestTube, TestTubeIO
-from nuskell.verifier import preprocess
+from nuskell.objects import TestTube, TestTubeIO 
+from nuskell.enumeration import TestTubePeppercornIO
+from nuskell.verifier import removeSpecies
 
 class TimeoutError(Exception):
   pass
@@ -149,6 +151,7 @@ def main() :
   input_crn = sys.stdin.readlines()
   input_crn = "".join(input_crn)
   (fcrn, fs, cs) = parse_crn_string(input_crn) 
+  fcrn = split_reversible_reactions(fcrn)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare CRN and TestTube
@@ -178,7 +181,6 @@ def main() :
     TestTubeIO(solution).load_pilfile(args.readpil)
   else :
     # NOTE: At some point Nuskell should choose translation schemes automatically.
-    #raise NotImplementedError("Automated choice of translation scheme is not implemented")
     print "Please specify a translation scheme, see option --ts. For example:"
     schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
     for s in os.listdir(schemedir) :
@@ -187,45 +189,60 @@ def main() :
 
   if args.verbose :
     print "Complexes in Solution: "
-    for k,v in solution.complexes.items():
-      print ' ', v.name, map(str,v.sequence), v.structure
+    for cplx in solution.complexes:
+      print ' ', cplx.name, map(str, cplx.sequence), cplx.structure
 
+  # NOTE: At this point we have defined at least two kinds of species:
+  # formal species = species that are present in the input CRN
+  # fuel species = all non-formal species that have concentration > 0 nM
+  # In many cases, fuel species have 'infinite' concentration at this point,
+  # and the experimental concentrations are adjusted using simulations
+  # later-on.
+
+  fuels = map(str, solution.present_species(exclude=fs))
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
     condensed = not args.enum_uncondensed
-    enum_solution, enum_crn = enumerateTT(solution, condensed, args)
+    solution.enumerate_reactions(args, condensed = condensed)
 
-    if args.verbose :
-      print "Enumerated CRN:"
-      printCRN(enum_crn, reversible = True)
+    enum_crn = []
+    for r in solution.reactions:
+      if args.verbose:
+        print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+      rxn = [map(str,r.reactants),map(str,r.products)]
+      enum_crn.append(rxn)
+
+    print "\nReplacing regular-expression complexes ..."
+    interpret = solution.interpret_species(fs, prune=True)
+    # Do the same thing with remaining species? No need of the interpretation,
+    # but it is important to prune the network if there are constant species
+    # with history-domains...
+    # tmp = solution.interpret_species(cs=)
+
+    icrn = []
+    # Implementation CRN is an enumerated CRN after regex-complexes have been
+    # removed.
+    for r in solution.reactions:
+      if args.verbose:
+        print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+      rxn = [map(str,r.reactants),map(str,r.products)]
+      icrn.append(rxn)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.verify :
-    print "\nVerification preprocessing..."
-    fcrn = split_reversible_reactions(fcrn)
-
-    if True:
-      # Reduce the enumerated CRN and find an interpretation
-      icrn, interpret = preprocess(fcrn, enum_crn, fs,
-          solution, enum_solution, verbose=(args.verbose>1))
-    else :
-      # Reduce the enumerated CRN without finding an interpretation
-      import nuskell.verifier.verifier
-      cs = filter(lambda x: x not in fs, solution.complexes)
-      icrn = nuskell.verifier.verifier.removeSpecies(enum_crn, cs)
-      icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
-      interpret = None #dict()
-
-    if args.verbose :
-      print "Implementation CRN:"
-      printCRN(icrn, reversible = True)
-
     print "\nVerification using:", args.verify
+
+    vcrn = removeSpecies(icrn, fuels)
+    if args.verbose :
+      print "Verification CRN:"
+      printCRN(vcrn, reversible = True)
+
     if interpret and args.verbose :
       print "Partial interpretation:"
       for impl, formal in sorted(interpret.items()) :
@@ -235,7 +252,7 @@ def main() :
       signal.signal(signal.SIGALRM, handler)
       signal.alarm(args.verify_timeout)
       try :
-        v, i = verify(fcrn, icrn, fs, interpret=interpret, method=meth,
+        v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
             verbose=(args.verbose>1))
 
         if i and args.verbose :
@@ -259,7 +276,25 @@ def main() :
   # Simulate CRNs in a TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.simulate :
-    raise NotImplementedError
+    print "\nWriting executable simulator scripts:", args.output+'_fCRN.py', args.output+'_iCRN.py'
+    # Simulate the formal CRN using crnsimulator
+
+    # Add rate=1 to every reaction
+    scrn = map(lambda x: x + [1], fcrn)
+    CRG = ReactionGraph(scrn)
+    fFile, _ = CRG.write_ODE_lib(sorted(CRG.species), 
+            filename = args.output+'_fCRN')
+
+    if args.verbose :
+      print 'Wrote formal CRN simulator:', fFile 
+      print ' - execute with: python {}'.format(fFile)
+
+    # Simulate the interpretation CRN using crnsimulator
+    iFile, _ = solution.simulate_crn(args.output + '_iCRN')
+    if args.verbose :
+      print 'Wrote implementation CRN simulator:', iFile
+      print ' - execute with: python {}'.format(iFile)
+
 
 if __name__ == '__main__':
   main()
