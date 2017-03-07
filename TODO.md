@@ -1,11 +1,5 @@
 # Nuskell - Checklist for Release
 
-# NEW:
-  - TestTube() reaction networkx
-  - translation-schemes with const_nM(x, 100), init_nM(x, 100) or infty(x)
-    - but what if a species is introduced at multiple sites at the same time? 
-  - modularity-branch
-
 # Issues:
   - write generalized version for lakin scheme (roessler)
   - Check whether there is a reason to keep qian2011_gen.ts separate from qian2011_fixed.ts
@@ -14,9 +8,11 @@
     as generalized, i.e. genralized by using A+B->X+Y using fuel-strands. ... maybe we can
     make a directory 'verfied' for schemes that are known to be correct on every input?
 
-  - is there a problem when the enumerator gets history-reduced systems in the first place?
   - identify rates for leaky remote-toehold binding in the soloveichik scheme (A+A->A)
   - reproduce results from QD bisimulation on soloveichik and roessler.
+  - there used to be cases where constant species have history domains ->
+    dependent on the generalization of reaction schemes. We need to be clear on
+    how to deal with that.
 
 ## Release 0.2:
 
