@@ -64,6 +64,16 @@ class TestCRNparser(unittest.TestCase):
           ['A1', 'A2', 'B2'], ['A','C','X','Y'])
    self.assertEqual(parse_crn_string(crn), out, 'oneline CRN format')
 
+   crn = "A+C->X+X; formal={A1, A2, B2}"
+   out = ([[['A', 'C'], ['X', 'X'], [None]]],
+          ['A1', 'A2', 'B2'], ['A','C','X'])
+   self.assertEqual(parse_crn_string(crn), out, 'oneline CRN format')
+
+   crn = "A+C->2X; formal={A1, A2, B2}"
+   out = ([[['A', 'C'], ['X', 'X'], [None]]],
+          ['A1', 'A2', 'B2'], ['A','C','X'])
+   self.assertEqual(parse_crn_string(crn), out, 'oneline CRN format')
+
    crn = "A+C->X+Y; formal={A1, A2, B2, X, Y}; constant={}"
    out = ([[['A', 'C'], ['X', 'Y'], [None]]],
           ['A1', 'A2', 'B2', 'X', 'Y'], [])
