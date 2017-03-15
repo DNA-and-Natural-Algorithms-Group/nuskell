@@ -41,7 +41,8 @@ def printCRN(crn, reversible=True):
     pcrn = split_reversible_reactions(crn)
 
   for rxn in pcrn :
-    if len(rxn) > 2 and rxn[2] == 'reversible' :
+    assert len(rxn) == 3
+    if len(rxn[2]) == 2 :
       print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
@@ -81,7 +82,7 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verb
 
   if pilfile :
     with open(pilfile, 'w') as pil:
-      TestTubeIO(solution).write_pilfile(pil)
+      TestTubeIO(solution).write_pil_kernel(pil)
   if domfile :
     with open(domfile, 'w') as dom:
       TestTubeIO(solution).write_domfile(dom)

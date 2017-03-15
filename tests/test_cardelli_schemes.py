@@ -5,6 +5,7 @@ from nuskell import translate, verify
 from nuskell.verifier import removeSpecies
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 
+@unittest.skip('slow and TODO')
 class CardelliSchemes(unittest.TestCase):
   def setUp(self):
     self.cFJ_original = 'schemes/original/cardelli2011_FJ.ts'

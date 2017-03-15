@@ -9,29 +9,25 @@
 
 from collections import Counter
 
-from nuskell.parser import combine_reversible_reactions
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 
-def printRxn(rxn, inter={}):
-  # First, replace every Instance of a variable by its interpretation
-  # Second, print it
-  react = map(lambda x: ' + '.join(
-    sorted(inter[x].elements())) if x in inter else x, rxn[0])
-  produ = map(lambda x: ' + '.join(
-    sorted(inter[x].elements())) if x in inter else x, rxn[1])
-  if len(rxn) == 3 and rxn[2] == 'reversible':
-    print ' + '.join(react), '<=>', ' + '.join(produ)
-  else :
-    print ' + '.join(react), '->', ' + '.join(produ)
+def removeRates(crn):
+  # Remove all rate constants
+  return [rxn[:2] for rxn in crn]
 
 def removeSpecies(crn, fuel):
+  # Remove all fuel species, keep rates untouched.
+  #if crn and len(crn[0])>2 :
+  #  print "Discarding CRN information"
+
   crn = [[filter(lambda s: s not in fuel, rxn[0]),
           filter(lambda s: s not in fuel, rxn[1])]
          for rxn in crn]
   return crn
 
 def removeDuplicates(l):
+  # Remove Reactions occuring multiple times?
   def helper(l) :
     r = []
     if len(l) == 0: return []
@@ -52,8 +48,8 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
   interactive = False
   v, i = None, None
 
-  fcrn = [[Counter(part) for part in rxn] for rxn in irrev_crn]
-  ecrn = [[Counter(part) for part in rxn] for rxn in enum_crn]
+  fcrn = [[Counter(part) for part in rxn[:2]] for rxn in irrev_crn]
+  ecrn = [[Counter(part) for part in rxn[:2]] for rxn in enum_crn]
 
   if method == 'bisimulation' or method == 'bisim-whole-graph' :
     v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 

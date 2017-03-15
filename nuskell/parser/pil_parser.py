@@ -1,10 +1,10 @@
 #
 #
-# Copyright (c) 2010 Caltech. All rights reserved.
-# Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+# Copyright (c) 2017 Caltech. All rights reserved.
+# Written by Stefan Badelt (badelt@caltech.edu).
 #
 #
-# Parser module for domain specification description files (*.dom).
+# Parser module for pil files in kernel notation.
 #
 
 from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore, Combine, White,
@@ -35,10 +35,12 @@ def pil_document_setup():
   G = Group
   S = Suppress
   O = Optional
+  C = Combine
   L = Literal
  
   identifier = W(alphas, alphanums + "_-")
   number = W(nums, nums)
+  gorf = C(W(nums) + O((L('.') + W(nums)) | (L('e') + O('-') + W(nums))))
   domain = G(T(S("length") + identifier + S("=") + number + OneOrMore(LineEnd().suppress()),'domain'))
 
   # NOTE: exchange the comment for asense if you want to allow input in form of "x( ... y)", 
@@ -52,10 +54,12 @@ def pil_document_setup():
   pattern = Forward()
   # NOTE: Remove S(White()) for backward compatiblility: )) is not allowed anymore.
   loop = (Combine(sense + S("(")) + S(White()) + O(pattern) + S(White()) + asense)
-
   pattern << G(OneOrMore(loop | sbreak | sense))
 
-  cplx = G(T(identifier + S("=") + OneOrMore(pattern) + OneOrMore(LineEnd().suppress()),'complex'))
+  unit = L('M') | L('mM') | L('uM') | L('nM') | L('fM')
+  conc = G(S('@') + L('initial') + gorf + unit) | G(S('@') + L('constant') + gorf + unit)
+
+  cplx = G(T(identifier + S("=") + OneOrMore(pattern) + O(conc) + OneOrMore(LineEnd().suppress()),'complex'))
 
   stmt = domain | cplx
 

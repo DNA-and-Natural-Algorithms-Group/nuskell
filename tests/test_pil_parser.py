@@ -43,6 +43,12 @@ class TestCRNparser(unittest.TestCase):
     self.assertEqual(parse_pil_string("cplx = a( b( c( + ) ) d ) "), 
         [['complex', 'cplx', ['a', ['b', ['c', ['+']], 'd']]]], 'small example 1')
 
+    parse_pil_string("cplx = a( b( c( + ) ) d ) @ constant 1e-7 M")
+    parse_pil_string("cplx = a( b( c( + ) ) d ) @ constant 1e-4 mM")
+    parse_pil_string("cplx = a( b( c( + ) ) d ) @ constant 0.1 uM")
+    parse_pil_string("cplx = a( b( c( + ) ) d ) @ initial 100 nM")
+    parse_pil_string("cplx = a( b( c( + ) ) d ) @ initial 1e5 fM") 
+
     with self.assertRaises(ParseException):
       # whitespace between domains 
       parse_pil_string("cplx = a(b( c( + ) ) ) d ")

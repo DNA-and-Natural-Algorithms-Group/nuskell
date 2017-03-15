@@ -508,6 +508,22 @@ class Complex(object):
     return flatten(map(lambda (x,y): my_base_sequence(x,y) + ['+'], lol))[:-1]
 
   @property
+  def kernel(self):
+    seq = self.sequence
+    sst = self.structure
+    knl = ''
+    for i in range(len(seq)) :
+      if sst[i] == '+': 
+        knl += str(sst[i]) + ' '
+      elif sst[i] == ')':
+        knl += str(sst[i]) + ' '
+      elif sst[i] == '(':
+        knl += str(seq[i])+str(sst[i]) + ' '
+      else :
+        knl += str(seq[i]) + ' '
+    return knl
+
+  @property
   def rotate_once(self):
     """Rotate the strands within the complex and return the updated object. """
     if "+" in self._sequence :
@@ -698,16 +714,20 @@ class TestTube(object):
     #TODO: This only works with Reaction() objects
     return [n for n in self._RG.nodes() if isinstance(n, Reaction)] 
 
-  def get_complex_concentration(self, cplx):
-    return self._RG.node[cplx]['concentration'], self._RG.node[cplx]['constant']
-
   def set_complex_concentration(self, cplx, concentration, constant):
     self._RG.node[cplx]['concentration'] = concentration
     self._RG.node[cplx]['constant'] = constant
 
-  def present_species(self, exclude=[], th=0):
-    """ Returns species with concentration greater than a threshold, if they
-    are not explicitly excluded, e.g. because they are formal species.
+  def get_complex_concentration(self, cplx):
+    return self._RG.node[cplx]['concentration'], self._RG.node[cplx]['constant']
+
+  def selected_complexes(self, names):
+    #TODO: This only works with Complex() objects
+    return [n for n in self._RG.nodes() if isinstance(n, Complex) and n.name in names]
+
+  def present_complexes(self, exclude=[], th=0):
+    """ Returns complexes with concentration greater than a threshold, if they
+    are not explicitly excluded, e.g. because they are formal complexes.
     """
     return [n for n, att in self._RG.node.items() if \
         isinstance(n, Complex) and att['concentration'] > th and n.name not in exclude]
@@ -817,11 +837,15 @@ class TestTube(object):
     interpretation = dict()
     for fs in species:
       cplxs = [n for n in self._RG.nodes() if n.name == fs]
-      assert len(cplxs) == 1, Warning('Duplicate complex names?')
+      if len(cplxs) == 0:
+        print Warning('No complex found with name of formal species:', fs)
+        continue
+      else :
+        assert len(cplxs) == 1, Warning('Duplicate complex names?')
 
       cplx = cplxs[0]
       #if '?' in map(str, cplx.sequence) :
-      if 'h' in map(lambda d : d.name[0], cplx.sequence) :
+      if 'h' in map(lambda d : d.name[0], [d for d in cplx.sequence if d != '+']) :
         matches = get_matching_complexes(cplx)
         if matches :
           need_to_prune = True
@@ -830,12 +854,17 @@ class TestTube(object):
             interpretation[m.name] = Counter([fs])
           self.rm_complex(cplx, force=True)
         else :
-          # Remove Domain
-          hidx = map(lambda d:d.name[0], cplx.sequence).index('h')
-          del cplx.sequence[hidx]
-          del cplx.structure[hidx]
-          #print cplx.name, map(str, cplx.sequence), map(str, cplx.structure)
-          cplx.name = fs+'_0_'
+          # NOTE: We cannot simply remove the domain, because we would need to
+          # enumerate the network again and remove the domain everywhere! So
+          # unless we enumerate up-front with a history-pruned species, this 
+          # gets us into trouble. 
+          #
+          # # Remove Domain
+          # hidx = map(lambda d:d.name[0], cplx.sequence).index('h')
+          # del cplx.sequence[hidx]
+          # del cplx.structure[hidx]
+          # #print cplx.name, map(str, cplx.sequence), map(str, cplx.structure)
+          # cplx.name = fs+'_0_'
           interpretation[cplx.name] = Counter([fs])
       else :
         interpretation[cplx.name] = Counter([fs])
@@ -846,7 +875,8 @@ class TestTube(object):
       # consuming these molecules.
       # Alternative: enumerate again using history-replaced species.
       rxns = self.reactions
-      [prev, total] = [set(), set(interpretation.keys() + map(str,self.present_species(exclude=map(str,species))))]
+      [prev, total] = [set(), set(interpretation.keys() + map(str,
+        self.present_complexes(exclude=map(str,species))))]
       while prev != total:
         prev = set(list(total))
         for rxn in rxns:
@@ -858,7 +888,14 @@ class TestTube(object):
       map(self.add_reaction, filter(
         lambda x: set(map(str,x.reactants)).intersection(total) == set(map(str,x.reactants)), 
         rxns))
-      #TODO: the network still contains nodes that are obsolete!
+
+      # Now remove all the left-over complexes from the graph.
+      all_nodes = set(self.complexes)
+      assert set(map(str,all_nodes)).issuperset(total)
+      total = set([n for n in self.complexes if str(n) in total])
+      remove = all_nodes.difference(total)
+      self._RG.remove_nodes_from(remove)
+
     return interpretation
 
   def add_complex(self, cplx, (conc, const), sanitycheck=True):
@@ -954,7 +991,7 @@ class TestTube(object):
       count = 0
       self._strands = dict()
       self._strand_names = dict()
-      for cplx in self._RG.nodes_iter():
+      for cplx in self.complexes:
         for s in cplx.lol_sequence :
           strand = tuple(map(str,s))
           if strand not in self._strand_names :
@@ -972,7 +1009,7 @@ class TestTube(object):
     """
     if not self._domains :
       self._domains = dict()
-      for cplx in self._RG.nodes_iter():
+      for cplx in self.complexes:
         for d in cplx.sequence :
           if d == '+' : continue
           if d.name in self._domains :
@@ -1064,19 +1101,19 @@ class TestTube(object):
     # global TestTube() variable
     if not TestTube.sanitychecks :
       if TestTube.warnings :
-        raise Warning('TestTube() - sanity checks turned off!')
+        print Warning('TestTube() - sanity checks turned off!')
       combined.ReactionGraph = nx.compose(self.ReactionGraph, other.ReactionGraph)
 
     elif len(other.complexes) > len(self.complexes) :
       combined.ReactionGraph = other.ReactionGraph
       map(lambda c : combined.add_complex(c, self.get_complex_concentration(c), 
         sanitycheck=True), self.complexes)
-      map(lambda r : combined.add_reactions(r, sanitycheck=True), self.reactions)
+      map(lambda r : combined.add_reaction(r, sanitycheck=True), self.reactions)
     else :
       combined.ReactionGraph = self.ReactionGraph
       map(lambda c : combined.add_complex(c, other.get_complex_concentration(c), 
         sanitycheck=True), other.complexes)
-      map(lambda r : combined.add_reactions(r, sanitycheck=True), other.reactions)
+      map(lambda r : combined.add_reaction(r, sanitycheck=True), other.reactions)
     return combined
 
   def __radd__(self, other):
@@ -1114,46 +1151,67 @@ class TestTubeIO(object):
   def load_domfile(self, domfile):
     raise NotImplementedError
 
-  def write_pilfile(self, pil):
-    """Write the contents of TestTube() into a pilfile. 
+  def write_pil_kernel(self, pil, unit='M'):
+    """Write the contents of TestTube() into a pilfile (kernel notation). 
 
-    This function supports a particular version of pilfiles, used by nuskell
-    and peppercorn.
-
-    sequence d1 = NNN : 3
-    sequence d2 = NNNN : 4
-    sequence hist = N : 1
-    strand s1 = hist d1 d2 : 8
-    strand s2 = d2* d1* : 7
-    structure c1 = s1 : .(((((((+)))))))
+    length d1 = 6
+    #sequence d1 = NNNNNN
+    length d2 = 4
+    length h3 = 1
+    cplx1 = h3 d1( d2( + ))
     """
     domains = self._testtube.domains
 
-    # Print Sequences
+    def adjust_conc(conc, unit):
+      units = ['M','mM','uM','nM','fM']
+              # 0,  3,   6,   9,   12
+      assert unit in units
+      mult = units.index(unit) * 3
+      return conc*(10**mult), unit
+
+    # Print Domains
+    pil.write("# Domain Specifications\n")
     for k, v in sorted(domains.items(), key=lambda x : x[1].id):
       if v.name[-1]=='*' : continue
-      pil.write("sequence {:s} = {:s} : {:d}\n".format(
-          v.name, ''.join(v.sequence), v.length))
+      pil.write("length {:s} = {:d}\n".format(v.name, v.length))
+      #pil.write("sequence {:s} = {:s}\n".format(v.name, ''.join(v.sequence)))
 
-    # Print Strands
-    strands = self._testtube.strands
-    for k, v in sorted(strands.items(), key=lambda x: int(x[0].split('_')[1])):
+    pil.write("\n# Complex Specifications\n")
 
-      pil.write("strand {:s} = {:s} : {:d}\n".format(k, 
-        ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
+    # Print Complexes
+    for cplx in sorted(self._testtube.complexes, key=lambda x: str(x)):
+      pil.write("{:s} = ".format(cplx.name))
+      seq = cplx.sequence
+      sst = cplx.structure
+      for i in range(len(seq)) :
+        if sst[i] == '+': 
+          pil.write("{:s} ".format(str(sst[i])))
+        elif sst[i] == ')':
+          pil.write("{:s} ".format(str(sst[i])))
+        elif sst[i] == '(':
+          pil.write("{:s} ".format(str(seq[i])+str(sst[i])))
+        else :
+          pil.write("{:s} ".format(str(seq[i])))
 
-    # Print Structures
-    for cplx in sorted(self._testtube.complexes):
-      pil.write("structure {:s} = ".format(cplx.name))
-      for s in cplx.lol_sequence :
-        strand = tuple(map(str,s))
-        name = self._testtube._strand_names[strand]
-        pil.write("{:s} ".format(name))
-      pil.write(": {:s}\n".format(''.join(cplx.nucleotide_structure)))
+      conc, const = self._testtube.get_complex_concentration(cplx)
+      if const is True :
+        pil.write(" @ constant {} {}".format(*adjust_conc(conc, unit)))
+      elif const is False :
+        pil.write(" @ initial {} {}".format(*adjust_conc(conc, unit)))
+      elif conc == float("inf") :
+        # TODO: temporary hack!!!
+        pil.write(" @ initial 100 nM")
+      pil.write(" \n")
 
-  def load_pilfile(self, pilfile):
+  def load_pil_kernel(self, pilfile):
     """Parses a pil file written in KERNEL notation! """
     ppil = parse_pil_file(pilfile)
+
+    def rename(name):
+      if name[-1].isdigit() :
+        return name + '_'
+      else :
+        return name
 
     def resolve_loops(loop):
       """ Return a sequence, structure pair from kernel format with parenthesis. """
@@ -1179,16 +1237,32 @@ class TestTubeIO(object):
     domains = []
     for line in ppil :
       if line[0] == 'domain':
-        domains.append(Domain(name=line[1]+'_', sequence = list('N'* int(line[2]))))
+        domains.append(Domain(name=rename(line[1]), sequence = list('N'* int(line[2]))))
       elif line[0] == 'complex':
-        name = line[1]+'_'
+        name = rename(line[1])
         sequence, structure = resolve_loops(line[2])
+        constant, concentration = False, 0
+        if len(line) > 3:
+          i, c, u = line[3]
+          constant = (i == 'constant')
+          if u == 'M':
+            concentration = float(c)
+          elif u == 'mM':
+            concentration = float(c)*1e-3
+          elif u == 'uM':
+            concentration = float(c)*1e-6
+          elif u == 'nM':
+            concentration = float(c)*1e-9
+          elif u == 'fM':
+            concentration = float(c)*1e-12
+          else :
+            raise ValueError('unknown unit for concentrations specified.')
 
         for e in range(len(sequence)):
           d = sequence[e]
           if d == '+': continue
           if d[-1] == '*' : 
-            dname = d[:-1] + '_'
+            dname = rename(d[:-1])
             dom = filter(lambda x: x.name == dname, domains)
             if len(dom) < 1 :
               raise RuntimeError('Missing domain specification', d)
@@ -1197,7 +1271,7 @@ class TestTubeIO(object):
             sequence[e] = dom[0].get_ComplementDomain(list('R'*dom[0].length))
 
           else :
-            dname = d + '_'
+            dname = rename(d)
             dom = filter(lambda x: x.name == dname, domains)
             if len(dom) < 1 :
               raise RuntimeError('Missing domain specification', d)
@@ -1206,7 +1280,7 @@ class TestTubeIO(object):
             sequence[e] = dom[0]
 
         self._testtube.add_complex(Complex(sequence = sequence, structure =
-          structure, name=name), (float("inf"), True))
+          structure, name=name), (concentration, constant))
       else :
         raise NotImplementedError('Weird expression returned from pil_parser!')
 
@@ -1365,6 +1439,40 @@ class TestTubeIO(object):
 
   def load_dnafile(self, dnafile):
     raise NotImplementedError
+
+  def write_pilfile(self, pil):
+    """Write the contents of TestTube() into a pilfile format
+
+    sequence d1 = NNN : 3
+    sequence d2 = NNNN : 4
+    sequence hist = N : 1
+    strand s1 = hist d1 d2 : 8
+    strand s2 = d2* d1* : 7
+    structure c1 = s1 : .(((((((+)))))))
+    """
+    domains = self._testtube.domains
+
+    # Print Sequences
+    for k, v in sorted(domains.items(), key=lambda x : x[1].id):
+      if v.name[-1]=='*' : continue
+      pil.write("sequence {:s} = {:s} : {:d}\n".format(
+          v.name, ''.join(v.sequence), v.length))
+
+    # Print Strands
+    strands = self._testtube.strands
+    for k, v in sorted(strands.items(), key=lambda x: int(x[0].split('_')[1])):
+
+      pil.write("strand {:s} = {:s} : {:d}\n".format(k, 
+        ' '.join(map(str, v)), sum(map(lambda x : x.length, v))))
+
+    # Print Structures
+    for cplx in sorted(self._testtube.complexes):
+      pil.write("structure {:s} = ".format(cplx.name))
+      for s in cplx.lol_sequence :
+        strand = tuple(map(str,s))
+        name = self._testtube._strand_names[strand]
+        pil.write("{:s} ".format(name))
+      pil.write(": {:s}\n".format(''.join(cplx.nucleotide_structure)))
 
 class Reaction(object):
   """ A reaction pathway. 

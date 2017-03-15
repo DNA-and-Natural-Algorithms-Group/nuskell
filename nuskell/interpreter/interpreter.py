@@ -79,12 +79,6 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
     cs_solution = ts_env.translate_reactions(crn_parsed)
     cs_result = {}
 
-  # # Alternative way to extract data at the end.
-  # # get the results in form of a dictionary d={fs:Object}
-  # fs_result = ts_env.formal_species_dict
-  # # get the final solution object
-  # cs_solution = ts_env.constant_species_solution
-
   solution = TestTube()
   for k,v in fs_result.items():
     v.flatten_cplx
@@ -94,7 +88,7 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
     new = Complex(name = k, 
         sequence = v.sequence, 
         structure = v.structure)
-    solution.add_complex(new, (10, False), sanitycheck=True)
+    solution.add_complex(new, (None, None), sanitycheck=True)
 
   #for k,v in solution.complexes.items():
   #  print type(v), v, map(str, v.sequence), v.structure

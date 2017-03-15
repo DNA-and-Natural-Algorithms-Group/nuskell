@@ -7,7 +7,6 @@ import argparse
 import pkg_resources
 
 from nuskell import translate, verify, printCRN
-from nuskell.compiler import InvalidSchemeError
 
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.objects import TestTube, TestTubeIO 
@@ -157,6 +156,10 @@ def main() :
   args = parser.parse_args()
 
   args.UNZIP = not args.no_max_helix
+  pilfile = args.output + '.pil' if args.pilfile else None
+  domfile = args.output + '.dom' if args.domfile else None
+  dnafile = args.output + '.dna' if args.dnafile else None
+
 
   # Parse the input CRN 
   input_crn = sys.stdin.readlines()
@@ -169,10 +172,6 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~
   if args.ts : # Translate CRN using a translation scheme
     print "\nTranslating..."
-    pilfile = args.output + '.pil' if args.pilfile else None
-    domfile = args.output + '.dom' if args.domfile else None
-    dnafile = args.output + '.dna' if args.dnafile else None
-
     solution, constant_solution = translate(input_crn, args.ts, 
         pilfile = pilfile,
         domfile = domfile,
@@ -189,7 +188,22 @@ def main() :
   elif args.readpil : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
     solution = TestTube()
-    TestTubeIO(solution).load_pilfile(args.readpil)
+    TestTubeIO(solution).load_pil_kernel(args.readpil)
+    if args.dnafile:
+      dnafile = args.output + '.dna' 
+      with open(dnafile, 'w') as dna:
+        TestTubeIO(solution).write_dnafile(dna, formal=fs, crn=fcrn)
+    if args.pilfile:
+      pilfile = args.output + '.pil' 
+      with open(pilfile, 'w') as pil:
+        TestTubeIO(solution).write_pil_kernel(pil)
+    if pilfile or dnafile :
+      print "Wrote file(s):",
+      if pilfile: print pilfile,
+      if dnafile: print dnafile,
+      print
+
+
   else :
     # NOTE: At some point Nuskell should choose translation schemes automatically.
     print "Please specify a translation scheme, see option --ts. For example:"
@@ -200,7 +214,7 @@ def main() :
 
   if args.verbose :
     print "Complexes in Solution: "
-    for cplx in solution.complexes:
+    for cplx in sorted(solution.complexes, key=lambda x : str(x)):
       print ' ', cplx.name, map(str, cplx.sequence), cplx.structure
 
   # NOTE: At this point we have defined at least two kinds of species:
@@ -210,7 +224,7 @@ def main() :
   # and the experimental concentrations are adjusted using simulations
   # later-on.
 
-  fuels = map(str, solution.present_species(exclude=fs))
+  fuels = solution.present_complexes(exclude=fs)
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,15 +238,26 @@ def main() :
     for r in solution.reactions:
       if args.verbose:
         print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
-      rxn = [map(str,r.reactants),map(str,r.products)]
+      rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
       enum_crn.append(rxn)
 
     print "\nReplacing regular-expression complexes ..."
     interpret = solution.interpret_species(fs, prune=True)
-    # Do the same thing with remaining species? No need of the interpretation,
-    # but it is important to prune the network if there are constant species
-    # with history-domains...
-    # tmp = solution.interpret_species(cs=)
+    # Some scheme use history domains within constant and intermediate species
+
+    # Now set fuel concentrations to 100 nM
+    for f in fuels:
+      if None in solution.get_complex_concentration(f):
+        solution.set_complex_concentration(f, 100e-9, False)
+
+    for f in solution.selected_complexes(names=interpret.keys()):
+      if None in solution.get_complex_concentration(f):
+        solution.set_complex_concentration(f, 0, False)
+
+    if args.pilfile :
+      pilfile = args.output + '_2.pil' 
+      with open(pilfile, 'w') as pil:
+        TestTubeIO(solution).write_pil_kernel(pil, unit='nM')
 
     icrn = []
     # Implementation CRN is an enumerated CRN after regex-complexes have been
@@ -240,7 +265,7 @@ def main() :
     for r in solution.reactions:
       if args.verbose:
         print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
-      rxn = [map(str,r.reactants),map(str,r.products)]
+      rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
       icrn.append(rxn)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -249,7 +274,8 @@ def main() :
   if args.verify :
     print "\nVerification using:", args.verify
 
-    vcrn = removeSpecies(icrn, fuels)
+    # Implicitly also removes rate constants
+    vcrn = removeSpecies(icrn, map(str, fuels))
     if args.verbose :
       print "Verification CRN:"
       printCRN(vcrn, reversible = True)
@@ -296,8 +322,10 @@ def main() :
     print "\nWriting executable simulator scripts:", args.output+'_fCRN.py', args.output+'_iCRN.py'
     # Simulate the formal CRN using crnsimulator
 
+    # Change CRN format from [[r], [p], [None]]
+    scrn = map(lambda rxn: rxn[:2] + (rxn[2] if rxn[2] != [None] else [1]), fcrn)
+
     # Add rate=1 to every reaction
-    scrn = map(lambda x: x + [1], fcrn)
     CRG = ReactionGraph(scrn)
     fFile, _ = CRG.write_ODE_lib(sorted(CRG.species), 
             filename = args.output+'_fCRN')

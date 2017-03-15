@@ -7,33 +7,38 @@
 # Parser module for chemical reaction network description files (*.crn).
 #
 
-from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore,
-    alphas, alphanums, delimitedList, StringStart, StringEnd, LineEnd, srange,
+from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore, Combine, nums,
+    alphas, alphanums, delimitedList, StringStart, StringEnd, LineEnd, srange, OneOrMore,
     pythonStyleComment, ParseElementEnhance)
 
-def crn_document_setup():
-  """Parse a chemical reaction network. 
-  
-  The crn document parser reads one chemical reaction per line, as well as
-  special lines that define 'formal' and 'constant' species of the crn.
+def crn_document_setup(modular = False):
+  """Parse a formal chemical reaction network. 
+
+  Args: 
+    modular <optional:bool>: Adds an additional nesting for modules within a
+      CRN. Use one line per module (';' separates reactions).
+
+  Format:
+    # A list of reactions, optionally with reaction rates:
+    # <- this is a comment!
+    B + B -> C    # [k = 1]
+    C + A <=> D   # [kf = 1, kr = 1]
+    <=> A  [kf = 15, kr = 6]
+
+    # Note that you can write multiple reactions in one line:
+    A + 2C -> E [k = 13.78]; E + F <=> 2A  [kf = 13, kr = 14]
 
   Returns:
-    a **pyparsing** document formating
-
-  .. Input example:
-  .. A + B -> C + D
-  .. -> A
-  .. X ->
-  .. A + C <=> X
-  .. formal = {A, B, C, D}
-  .. constant = {}
 
   """
+  # NOTE: If you want to add support for multiple modules per line, you can use
+  # the '|' character.
   
   W = Word
   G = Group
   S = Suppress
   O = Optional
+  C = Combine
   L = Literal
   
   def T(x, tag):
@@ -47,135 +52,153 @@ def crn_document_setup():
   ParseElementEnhance.setDefaultWhitespaceChars(crn_DWC)
   
   identifier = W(alphas, alphanums+"_")
-  #identifier = W(srange("[a-zA-Z_]"), srange("[a-zA-Z0-9_]"))
-  
-  reaction = T(G(O(delimitedList(identifier, "+"))) + \
+
+  multiplier = W(nums)
+  species = G(O(multiplier) + identifier)
+
+  rate = C(W(nums) + O((L('.') + W(nums)) | (L('e') + O('-') + W(nums))))
+
+  k = G(S('[') + S('k') + S('=') + rate + S(']'))
+  rev_k = G(S('[') + S('kf') + S('=') + rate + S(',') + \
+                     S('kr') + S('=') + rate + S(']'))
+
+  reaction = T(G(O(delimitedList(species, "+"))) + \
              S("->") + \
-             G(O(delimitedList(identifier, "+"))), "irreversible")
-  rev_reaction = T(G(O(delimitedList(identifier, "+"))) + \
+             G(O(delimitedList(species, "+"))) + O(k), 'irreversible')
+
+  rev_reaction = T(G(O(delimitedList(species, "+"))) + \
                  S("<=>") + \
-                 G(O(delimitedList(identifier, "+"))), "reversible")
+                 G(O(delimitedList(species, "+"))) + O(rev_k), 'reversible')
   
+
   expr = G(reaction | rev_reaction) 
 
-  reactline = expr + ZeroOrMore(S(";") + expr)
+  if modular :
+    module = G(expr + ZeroOrMore(S(";") + expr))
+  else :
+    module = expr + ZeroOrMore(S(";") + expr)
 
   formal = G(O(S(";")) + L("formal") + S(L("=") + \
-             L("{")) + delimitedList(identifier) + S("}"))
+             L("{")) + O(delimitedList(identifier)) + S("}"))
 
   constant = G(O(S(";")) + L("constant") + S(L("=") + \
-               L("{")) + delimitedList(identifier) + S("}"))
+               L("{")) + O(delimitedList(identifier)) + S("}"))
   
-  crn = ZeroOrMore(reactline + O(S(LineEnd()))) + O(formal) + ZeroOrMore(S(LineEnd())) + O(constant) + ZeroOrMore(S(LineEnd()))
-  
-  document = StringStart() + crn + StringEnd()
+  crn = OneOrMore(module + ZeroOrMore(S(LineEnd()))) + O(formal) + ZeroOrMore(S(LineEnd())) + O(constant) + ZeroOrMore(S(LineEnd()))
+
+  document = StringStart() + ZeroOrMore(S(LineEnd())) + crn + StringEnd()
   document.ignore(pythonStyleComment)
   return document
-
-def species(crn):
-  """Returns a list of all distinct species in the CRN.
-
-  :param crn: a chemical reaction network 
-
-  .. [[['A', 'B'], ['C','D'], 'irreversible'], 
-  ..  [[], ['A'], 'irreversible'], 
-  ..  [['X'], [], 'irreversible'], 
-  ..  [['A', 'C'], ['X'], 'reversible'], 
-  ..  ['A', 'B', 'C', 'D', 'X'], []]
-
-  :return: list of species.
-  """
-  species = set()
-  for rxn in crn:
-    # skip 'formal' or 'constant' statement
-    if type(rxn[0]) == list:
-      species = species.union(rxn[0]).union(rxn[1])
-  return list(species)
 
 def _post_process(crn):
   """Take a crn and return it together with a list of formal and
   constant species.
   """
+  def remove_multipliers(species) :
+    flat = []
+    for s in species:
+      if len(s) == 1:
+        flat.append(s[0])
+      elif len(s) == 2:
+        ss = [s[1]] * int(s[0])
+        flat.extend(ss)
+    return flat
 
-  all_species = species(crn)
-  formal_species = []
-  constant_species = []
-  for x in crn:
-    # overwrite the species assignment
-    if x[0] == "formal":
-      formal_species = x[1:]
-    elif x[0] == "constant":
-      constant_species = x[1:]
-
-  #check that formal/constant assignments make sense!
-  asp = set(all_species)
-  fsp = set(formal_species)
-  csp = set(constant_species)
-
-  if csp :
-    if fsp :
-      if asp != fsp | csp :
-        pass
-        #raise ValueError, "missing species in CRN input"
-      elif fsp & csp :
-        raise ValueError, "species declared as formal & constant"
+  new = []
+  asp = set()
+  fsp = set()
+  csp = set()
+  fsp_manual = False
+  csp_manual = False
+  for line in crn:
+    if line[0] == "formal":
+      fsp = fsp.union(line[1:])
+      fsp_manual = True
+    elif line[0] == "constant":
+      csp = csp.union(line[1:])
+      csp_manual = True
+    elif len(line) == 3:
+      # No rate specified
+      r, p, t = line
+      r = remove_multipliers(r)
+      p = remove_multipliers(p)
+      if t == 'reversible':
+        new.append([r,p,[None, None]])
+      elif t == 'irreversible':
+        new.append([r,p,[None]])
+      else :
+        raise ValueError('Wrong CRN format!', line)
+    elif len(line) == 4:
+      r, p, k, t = line
+      r = remove_multipliers(r)
+      p = remove_multipliers(p)
+      if t == 'reversible':
+        assert len(k) == 2
+        new.append([r,p,k])
+      elif t == 'irreversible':
+        assert len(k) == 1
+        new.append([r,p,k])
+      else :
+        raise ValueError('Wrong CRN format!', line)
     else :
-      fsp = asp - csp
-  elif fsp :
+      raise ValueError('Wrong CRN format!', line)
+    asp = asp.union(r).union(p)
+  crn = new
+
+  # Check that formal/constant assignments make sense!
+  if fsp_manual and csp_manual :
+    # NOTE: Also empty sets can be forced!
+    pass
+  elif csp_manual :
+    fsp = asp - csp
+  elif fsp_manual :
     csp = asp - fsp
-    if asp != fsp | csp :
-      pass
-      #raise ValueError, "missing species in CRN input"
-    elif fsp & csp :
-      raise ValueError, "species declared as formal & constant"
   else :
     fsp = asp
 
-  formal_species = list(fsp)
-  constant_species = list(csp)
+  if fsp & csp :
+    raise ValueError, "species declared as formal & constant"
 
-  for i in range(len(crn)):
-    if type(crn[i][0]) != list or type(crn[i][1]) != list :
-      crn = crn[:i]
-      break
-  return (crn, formal_species, constant_species)
+  return crn, sorted(list(fsp)), sorted(list(csp))
 
 def split_reversible_reactions(crn):
-  """Replace every reversible reaction with the two corresponding irreversible
-  reactions, remove the 'reversible' and 'irreversible' tags.
+  """ 
+  Replace every reversible reaction with the two corresponding irreversible
+  reactions.
   """
-  new_crn = []
-  for [r, p, x] in crn:
-    assert (x == 'irreversible' or x == 'reversible')
-    new_crn.append([r,p])
-    if x == "reversible":
-      new_crn.append([p,r])
-  return new_crn
+  new = []
+  for [r, p, k] in crn :
+    #if None in k :
+    #  print Warning('# Set missing rates to 1.')
+    #  k[:] = [x if x != None else 1 for x in k]
+
+    if len(k) == 2:
+      new.append([r,p,[k[0]]])
+      new.append([p,r,[k[1]]])
+    else :
+      new.append([r,p,k])
+  return new
 
 def combine_reversible_reactions(crn) : 
-  """Condense two irreversible reactions into the corresponding reversible
-  reactions, add 'reversible' and 'irreversible' tags.
-  """
-  if type(crn) != list:
-    raise RuntimeError("The argument of `rev_reactions' should be a list.")
+  """Condense two irreversible reactions into the corresponding reversible reactions. """
   new_crn = []
   removed = []
-  for r in crn:
-    if r in removed:
+  for rxn in crn:
+    if rxn in removed:
       continue
+    [r, p, k] = rxn
+    assert type(r) == list and type(p) == list and type(k) == list
 
-    if len(r) == 3 : 
-      assert (r[2] == 'irreversible' or r[2] == 'reversible')
-      tag = r[2]
-    else : tag = 'irreversible'
-
-    for r2 in crn: 
-      if sorted(r[0]) == sorted(r2[1]) and \
-          sorted(r[1]) == sorted(r2[0]):
-            tag = 'reversible' 
-            removed.append(r2)
-            break
-    new_crn.append(r + [tag])
+    for rxn2 in crn: 
+      [r2, p2, k2] = rxn2
+      if sorted(r) == sorted(r2) and sorted(p) == sorted(p2):
+        if len(k) == 2 or len(k2) == 2 :
+          raise ValueError('reaction specified twice!')
+        else :
+          removed.append(rxn2)
+          k += k2
+        break
+    new_crn.append([r, p,k])
   return new_crn
 
 def parse_crn_file(filename):
