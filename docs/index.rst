@@ -12,8 +12,8 @@ Introduction
 
 ``Nuskell`` integrates biophysical modelling of nucleic acids with rigor of
 modern compilers to design and characterize *toehold-mediated DNA strand
-displacement* networks. It compiles dynamic behavior (algorithms) into using
-nucleic acid chemistry, and verifies wether a given nucleic acid network
+displacement* networks. It translates formal chemical reaction networks (CRNs)
+into nucleic acid chemistry, and verifies wether a given nucleic acid network
 implements a particular dynamic behavior. 
 
 Currently, ``Nuskell`` supports three different I/O formats for domain-level
@@ -25,11 +25,11 @@ internal language format), **\*.dna** (VisualDSD format).
   nuskell [options] < formal_crn.in > domain-specification.out
 
 
-The ``Nuskell library`` enables researchers to make custom scripts for their
-design ideas. The interface provides a number of different CRN-to-DSD
-translation schemes, functions that test different CRN equivalence notions, as
-well as reaction enumeration and CRN simulations based on emperical DNA folding
-parameters.
+The ``Nuskell`` library functions enable researchers to make custom compilers
+for alternative design approaches. ``Nuskell`` provides (i) a number of
+different CRN-to-DSD translation schemes, (ii) functions that test different
+CRN equivalence notions, as well as (iii) reaction enumeration and CRN-to-ODE
+simulations based on emperical (sequence-independent) DNA folding parameters.
 
 .. code-block:: python
 
@@ -37,7 +37,20 @@ parameters.
 
   testtube = translate('A+B->C', scheme = 'soloveichik2010.ts')
 
-  v = verify('A+B->C', testtube, notion = 'bisimulation')
+  # Get the enumerated CRN
+  testtube.enumerate_reactions()
+
+  # Interpret the enumerated CRN, i.e. replace history species
+  interpretation = testtube.interpret_species(['A','B','C'], prune=True)
+
+  # Formulate reversible reactions as two irreversible reactions.
+  fcrn = [['A','B'],['C']]
+  vcrn = []
+  for r in testtube.reactions:
+    rxn = [map(str,r.reactants), map(str,r.products)]
+    vcrn.append(rxn)
+
+  v = verify(fcrn, vcrn, notion = 'bisimulation')
   
   if v :
     print("Input CRN and TestTube-Species are bisimulation equivalent.")
