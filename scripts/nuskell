@@ -278,7 +278,7 @@ def main() :
     vcrn = removeSpecies(icrn, map(str, fuels))
     if args.verbose :
       print "Verification CRN:"
-      printCRN(vcrn, reversible = True)
+      printCRN(vcrn, reversible = True, rates=False)
 
     if interpret and args.verbose :
       print "Partial interpretation:"
@@ -286,28 +286,22 @@ def main() :
         print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
 
     for meth in args.verify :
-      signal.signal(signal.SIGALRM, handler)
-      signal.alarm(args.verify_timeout)
-      try :
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-            verbose=(args.verbose>1))
+      v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+          verbose=(args.verbose>1), timeout=args.verify_timeout)
 
-        if i and args.verbose :
-          if not v : i = i[0]
-          print "Returned interpretation ['{}']:".format(meth)
-          for impl, formal in sorted(i.items()) :
-            print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
+      if i and args.verbose :
+        if not v : i = i[0]
+        print "Returned interpretation ['{}']:".format(meth)
+        for impl, formal in sorted(i.items()) :
+          print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
 
-        if v:
-          print " {}: CRNs are {} equivalent.".format(v, meth)
-        else:
-          print " {}: CRNs are not {} equivalent.".format(v, meth)
-      except TimeoutError:
-        v = None
+      if v is True:
+        print " {}: CRNs are {} equivalent.".format(v, meth)
+      elif v is False:
+        print " {}: CRNs are not {} equivalent.".format(v, meth)
+      elif v is None:
         print " {}: {} verification did not terminate within {} seconds.".format(v, 
             meth, args.verify_timeout)
-      finally:
-        signal.alarm(0)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Simulate CRNs in a TestTube

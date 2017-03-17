@@ -33,12 +33,17 @@ class InvalidSchemeError(Exception):
  
     super(InvalidSchemeError, self).__init__(self.message) 
 
-def printCRN(crn, reversible=True):
+def printCRN(crn, reversible=True, rates=True):
   """A wrapper function to print CRNs. """
-  if reversible :
-    pcrn = combine_reversible_reactions(crn)
+  if not rates:
+    pcrn = map(lambda rxn: rxn[:2] + [[None]], crn)
   else :
-    pcrn = split_reversible_reactions(crn)
+    pcrn = [r for r in crn]
+
+  if reversible :
+    pcrn = combine_reversible_reactions(pcrn)
+  else :
+    pcrn = split_reversible_reactions(pcrn)
 
   for rxn in pcrn :
     assert len(rxn) == 3

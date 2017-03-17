@@ -7,12 +7,21 @@
 # Verification interface
 #
 
+import signal
 from collections import Counter
 
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
 
+class TimeoutError(Exception):
+  pass
+
+def handler(signum, frame):
+  raise TimeoutError('Time over')
+
 def removeRates(crn):
+  if len(crn[0][2]) == 2:
+    raise ValueError('attempting to remove reversible rates')
   # Remove all rate constants
   return [rxn[:2] for rxn in crn]
 
@@ -42,7 +51,7 @@ def removeDuplicates(l):
   return helper(l)
 
 def verify(irrev_crn, enum_crn, input_fs, interpret = None, 
-    method = 'bisimulation', verbose = False):
+    method = 'bisimulation', timeout=0, verbose = False):
   """Wrapper to choose from different notions of equivalence.
   """
   interactive = False
@@ -51,50 +60,57 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
   fcrn = [[Counter(part) for part in rxn[:2]] for rxn in irrev_crn]
   ecrn = [[Counter(part) for part in rxn[:2]] for rxn in enum_crn]
 
-  if method == 'bisimulation' or method == 'bisim-whole-graph' :
-    v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
-        interpretation = interpret, permissive='whole-graph', verbose=verbose)
+  signal.signal(signal.SIGALRM, handler)
+  signal.alarm(timeout)
+  try :
+    if method == 'bisimulation' or method == 'bisim-whole-graph' :
+      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
+          interpretation = interpret, permissive='whole-graph', verbose=verbose)
 
-  elif method == 'bisim-loop-search':
-    v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        interpretation = interpret, permissive='loop-search', verbose=verbose)
+    elif method == 'bisim-loop-search':
+      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+          interpretation = interpret, permissive='loop-search', verbose=verbose)
 
-  elif method == 'bisim-depth-first':
-    v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
-        interpretation = interpret, permissive='depth-first', verbose=verbose)
+    elif method == 'bisim-depth-first':
+      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+          interpretation = interpret, permissive='depth-first', verbose=verbose)
 
-  elif method == 'pathway':
-    # NOTE: Adaptation to pathway interface
-    pinter = dict()
-    if interpret :
-      for k,v in interpret.items() :
-        if v :
-          v = sorted(v.elements())[0]
-          pinter[k]=[v]
-        else :
-          pinter[k]=[]
-    v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
-        (enum_crn, pinter.keys()), pinter, False, interactive, verbose)
-  elif method == 'integrated':
-    # TODO: integrated-hybrid -> first consider some species as formal for
-    # pathway decomposition, then do bisimulation. This is necessary for
-    # history domains in some schemes, but it can be used for more general
-    # things. E.g. if you make reversible reactions formal, then it will get
-    # accepted and bisimulation can do the rest. In any case, the current
-    # implementation does not cover the full hybrid theory, only some special
-    # cases and some kind of bisimulation.
-    pinter = dict()
-    if interpret :
-      for k,v in interpret.items() :
-        if v :
-          v = sorted(v.elements())[0]
-          pinter[k]=[v]
-        else :
-          pinter[k]=[]
-    v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
-        (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
-  else:
-    raise RuntimeError('Unknown verification method.')
+    elif method == 'pathway':
+      # NOTE: Adaptation to pathway interface
+      pinter = dict()
+      if interpret :
+        for k,v in interpret.items() :
+          if v :
+            v = sorted(v.elements())[0]
+            pinter[k]=[v]
+          else :
+            pinter[k]=[]
+      v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
+          (enum_crn, pinter.keys()), pinter, False, interactive, verbose)
+    elif method == 'integrated':
+      # TODO: integrated-hybrid -> first consider some species as formal for
+      # pathway decomposition, then do bisimulation. This is necessary for
+      # history domains in some schemes, but it can be used for more general
+      # things. E.g. if you make reversible reactions formal, then it will get
+      # accepted and bisimulation can do the rest. In any case, the current
+      # implementation does not cover the full hybrid theory, only some special
+      # cases and some kind of bisimulation.
+      pinter = dict()
+      if interpret :
+        for k,v in interpret.items() :
+          if v :
+            v = sorted(v.elements())[0]
+            pinter[k]=[v]
+          else :
+            pinter[k]=[]
+      v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
+          (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
+    else:
+      raise RuntimeError('Unknown verification method.')
+  except TimeoutError:
+    v = None
+  finally:
+    signal.alarm(0)
 
   return v, i
 

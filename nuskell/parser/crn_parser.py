@@ -190,15 +190,17 @@ def combine_reversible_reactions(crn) :
     assert type(r) == list and type(p) == list and type(k) == list
 
     for rxn2 in crn: 
+      #if rxn in removed:
+      #  continue
       [r2, p2, k2] = rxn2
-      if sorted(r) == sorted(r2) and sorted(p) == sorted(p2):
+      if sorted(r) == sorted(p2) and sorted(p) == sorted(r2):
         if len(k) == 2 or len(k2) == 2 :
           raise ValueError('reaction specified twice!')
         else :
           removed.append(rxn2)
           k += k2
         break
-    new_crn.append([r, p,k])
+    new_crn.append([r, p, k])
   return new_crn
 
 def parse_crn_file(filename):

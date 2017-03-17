@@ -259,17 +259,17 @@ def set_peppercorn_args(enum, args):
   if hasattr(args, 'MAX_COMPLEX_SIZE'):
     enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
   else :
-    enum.MAX_COMPLEX_SIZE = 6
+    enum.MAX_COMPLEX_SIZE = 100
 
   if hasattr(args, 'MAX_COMPLEX_COUNT'):
     enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
   else :
-    enum.MAX_COMPLEX_COUNT = 200
+    enum.MAX_COMPLEX_COUNT = 1000
 
   if hasattr(args, 'MAX_REACTION_COUNT'):
     enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
   else :
-    enum.MAX_REACTION_COUNT = 1000
+    enum.MAX_REACTION_COUNT = 5000
 
   if hasattr(args, 'REJECT_REMOTE'):
     enum.REJECT_REMOTE = args.REJECT_REMOTE
