@@ -154,15 +154,15 @@ class SpontaneousReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.c2D_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -172,21 +172,21 @@ class SpontaneousReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
   
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.solo2010_v1)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -196,15 +196,15 @@ class SpontaneousReactions(unittest.TestCase):
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011_gen)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.srin2017_phd)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
   def test_ApB_f_irrev(self):
     input_crn = "A + B -> "
@@ -324,7 +324,7 @@ class SpontaneousReactions(unittest.TestCase):
     input_crn = "A + B <=> "
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
-    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=120)
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
     self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
@@ -343,21 +343,21 @@ class SpontaneousReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
   
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.solo2010_v1)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -367,15 +367,15 @@ class SpontaneousReactions(unittest.TestCase):
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011_gen)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.srin2017_phd)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
 @unittest.skip("correct")
 class UnimolecularReactions(unittest.TestCase):
@@ -469,15 +469,15 @@ class UnimolecularReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.c2D_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -487,21 +487,21 @@ class UnimolecularReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
   
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.solo2010_v1)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -511,16 +511,17 @@ class UnimolecularReactions(unittest.TestCase):
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011_gen)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.srin2017_phd)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
+@unittest.skip("correct, but TODOs")
 class BimolecularReactions(unittest.TestCase):
   def setUp(self):
     self.cFJ_original = 'schemes/original/cardelli2011_FJ.ts'
@@ -532,9 +533,6 @@ class BimolecularReactions(unittest.TestCase):
     self.qian2011_gen = 'schemes/generalized/qian2011_gen.ts'
     self.srin2017_phd = 'schemes/generalized/srinivas2017_phd.ts'
     self.solo2010_v1  = 'schemes/generalized/soloveichik2010_v1.ts'
-
-  def tearDown(self):
-    pass
 
   def _get_verification_data(self, input_crn, scheme):
     (fcrn, fs, _) = parse_crn_string(input_crn)
@@ -551,7 +549,6 @@ class BimolecularReactions(unittest.TestCase):
     fcrn = removeRates(fcrn)
     return fcrn, vcrn, fs, interpretation
 
-  @unittest.skip("correct")
   def test_ApB_XpY_irrev(self):
     input_crn = "A + B -> X + Y"
 
@@ -609,19 +606,18 @@ class BimolecularReactions(unittest.TestCase):
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, True)
 
-  @unittest.skip("correct")
   def test_ApB_XpY_rev(self):
     input_crn = "A + B <=> X + Y"
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_original)
-    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=120)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, None)
 
@@ -633,21 +629,21 @@ class BimolecularReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
   
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.solo2010_v1)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -657,17 +653,16 @@ class BimolecularReactions(unittest.TestCase):
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011_gen)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.srin2017_phd)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
-  @unittest.skip("correct")
   def test_ApB_ApA_irrev(self):
     input_crn = "A + B -> A + A"
 
@@ -725,7 +720,6 @@ class BimolecularReactions(unittest.TestCase):
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, True)
 
-  @unittest.skip("correct, but TODOs")
   def test_ApA_ApB_irrev(self):
     input_crn = "A + A -> A + B"
 
@@ -784,19 +778,18 @@ class BimolecularReactions(unittest.TestCase):
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, True)
 
-  @unittest.skip("correct, but TODOs")
   def test_ApA_ApB_rev(self):
     input_crn = "A + A <=> A + B"
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, None)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_original)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, None)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, None)
 
@@ -808,22 +801,22 @@ class BimolecularReactions(unittest.TestCase):
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cFJ_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, None)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.cNM_noGC)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, None)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
     self.assertEqual(v, False)
   
     # TODO: need to add reject-remote equivalence notion
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.solo2010_v1)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, None)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=120)
-    self.assertEqual(v, False) # sometimes None
+    self.assertEqual(v, False)
 
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
@@ -833,16 +826,16 @@ class BimolecularReactions(unittest.TestCase):
  
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.qian2011_gen)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
  
     # TODO: need to add reject-remote equivalence notion
     fcrn, vcrn, fs, interpret = self._get_verification_data(input_crn, self.srin2017_phd)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
     v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-    self.assertEqual(v, False)
+    self.assertEqual(v, True)
 
 
 if __name__ == '__main__':

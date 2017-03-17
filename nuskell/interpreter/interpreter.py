@@ -70,14 +70,10 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
   fs_result = ts_env.translate_formal_species(fs_list)
 
   if cs_list :
-    # translate a given constant species list using the constant() function 
-    cs_solution = ts_env.translate_constant_species(cs_list, crn_parsed)
-    cs_result = ts_env.constant_species_dict
-
+    raise NotImplementedError('removed this function @ c107b2c')
   else :
     # translate the crn using the main() function 
     cs_solution = ts_env.translate_reactions(crn_parsed)
-    cs_result = {}
 
   solution = TestTube()
   for k,v in fs_result.items():
