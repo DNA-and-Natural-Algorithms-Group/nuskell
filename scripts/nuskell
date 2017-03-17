@@ -2,7 +2,6 @@
 
 import os
 import sys
-import signal
 import argparse
 import pkg_resources
 
@@ -24,12 +23,6 @@ class LibError(Exception):
     self.message += "|====\n"
 
     super(LibError, self).__init__(self.message) 
-
-class TimeoutError(Exception):
-  pass
-
-def handler(signum, frame):
-  raise TimeoutError('Time over')
 
 def get_peppercorn_args(parser):
   """Selected arguments for the peppercorn interface. """
@@ -202,7 +195,6 @@ def main() :
       if pilfile: print pilfile,
       if dnafile: print dnafile,
       print
-
 
   else :
     # NOTE: At some point Nuskell should choose translation schemes automatically.
