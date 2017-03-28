@@ -2,7 +2,6 @@
 
 import os
 import sys
-import signal
 import argparse
 import pkg_resources
 import pandas as pd
@@ -14,15 +13,6 @@ from nuskell import translate, verify, printCRN
 from nuskell.parser import parse_crn_string, parse_crn_file, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies
-
-#from nuskell.objects import TestTube, TestTubeIO
-#from nuskell.verifier import preprocess
-
-class TimeoutError(Exception):
-  pass
-
-def handler(signum, frame):
-  raise TimeoutError('Time over')
 
 def compare_schemes(reactions, schemedir, 
     pc_args = None, 
@@ -61,22 +51,10 @@ def compare_schemes(reactions, schemedir,
 
       #NOTE: Settings that might be subject to change later
       pc_args.REJECT_REMOTE = False
-      pc_args.MAX_COMPLEX_COUNT = 10000
 
       print '\n# Scheme:', scheme, 'CRN:', crn
       solution, _ = translate(crn, schemedir + scheme)
-
       fuels = map(str, solution.present_complexes(exclude=fs))
-      if cmp_total_nuc :
-        # NOTE: The actual number of nucleotides is smaller for translations using history domains.
-        print ' Number of Nucleotides:',
-        print sum(map(len, 
-          map(lambda x: x.nucleotide_sequence, 
-            solution.complexes)))
-            #filter(lambda x: x.name not in fs, solution.complexes))))
-
-        cost = sum(map(len, map(lambda x: x.nucleotide_sequence, solution.complexes)))
-        current.append(cost)
 
       # ENUMERATION
       #if scheme == 'soloveichik2010_v1.ts':
@@ -87,24 +65,25 @@ def compare_schemes(reactions, schemedir,
       #  print "# WARNING: changing eqivalence notion --reject-remote"
       #  pc_args.REJECT_REMOTE = True
 
-      solution.enumerate_reactions(args, condensed = not args.enum_uncondensed)
-
-      enum_crn = []
-      for r in solution.reactions:
-        if args.verbose:
-          print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
-        rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
-        enum_crn.append(rxn)
+      solution.enumerate_reactions(args, condensed = not args.enum_detailed)
 
       interpret = solution.interpret_species(fs, prune=True)
+
       icrn = []
-      # Implementation CRN is an enumerated CRN after regex-complexes have been
-      # removed.
+      # Implementation CRN is an enumerated CRN after regex-complexes have been removed.
       for r in solution.reactions:
         if args.verbose:
           print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
         rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
         icrn.append(rxn)
+
+      if cmp_total_nuc :
+        print ' Number of Nucleotides:',
+        print sum(map(len, 
+          map(lambda x: x.nucleotide_sequence, solution.complexes)))
+
+        cost = sum(map(len, map(lambda x: x.nucleotide_sequence, solution.complexes)))
+        current.append(cost)
 
       if cmp_ecrn_size:
         print " Size of implementation network:",
@@ -115,19 +94,14 @@ def compare_schemes(reactions, schemedir,
       # VERIFICATION
       vcrn = removeSpecies(icrn, fuels)
       for meth in vnotions :
-        signal.signal(signal.SIGALRM, handler)
-        signal.alarm(vtime)
-        try :
-          v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-              verbose=(verbose>1))
-          if v:
-            print " {}: CRNs are {} equivalent.".format(v, meth)
-          else:
-            print " {}: CRNs are not {} equivalent.".format(v, meth)
-        except TimeoutError:
-          v = None
+        v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+            timeout=vtime, verbose=(verbose>1))
+        if v is True:
+          print " {}: CRNs are {} equivalent.".format(v, meth)
+        elif v is False:
+          print " {}: CRNs are not {} equivalent.".format(v, meth)
+        elif v is None:
           print " {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
-        signal.alarm(0)
         current.insert(2, v)
 
       plotdata.append(current)
@@ -155,7 +129,7 @@ def plot_by_reference(df, pfile='nuskell_compare.pdf', ts_order=None):
     ts_order = sorted(set(df['Translation scheme']))
 
   g = sns.PairGrid(data=df, hue='Translation scheme', size=4,
-      x_vars=["size of enumerated network [#reactions]"],
+      x_vars=["size of condensed network [#reactions]"],
       y_vars=["number of nucleotides [nt]"])
   g = g.map(plt.scatter)
   g = g.add_legend(bbox_to_anchor=(1.5, 0.8))
@@ -182,7 +156,7 @@ def plot_crn_by_crn(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=No
   with sns.color_palette("hls", n_colors=len(ts_order)) :
     g = sns.FacetGrid(df, col="CRN", col_order=crn_order, col_wrap=2, sharex=False, sharey=False,
         hue='Translation scheme', hue_order=ts_order)
-    g = g.map(plt.scatter, "size of enumerated network [#reactions]", "number of nucleotides [nt]")
+    g = g.map(plt.scatter, "size of condensed network [#reactions]", "number of nucleotides [nt]")
     
     if True:
       for (crn, ax) in zip(crn_order, g.axes.flat) :
@@ -195,9 +169,9 @@ def plot_crn_by_crn(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=No
           # match including the parenthesis.
           tcdf = df.filter(like="{}".format(ts), axis=0)
           #print 'tst', crn, ts, tcdf.values
-          ax.scatter("size of enumerated network [#reactions]", "number of nucleotides [nt]", 
+          ax.scatter("size of condensed network [#reactions]", "number of nucleotides [nt]", 
               data=tcdf, marker=is_correct(tcdf), c=sns.color_palette()[col])
-          #sns.regplot("size of enumerated network [#reactions]", "number of nucleotides [nt]", data=tcdf, 
+          #sns.regplot("size of condensed network [#reactions]", "number of nucleotides [nt]", data=tcdf, 
           #    ax=ax, marker=is_correct(tcdf), fit_reg=False)
 
 
@@ -220,8 +194,8 @@ def main(args):
   # Process CRN input #
   # _________________ #
 
-  if args.plot and (args.plot[-4:] != '.pdf' and args.plot[-4:] != '.png'):
-    raise SystemExit('Please choose a file format (*.pdf, *png) for your plot: {}'.format(args.plot))
+  if args.plot and (args.plot[-4:] != '.pdf' and args.plot[-4:] != '.png' and args.plot[-4:] != '.eps'):
+    raise SystemExit('Please choose a file format (*.pdf, *png, *eps) for your plot: {}'.format(args.plot))
 
   if args.crn_dir:
     print "Compiling CRNs in:", args.crn_dir
@@ -306,7 +280,7 @@ def main(args):
     idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
     df = pd.DataFrame(plotdata, index=idx, 
         columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
-          'pathway equivalent', 'number of nucleotides [nt]', 'size of enumerated network [#reactions]'])
+          'pathway equivalent', 'number of nucleotides [nt]', 'size of condensed network [#reactions]'])
     if args.plot :
       plot_by_reference(df, pfile=args.plot)
 
@@ -314,7 +288,7 @@ def main(args):
     idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
     df = pd.DataFrame(plotdata, index=idx, 
         columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
-          'pathway equivalent', 'number of nucleotides [nt]', 'size of enumerated network [#reactions]'])
+          'pathway equivalent', 'number of nucleotides [nt]', 'size of condensed network [#reactions]'])
     plot_crn_by_crn(df, pfile=args.plot)
 
 def get_nuskellCMP_args(parser) :
@@ -331,10 +305,10 @@ def get_nuskellCMP_args(parser) :
   parser.add_argument("--reference", action = 'store',
       help="Specify a translation scheme that serves as a reference.")
 
-  parser.add_argument("--verify", default='', action = 'store',
-      help="Specify the verification method: \
-          (bisimulation, pathway, integrated, bisim-loop-search,\
-          bisim-depth-first, bisim-whole-graph)") 
+  #parser.add_argument("--verify", nargs='+', default='', action = 'store', 
+  #    metavar = '<str>', help="Specify verification methods: \
+  #        (bisimulation, pathway, integrated, bisim-loop-search,\
+  #        bisim-depth-first, bisim-whole-graph)") 
 
   parser.add_argument("--verify-timeout", type=int, default=30,
       help="Specify time [seconds] to wait for verification to complete.")
@@ -353,7 +327,7 @@ def get_peppercorn_args(parser):
       metavar='<int>',
       help="Peppercorn: Maximum number of strands allowed in a complex" + \
           "(used to prevent polymerization)")
-  parser.add_argument('--max-complex-count', default=1000, type=int, dest='MAX_COMPLEX_COUNT',
+  parser.add_argument('--max-complex-count', default=10000, type=int, dest='MAX_COMPLEX_COUNT',
       metavar='<int>',
       help="Peppercorn: Maximum number of complexes that may be enumerated" + \
           "before the enumerator halts.")
@@ -392,13 +366,8 @@ def get_peppercorn_args(parser):
       "mode will have no effect, if max helix semantics are disabled (--no-max-helix)")
 
   # NOTE: Output formatting: this option is not directly passed on to peppercorn
-  parser.add_argument('--enum-uncondensed', action='store_true',
-      help="Peppercorn: Don't condense reactions into only resting complexes")
-
-  # NOTE: The option --no-rates was removed, because peppercorn always computes
-  # rates, but you may choose to ignore them for condensed reaction graphs. 
-  # k-fast enables to prune the condensed network, leaving the default of 0 M/s, has
-  # the same effect.
+  parser.add_argument('--enum-detailed', action='store_true',
+      help="Peppercorn: Return detailed reaction network, rather than condensed reactions.")
 
   parser.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
       help="Unimolecular reactions slower than this rate will be discarded")
