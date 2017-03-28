@@ -1030,7 +1030,7 @@ class TestTube(object):
     self._strands = None
     return 
 
-  def simulate_crn(self, odename, sorted_vars=[]):
+  def simulate_crn(self, odename, sorted_vars=[], unit='M'):
     """ """
     from crnsimulator import writeODElib
     import sympy
@@ -1047,11 +1047,43 @@ class TestTube(object):
         elif concentration is None :
           concentration = 0.
 
+        if unit == 'M' :
+          pass
+        elif unit == 'mM' :
+          concentration *= 1e3
+        elif unit == 'uM' :
+          concentration *= 1e6
+        elif unit == 'nM' :
+          concentration *= 1e9
+        else :
+          raise ValueError('concentration unit not supported', unit)
+
         conc[str(r)] = concentration
         continue
 
       rate = 'k'+str(len(oR.keys()))
-      oR[rate] = str(r.rate)
+      if unit == 'M':
+        oR[rate] = str(r.rate)
+      elif unit == 'mM':
+        if r.arity[0] > 1:
+          factor = r.arity[0]-1
+          oR[rate] = str(float(r.rate) / (factor * 1e3))
+        else :
+          oR[rate] = str(r.rate)
+      elif unit == 'uM':
+        if r.arity[0] > 1:
+          factor = r.arity[0]-1
+          oR[rate] = str(float(r.rate) / (factor * 1e6))
+        else :
+          oR[rate] = str(r.rate)
+      elif unit == 'nM':
+        if r.arity[0] > 1:
+          factor = r.arity[0]-1
+          oR[rate] = str(float(r.rate) / (factor * 1e9))
+        else :
+          oR[rate] = str(r.rate)
+      else :
+        raise ValueError('concentration unit not supported', unit)
 
       reactants = []
       for reac in self._RG.predecessors_iter(r) :
@@ -1135,6 +1167,7 @@ class TestTubeIO(object):
     return self._testtube
 
   def write_domfile(self, dom):
+    raise DeprecationWarning('*.dom files deprecated.')
     domains = self._testtube.domains
 
     # Print Sequences
@@ -1148,9 +1181,6 @@ class TestTubeIO(object):
       dom.write("{:s} = {:s} : {:s}\n".format(cplx.name, 
         ' '.join(map(str,cplx.sequence)), ' '.join(cplx.structure)))
 
-  def load_domfile(self, domfile):
-    raise NotImplementedError
-
   def write_pil_kernel(self, pil, unit='M'):
     """Write the contents of TestTube() into a pilfile (kernel notation). 
 
@@ -1163,7 +1193,7 @@ class TestTubeIO(object):
     domains = self._testtube.domains
 
     def adjust_conc(conc, unit):
-      units = ['M','mM','uM','nM','fM']
+      units = ['M','mM','uM','nM','pM']
               # 0,  3,   6,   9,   12
       assert unit in units
       mult = units.index(unit) * 3
@@ -1198,9 +1228,6 @@ class TestTubeIO(object):
         pil.write(" @ constant {} {}".format(*adjust_conc(conc, unit)))
       elif const is False :
         pil.write(" @ initial {} {}".format(*adjust_conc(conc, unit)))
-      elif conc == float("inf") :
-        # TODO: temporary hack!!!
-        pil.write(" @ initial 100 nM")
       pil.write(" \n")
 
   def load_pil_kernel(self, pilfile):
@@ -1253,7 +1280,7 @@ class TestTubeIO(object):
             concentration = float(c)*1e-6
           elif u == 'nM':
             concentration = float(c)*1e-9
-          elif u == 'fM':
+          elif u == 'pM':
             concentration = float(c)*1e-12
           else :
             raise ValueError('unknown unit for concentrations specified.')
@@ -1441,6 +1468,7 @@ class TestTubeIO(object):
     raise NotImplementedError
 
   def write_pilfile(self, pil):
+    raise DeprecationWarning('*.pil standard changed to kernel notation.')
     """Write the contents of TestTube() into a pilfile format
 
     sequence d1 = NNN : 3

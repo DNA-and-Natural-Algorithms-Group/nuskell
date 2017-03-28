@@ -52,7 +52,7 @@ def printCRN(crn, reversible=True, rates=True):
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
-def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verbose = False):
+def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
   """A formal chemical reaction network (CRN) is translated into domain level
   representation (DOM) of a DNA strand displacement circuit (DSD).  The
   translation-scheme has to be formulated using the nuskell programming
@@ -88,9 +88,6 @@ def translate(input_crn, ts_file, pilfile=None, domfile=None, dnafile=None, verb
   if pilfile :
     with open(pilfile, 'w') as pil:
       TestTubeIO(solution).write_pil_kernel(pil)
-  if domfile :
-    with open(domfile, 'w') as dom:
-      TestTubeIO(solution).write_domfile(dom)
   if dnafile :
     with open(dnafile, 'w') as dna:
       TestTubeIO(solution).write_dnafile(dna, formal=formal_species, crn=crn, ts=os.path.basename(ts_file))

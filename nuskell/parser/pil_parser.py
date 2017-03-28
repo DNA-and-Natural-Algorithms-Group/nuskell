@@ -56,7 +56,7 @@ def pil_document_setup():
   loop = (Combine(sense + S("(")) + S(White()) + O(pattern) + S(White()) + asense)
   pattern << G(OneOrMore(loop | sbreak | sense))
 
-  unit = L('M') | L('mM') | L('uM') | L('nM') | L('fM')
+  unit = L('M') | L('mM') | L('uM') | L('nM') | L('pM')
   conc = G(S('@') + L('initial') + gorf + unit) | G(S('@') + L('constant') + gorf + unit)
 
   cplx = G(T(identifier + S("=") + OneOrMore(pattern) + O(conc) + OneOrMore(LineEnd().suppress()),'complex'))

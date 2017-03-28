@@ -47,7 +47,7 @@ class TestCRNparser(unittest.TestCase):
     parse_pil_string("cplx = a( b( c( + ) ) d ) @ constant 1e-4 mM")
     parse_pil_string("cplx = a( b( c( + ) ) d ) @ constant 0.1 uM")
     parse_pil_string("cplx = a( b( c( + ) ) d ) @ initial 100 nM")
-    parse_pil_string("cplx = a( b( c( + ) ) d ) @ initial 1e5 fM") 
+    parse_pil_string("cplx = a( b( c( + ) ) d ) @ initial 1e5 pM") 
 
     with self.assertRaises(ParseException):
       # whitespace between domains 

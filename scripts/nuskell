@@ -69,7 +69,7 @@ def get_peppercorn_args(parser):
       "mode will have no effect, if max helix semantics are disabled (--no-max-helix)")
 
   # NOTE: Output formatting: this option is not directly passed on to peppercorn
-  parser.add_argument('--enum-uncondensed', action='store_true',
+  parser.add_argument('--enum-detailed', action='store_true',
       help="Peppercorn: Don't condense reactions into only resting complexes")
 
   # NOTE: The option --no-rates was removed, because peppercorn always computes
@@ -99,9 +99,6 @@ def get_nuskell_args(parser) :
   parser.add_argument("--pilfile", action = 'store_true',
       help="Print results in the *.pil file format.")
 
-  parser.add_argument("--domfile", action = 'store_true',
-      help="Print results in the *.dom file format.")
-
   parser.add_argument("--dnafile", action = 'store_true',
       help="Print results in the *.dna file format.")
 
@@ -120,6 +117,10 @@ def get_nuskell_args(parser) :
   parser.add_argument("--simulate", action = 'store_true',
       help=argparse.SUPPRESS)
       #help="Simulate the CRNs.")
+
+  parser.add_argument("-u", "--concentration-unit", default='M', action = 'store', metavar='<str>',
+      help=argparse.SUPPRESS)
+      #help="Specify unit for simulator")
 
   parser.add_argument("-o", "--output", default='domainlevel', action = 'store', metavar='<str>',
       help="Specify name of output file")
@@ -148,73 +149,66 @@ def main() :
   parser = get_peppercorn_args(parser)
   args = parser.parse_args()
 
+  # ~~~~~~~~~~~~~~~~~~~
+  # Argument processing
+  # ~~~~~~~~~~~~~~~~~~~
   args.UNZIP = not args.no_max_helix
   pilfile = args.output + '.pil' if args.pilfile else None
-  domfile = args.output + '.dom' if args.domfile else None
   dnafile = args.output + '.dna' if args.dnafile else None
 
 
-  # Parse the input CRN 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Parse and process input CRN 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   input_crn = sys.stdin.readlines()
   input_crn = "".join(input_crn)
   (fcrn, fs, cs) = parse_crn_string(input_crn) 
   fcrn = split_reversible_reactions(fcrn)
 
-  # ~~~~~~~~~~~~~~~~~~~~~~~~
-  # Prepare CRN and TestTube
-  # ~~~~~~~~~~~~~~~~~~~~~~~~
+  # ~~~~~~~~~~~~~~~~~~~~~~~
+  # Initialize the TestTube
+  # ~~~~~~~~~~~~~~~~~~~~~~~
   if args.ts : # Translate CRN using a translation scheme
     print "\nTranslating..."
     solution, constant_solution = translate(input_crn, args.ts, 
-        pilfile = pilfile,
-        domfile = domfile,
-        dnafile = dnafile,
         verbose = (args.verbose > 1)) 
-    
-    if pilfile or domfile or dnafile :
-      print "Wrote file(s):",
-      if pilfile: print pilfile,
-      if domfile: print domfile,
-      if dnafile: print dnafile,
-      print
-
   elif args.readpil : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
     solution = TestTube()
     TestTubeIO(solution).load_pil_kernel(args.readpil)
-    if args.dnafile:
-      dnafile = args.output + '.dna' 
-      with open(dnafile, 'w') as dna:
-        TestTubeIO(solution).write_dnafile(dna, formal=fs, crn=fcrn)
-    if args.pilfile:
-      pilfile = args.output + '.pil' 
-      with open(pilfile, 'w') as pil:
-        TestTubeIO(solution).write_pil_kernel(pil)
-    if pilfile or dnafile :
-      print "Wrote file(s):",
-      if pilfile: print pilfile,
-      if dnafile: print dnafile,
-      print
-
   else :
-    # NOTE: At some point Nuskell should choose translation schemes automatically.
+    # At some point Nuskell should choose translation schemes automatically, 
+    # but we are not there yet ... try: nuskellCMP for such things.
     print "Please specify a translation scheme, see option --ts. For example:"
     schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
     for s in os.listdir(schemedir) :
       print " --ts {}".format(s) 
     raise SystemExit
 
+  if dnafile:
+    with open(dnafile, 'w') as dna:
+      TestTubeIO(solution).write_dnafile(dna, formal=fs, crn=fcrn)
+  if pilfile:
+    with open(pilfile, 'w') as pil:
+      TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit)
+
+  if pilfile or dnafile :
+    print "Wrote file(s):",
+    if pilfile: print pilfile,
+    if dnafile: print dnafile,
+    print
+
   if args.verbose :
     print "Complexes in Solution: "
     for cplx in sorted(solution.complexes, key=lambda x : str(x)):
-      print ' ', cplx.name, map(str, cplx.sequence), cplx.structure
+      print ' ', cplx.name, '=', cplx.kernel
 
   # NOTE: At this point we have defined at least two kinds of species:
   # formal species = species that are present in the input CRN
   # fuel species = all non-formal species that have concentration > 0 nM
-  # In many cases, fuel species have 'infinite' concentration at this point,
-  # and the experimental concentrations are adjusted using simulations
-  # later-on.
+  # If you use translation schemes, fuel species have 'infinite' concentration
+  # at this point. The experimental concentrations can be set by printing a
+  # pilfile, adjusting it, and loading it instead of the translation scheme.
 
   fuels = solution.present_complexes(exclude=fs)
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -223,19 +217,20 @@ def main() :
 
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
-    condensed = not args.enum_uncondensed
+    condensed = not args.enum_detailed
     solution.enumerate_reactions(args, condensed = condensed)
 
-    enum_crn = []
-    for r in solution.reactions:
-      if args.verbose:
-        print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
-      rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
-      enum_crn.append(rxn)
+    #enum_crn = []
+    #for r in solution.reactions:
+    #  if args.verbose:
+    #    print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+    #  rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
+    #  enum_crn.append(rxn)
 
     print "\nReplacing regular-expression complexes ..."
     interpret = solution.interpret_species(fs, prune=True)
-    # Some scheme use history domains within constant and intermediate species
+    # NOTE: Some scheme use history domains within constant and intermediate
+    # species, these will not get replaced.
 
     # Now set fuel concentrations to 100 nM
     for f in fuels:
@@ -247,13 +242,13 @@ def main() :
         solution.set_complex_concentration(f, 0, False)
 
     if args.pilfile :
-      pilfile = args.output + '_2.pil' 
+      pilfile = args.output + '_conc.pil' 
       with open(pilfile, 'w') as pil:
-        TestTubeIO(solution).write_pil_kernel(pil, unit='nM')
+        TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit)
 
+    # Get the implementation CRN. That is the enumerated CRN after
+    # regex-complexes have been removed.
     icrn = []
-    # Implementation CRN is an enumerated CRN after regex-complexes have been
-    # removed.
     for r in solution.reactions:
       if args.verbose:
         print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
@@ -266,7 +261,7 @@ def main() :
   if args.verify :
     print "\nVerification using:", args.verify
 
-    # Implicitly also removes rate constants
+    # NOTE: implicitly also removes rate constants
     vcrn = removeSpecies(icrn, map(str, fuels))
     if args.verbose :
       print "Verification CRN:"
@@ -305,27 +300,26 @@ def main() :
       raise LibError('crnsimulator', 'http://www.github.com/bad-ants-fleet/crnsimulator')
  
     from crnsimulator import ReactionGraph
-    print "\nWriting executable simulator scripts:", args.output+'_fCRN.py', args.output+'_iCRN.py'
-    # Simulate the formal CRN using crnsimulator
 
-    # Change CRN format from [[r], [p], [None]]
+    print "\nWriting executable simulator scripts: {}_fCRN.py {}_iCRN.py".format(
+        args.output, args.output)
+
+    # Change CRN format from [[r], [p], [None]], if needed and add rate 1 to every reaction.
     scrn = map(lambda rxn: rxn[:2] + (rxn[2] if rxn[2] != [None] else [1]), fcrn)
 
-    # Add rate=1 to every reaction
+    # Simulate the formal CRN using crnsimulator
     CRG = ReactionGraph(scrn)
-    fFile, _ = CRG.write_ODE_lib(sorted(CRG.species), 
-            filename = args.output+'_fCRN')
+    fFile, _ = CRG.write_ODE_lib(sorted(CRG.species), filename = args.output+'_fCRN')
 
     if args.verbose :
       print 'Wrote formal CRN simulator:', fFile 
       print ' - execute with: python {}'.format(fFile)
 
     # Simulate the interpretation CRN using crnsimulator
-    iFile, _ = solution.simulate_crn(args.output + '_iCRN')
+    iFile, _ = solution.simulate_crn(args.output + '_iCRN', unit=args.concentration_unit)
     if args.verbose :
       print 'Wrote implementation CRN simulator:', iFile
       print ' - execute with: python {}'.format(iFile)
-
 
 if __name__ == '__main__':
   main()
