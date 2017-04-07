@@ -255,6 +255,13 @@ def main() :
       rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
       icrn.append(rxn)
 
+    print "Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn))
+    print "  - {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()]))
+    print "  - {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)]))
+    print "  - {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
+    print 'Number of distinct strands in the system:', len(solution.strands)
+    print 'Length of all distinct strands in the system:', sum(sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~

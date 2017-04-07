@@ -3,8 +3,10 @@
 # Turing-universal computation with DNA polymers", DNA Computing and
 # Molecular Programming 16, 2010.
 #
-# Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+# Note: This scheme is incorrect for irreversible reactions
 #
+# Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+# fixed by Stefan Badelt
 
 global toehold = short();
 
@@ -23,9 +25,25 @@ macro reactant(s)
         a = s.recog;
         b = s.th };
 
+macro reactant_rev(s)
+    = ["a b +" | "( ( +",
+       "b* a*" | ") )",
+       "a b" | ". ."]
+    where {
+        b = s.hist;
+        a = s.th };
+
 macro product(s)
     = ["a b c +" | "( ( . +",
        "b* a*" | ") )"]
+    where {
+        a = s.hist;
+        b = s.th;
+        c = s.recog };
+
+macro product_rev(s)
+    = ["a b c +" | ". ( ( +",
+       "c* b*" | ") )"]
     where {
         a = s.hist;
         b = s.th;
@@ -47,12 +65,22 @@ class maingate(r, p)
 class maingate_rev(r, p)
     = ["a b + c d e*"
      | "~ ~ + ~ ~ .",
+
+       "k i + e* j l"
+     | "~ ~ + .  ~ ~",
+
        extra]
     where {
         [a, temp, extra] = flip(map(reactant, r), 3);
         d = reverse(temp);
         [b, temp2] = flip(map(product, p), 2);
         c = reverse(temp2);
+
+        [k, temp3] = flip(map(product_rev, r), 2);
+        l = reverse(temp3);
+        [i, temp4, waste] = flip(map(reactant_rev, p), 3);
+        j = reverse(temp4);
+
         e = toehold};
 
 class suppgate(s)
@@ -63,9 +91,9 @@ class suppgate(s)
 
 module rxn(r) =
     if r.reversible then
-        infty(g) + sum(map(infty, map(suppgate, r.products))) + sum(map(infty, gates))
+        infty(fw) + infty(bw) + sum(map(infty, map(suppgate, r.products))) + sum(map(infty, gates))
         where
-            [g, gates] = maingate_rev(r.reactants, r.products)
+            [fw, bw, gates] = maingate_rev(r.reactants, r.products)
     else
         infty(g) + infty(h) + sum(map(infty, map(suppgate, r.products))) + sum(map(infty, gates))
         where

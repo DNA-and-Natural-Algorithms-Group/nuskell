@@ -37,6 +37,7 @@ class TestTubePeppercornIO(object):
   """
 
   condensed = True
+  interruptible = False
 
   def __init__(self, testtube=None, enumerator=None, pargs=None, nargs=None,
       rename = False):
@@ -66,6 +67,7 @@ class TestTubePeppercornIO(object):
       self._testtube = self.enumerator_to_testtube(self._enumerator)
 
     set_peppercorn_args(self._enumerator, pargs)
+    self._enumerator.interruptible = TestTubePeppercornIO.interruptible
 
   @property
   def testtube(self):

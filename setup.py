@@ -23,7 +23,6 @@ setup(
     data_files=[('nuskell/schemes', 
         ['schemes/generalized/soloveichik2010_v1.ts',
         #'schemes/generalized/soloveichik2010_v2.ts', 
-         'schemes/original/qian2011.ts', 
          'schemes/generalized/qian2011_gen.ts',
          'schemes/original/cardelli2011_NM.ts',
          'schemes/original/cardelli2011_NM_noGC.ts',
