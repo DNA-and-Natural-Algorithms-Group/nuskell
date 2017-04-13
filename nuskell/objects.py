@@ -926,7 +926,8 @@ class TestTube(object):
       # produce the same fuel strand multiple times.
       if sanitycheck and (cplx.sequence, cplx.structure) in map(
           lambda x: (x.sequence, x.structure), self._RG.nodes()):
-        print 'WARNING: One complex, one name! Skipping complex:', cplx.name, \
+        if TestTube.warnings :
+          print 'WARNING: One complex, one name! Skipping complex:', cplx.name, \
             map(str, cplx.sequence), cplx.structure
       else :
         self._RG.add_node(cplx, concentration=conc, constant=const) 
@@ -1346,7 +1347,7 @@ class TestTubeIO(object):
     fh.write("def Formal = 5\n\n")
 
     first = True
-    for cplx in sorted(self._testtube.complexes):
+    for cplx in sorted(self._testtube.complexes, key=lambda x: x.name):
 
       if first:
         fh.write ('( ')

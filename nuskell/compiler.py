@@ -68,6 +68,8 @@ def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
     constant_soluiton: A TestTube object that contains only constant species
   """
 
+  TestTube.warnings = verbose
+
   if not os.path.isfile(ts_file):
     builtin = 'schemes/' + ts_file
 
