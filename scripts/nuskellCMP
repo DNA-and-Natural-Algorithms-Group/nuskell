@@ -7,14 +7,15 @@ import pkg_resources
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from numpy import nan
 
 from nuskell import translate, verify, printCRN
-
 from nuskell.parser import parse_crn_string, parse_crn_file, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies
 
 def compare_schemes(reactions, schemedir, 
+    crn_name = True,
     pc_args = None, 
     vnotions = ['pathway', 'bisimulation'],
     vtime = 30, 
@@ -37,36 +38,64 @@ def compare_schemes(reactions, schemedir,
   """
 
   plotdata = [] # Scheme, CRN, Cost, Speed
-  for crn in reactions : 
+  for (crn,crn_name) in reactions : 
     for scheme in os.listdir(schemedir) :
       if scheme[-3:] != '.ts' : 
-        #print "# Ignoring file:", args.ts_dir + scheme
+        print "# Ignoring file:", args.ts_dir + scheme
         continue
 
-      #if scheme[0] != 's' and scheme[0] != 'q' : continue
-      current = [scheme, crn]
+      if crn_name :
+        current = [scheme, str(crn_name)]
+      else :
+        current = [scheme, crn]
 
       (fcrn, fs, cs) = parse_crn_string(crn) 
       fcrn = split_reversible_reactions(fcrn)
 
       print '\n# Scheme:', scheme, 'CRN:', crn
-      solution, _ = translate(crn, schemedir + scheme)
+      try :
+        solution, _ = translate(crn, schemedir + scheme)
+      except SystemExit, e:
+        print e
+        current.extend([None, None, None, None, None])
+        plotdata.append(current)
+        continue
+
       fuels = map(str, solution.present_complexes(exclude=fs))
 
-      # ENUMERATION
-      #if scheme == 'soloveichik2010_v1.ts':
-      #  print "# WARNING: changing eqivalence notion --reject-remote"
-      #  pc_args.REJECT_REMOTE = True
-
-      #if scheme == 'srinivas2017_phd.ts':# and crn == 'A + A -> A':
-
+      # NOTE: Peppercorn can raise a variety of errors, but almost all of them
+      # come down to problems with --reject-remote semantics... here are a few
+      # examples:
+      notion = ['d'] if args.enum_detailed else ['c']
       try :
         solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
       except RuntimeError, e:
-        print "# WARNING: changing eqivalence notion --reject-remote"
         pc_args.REJECT_REMOTE = True
         solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        notion.append('rr')
         pc_args.REJECT_REMOTE = False
+      except TypeError, e:
+        pc_args.REJECT_REMOTE = True
+        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        notion.append('rr')
+        pc_args.REJECT_REMOTE = False
+      except IndexError, e:
+        pc_args.REJECT_REMOTE = True
+        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        notion.append('rr')
+        pc_args.REJECT_REMOTE = False
+      except Exception, e:
+        # Scheme: lakin2016_3D.ts CRN: A + A -> B + A
+        # File "../peppercorn/utils.py", line 879, in check_structure
+        # Exception: In complex 17029, incoherent structure at (0, 5) -> (1, 0)
+        pc_args.REJECT_REMOTE = True
+        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        notion.append('rr')
+        pc_args.REJECT_REMOTE = False
+
+
+
+      current.append(notion)
 
       interpret = solution.interpret_species(fs, prune=True)
 
@@ -78,13 +107,34 @@ def compare_schemes(reactions, schemedir,
         rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
         icrn.append(rxn)
 
+      # VERIFICATION
+      vcrn = removeSpecies(icrn, fuels)
+      for meth in vnotions :
+        v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+            timeout=vtime, verbose=(verbose>1))
+        if v is True:
+          print " {}: CRNs are {} equivalent.".format(v, meth)
+          current.append(v)
+        elif v is False:
+          print " {}: CRNs are not {} equivalent.".format(v, meth)
+          current.append(v)
+        elif v is None:
+          print " {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
+          current.append(v)
+          #current.append('- [{} s]'.format(vtime))
 
-      print "Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn))
-      print "  - {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()]))
-      print "  - {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)]))
-      print "  - {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
+      # IMPLEMENTATION DETAILS
+      print "# Enumerated system: {} species, {} reactions".format(
+          len(solution.complexes), len(icrn))
+      print "#  - {} signal species".format(
+          len([c for c in solution.complexes if c.name in interpret.keys()]))
+      print "#  - {} fuel species".format(
+          len([c for c in solution.complexes if c.name in map(str, fuels)]))
+      print "#  - {} intermediate species".format(
+          len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
       print 'Number of distinct strands in the system:', len(solution.strands)
-      print 'Length of all distinct strands in the system:', sum(sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+      print 'Length of all distinct strands in the system:', sum(
+          sum(map(lambda d: d.length, s)) for s in solution.strands.values())
 
       if cmp_total_nuc :
         cost = sum(sum(map(lambda d: d.length, s)) for s in solution.strands.values())
@@ -94,23 +144,10 @@ def compare_schemes(reactions, schemedir,
         speed = len(icrn)
         current.append(speed)
 
-      # VERIFICATION
-      vcrn = removeSpecies(icrn, fuels)
-      for meth in vnotions :
-        v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-            timeout=vtime, verbose=(verbose>1))
-        if v is True:
-          print " {}: CRNs are {} equivalent.".format(v, meth)
-        elif v is False:
-          print " {}: CRNs are not {} equivalent.".format(v, meth)
-        elif v is None:
-          print " {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
-        current.insert(2, v)
-
       plotdata.append(current)
   return plotdata
 
-def normalize(rawdata, refscheme):
+def normalize(rawdata, refscheme, ns=5):
   """Normalize results to reference scheme. 
 
     Note: This function requires a particular format of 'rawdata'. 
@@ -121,193 +158,178 @@ def normalize(rawdata, refscheme):
   for n in norm_values: # A particular CRN
     current = filter(lambda x: x[1] == n[1], rawdata)
     for c in current:
-      normdata.append(c[:4] + [float(x)/y for x,y in zip(n[4:], c[4:])])
+      normdata.append(c[:ns] + [float(x)/y for x,y in zip(n[ns:], c[ns:])])
     
   return normdata
 
-def plot_by_reference(df, pfile='nuskell_compare.pdf', ts_order=None):
-  # This is the old version, it does not support the different markers for 
-  # correct vs timeout vs incorrect.
-  if not ts_order:
-    ts_order = sorted(set(df['Translation scheme']))
-
-  g = sns.PairGrid(data=df, hue='Translation scheme', size=4,
-      x_vars=["size of condensed network [reactions]"],
-      y_vars=["number of nucleotides [nt]"])
-  g = g.map(plt.scatter)
-  g = g.add_legend(bbox_to_anchor=(1.5, 0.8))
-  plt.savefig(pfile, bbox_inches="tight")
-  return
-
-def plot_crn_by_crn(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
+def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
   if not ts_order:
     ts_order = sorted(set(df['Translation scheme']))
   if not crn_order:
     crn_order = sorted(set(df['CRN']))
 
-  def is_correct(x):
-    """Check if the scheme is equivalent according to any of the notions. """
-    equiv = list(x.filter(like='equivalent', axis=1).values[0])
-    if True in equiv :
-      return 'o'
-    elif None in equiv :
-      return 's'
-    else :
-      return 'D'
+  g = sns.lmplot(data=df, x="[reactions]", y="[nucleotides]", 
+      hue="Translation scheme", hue_order = ts_order,
+      col="equivalent", col_order=[True, False, 'timeout'], col_wrap=2,
+      legend=False, legend_out=True,
+      x_jitter=0.2,
+      markers=['+','^','v','<','>','*','d','.','x'],
+      fit_reg=False,
+      scatter=True)
+  #g = sns.FacetGrid(data=df,
+  #    #sharex=False, sharey=FalseTrue,
+  #    #col="CRN", col_wrap=3,
+  #    hue='Translation scheme')
+  #g = g.map(plt.scatter, '[reactions]', '[nucleotides]', alpha=0.3)
 
-  #sns.set(style="ticks", color_codes=True)
-  with sns.color_palette("hls", n_colors=len(ts_order)) :
-    g = sns.FacetGrid(df, col="CRN", col_order=crn_order, col_wrap=2, sharex=False, sharey=False,
-        hue='Translation scheme', hue_order=ts_order)
-    g = g.map(plt.scatter, "size of condensed network [reactions]", "number of nucleotides [nt]")
-    
-    if True:
-      for (crn, ax) in zip(crn_order, g.axes.flat) :
-        # TODO: add a legend for 'D', 's', 'o'.
-        #ax.annotate(c, xy=(10, 553))
-        #ax.annotate(crn, xy=(8, 245))
-        ax.set_axis_bgcolor("lightgray")
-        for col, ts in enumerate(ts_order) :
-          # NOTE: filter is dangerous because it may match multiple entries, however, not if you
-          # match including the parenthesis.
-          tcdf = df.filter(like="{}".format(ts), axis=0)
-          #print 'tst', crn, ts, tcdf.values
-          ax.scatter("size of condensed network [reactions]", "number of nucleotides [nt]", 
-              data=tcdf, marker=is_correct(tcdf), c=sns.color_palette()[col])
-          #sns.regplot("size of condensed network [reactions]", "number of nucleotides [nt]", data=tcdf, 
-          #    ax=ax, marker=is_correct(tcdf), fit_reg=False)
-
-
-    g = g.add_legend()#bbox_to_anchor=(1.05, 1), borderaxespad=0.)
-    #plt.show()
-    plt.savefig(pfile, bbox_inches="tight")
-
-  # OLDCODE:
-  # row, col = g.axes.shape
-  # for i in range(row):
-  #   for j in range(col):
-  #     ax = g.axes[i, j]
-  #     ax.set_axis_bgcolor("lightgray")
-  # g.axes[0,0].annotate("Test1", xy=(8, 245))
-  # g.axes[0,1].annotate("Test2", xy=(16, 553))
+  g = g.add_legend(bbox_to_anchor=(.9, 0.25))
+  plt.savefig(pfile, bbox_inches="tight")
+  return
 
 def main(args):
   """Compare multiple tranlation schemes for a given CRN. """
-  # ***************** #
-  # Process CRN input #
-  # _________________ #
 
-  if args.plot and (args.plot[-4:] != '.pdf' and args.plot[-4:] != '.png' and args.plot[-4:] != '.eps'):
-    raise SystemExit('Please choose a file format (*.pdf, *png, *eps) for your plot: {}'.format(args.plot))
+  # *************** #
+  # Check arguments #
+  # _______________ #
 
-  if args.crn_dir:
-    print "Compiling CRNs in:", args.crn_dir
-    reactions = []
-    for crnfile in filter(lambda x: x[-4:] == '.crn', os.listdir(args.crn_dir)):
-      print ' *', crnfile
-      with open(args.crn_dir+crnfile) as fcrn :
-        react = ''
-        for l in fcrn.readlines():
-          react += l.strip() + '; '
-      reactions.append(react[:-2])
-      #(fcrn, fs, cs) = parse_crn_file(args.crn_dir+crnfile)
-      #reactions.append(fcrn)
-  else :
-    input_crn = sys.stdin.readlines()
-    input_crn = "".join(input_crn)
-    reactions = [input_crn]
-    print "Compiling CRN:"
-    for rxn in reactions: 
-      print ' *', rxn
-
-  #else :
-  #  # A few common tests to find bugs in reaction schemes
-  #  reactions = [
-  #      'A -> ', 
-  #      '-> B',
-  #      'A -> B', 
-  #      'A <=> B', 
-  #      'A -> A + A', 
-  #      'A + A -> A', 
-  #      'A + B -> B + B' ]
-
-  #  networks = [
-  #      'A + B -> B + B; B + C -> C + C; A + C -> A + A',
-  #      'A <=> A + A; A + B -> B + B; B -> ; A + C -> ; C <=> C + C',
-  #      'A <=> X; B + X <=> Y + A; C + Y + X <=> Z + B + A']
-  #  reactions += networks
-
+  if args.pyplot and (args.pyplot[-4:] not in ('.pdf', '.png', '.eps')):
+    raise SystemExit('Please choose a file format (*.pdf, *png, *eps) for your plot: {}'.format(
+      args.pyplot))
 
   # ***************** #
-  # Process DIR input #
+  # Process CSV input #
   # _________________ #
-  
-  if args.ts_dir :
-    print "Comparing schemes in:", args.ts_dir
-  else :
-    print "Comparing default schemes:" 
-    args.ts_dir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
 
-  for ts in filter(lambda x: x[-3:] == '.ts', os.listdir(args.ts_dir)):
-    print ' *', ts
+  if args.from_csv :
+    print '# Parsing data from file ... '
+    df = pd.DataFrame().from_csv(args.from_csv)
 
-  # ***************** #
-  # Process REF input #
-  # _________________ #
-  
-  if args.reference and args.reference not in os.listdir(args.ts_dir):
-    raise Exception('Reference scheme not found.')
+  else:
+    # ***************** #
+    # Process CRN input #
+    # _________________ #
+    if args.crn_dir:
+      print "Compiling CRNs in:", args.crn_dir
+      reactions = []
+      for crnfile in filter(lambda x: x[-4:] == '.crn', os.listdir(args.crn_dir)):
+        print ' *', crnfile
+        with open(args.crn_dir+crnfile) as fcrn :
+          react = ''
+          for l in fcrn.readlines():
+            react += l.strip() + '; '
+        reactions.append((react[:-2], crnfile))
+    else :
+      input_crn = sys.stdin.readlines()
+      input_crn = "".join(input_crn)
+      reactions = [(input_crn, input_crn)]
+      print "Compiling CRN:"
+      for (rxn, n) in reactions: 
+        print ' *', rxn
 
-  # ********* #
-  # MAIN LOOP #
-  # _________ #
-  
-  # Scheme, CRN, Cost, Speed
-  plotdata = compare_schemes(reactions, args.ts_dir,
-      pc_args = args,
-      cmp_ecrn_size = True,
-      cmp_total_nuc = True,
-      vnotions = ['pathway', 'bisimulation'],
-      vtime = args.verify_timeout,
-      verbose=args.verbose)
+    # **************** #
+    # Process TS input #
+    # ________________ #
+    if args.ts_dir :
+      print "Comparing schemes in:", args.ts_dir
+    else :
+      print "Comparing default schemes:" 
+      args.ts_dir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
 
-  # Results:
+    for ts in filter(lambda x: x[-3:] == '.ts', os.listdir(args.ts_dir)):
+      print ' *', ts
+
+    # ***************** #
+    # Process REF input #
+    # _________________ #
+    
+    if args.reference and args.reference not in os.listdir(args.ts_dir):
+      raise Exception('Reference scheme not found.')
+
+    # ********* #
+    # MAIN LOOP #
+    # _________ #
+
+    plotdata = compare_schemes(reactions, args.ts_dir,
+        pc_args = args,
+        cmp_ecrn_size = True,
+        cmp_total_nuc = True,
+        vnotions = ['pathway', 'bisimulation'],
+        vtime = args.verify_timeout,
+        verbose=args.verbose)
+
+    # Results:
+    idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
+    df = pd.DataFrame(plotdata, index=idx, 
+        columns=[
+          'Translation scheme', 'CRN', 
+          'enumerated',
+          'pathway', 
+          'bisimu', 
+          '[nucleotides]', 
+          '[reactions]'])
+
   print 'Rawdata:'
-  for p in plotdata: print '', p
+  print df.to_string(index=False, justify='left')
+  #print df.to_latex(index=False)
+
+  # Save to portable format:
+  if args.to_csv:
+    df.to_csv(path_or_buf=args.to_csv)
 
   # Normalize data to --reference scheme
-  if args.reference :
+  # TODO: remove csv dependece
+  if not args.from_csv and args.reference :
     plotdata = normalize(plotdata, args.reference)
     print 'Normalized to {}:'.format(args.reference)
-    for p in plotdata: print '', p
-    idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
-    df = pd.DataFrame(plotdata, index=idx, 
-        columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
-          'pathway equivalent', 'number of nucleotides [nt]', 'size of condensed network [reactions]'])
-    if args.plot :
-      plot_by_reference(df, pfile=args.plot)
+    df = pd.DataFrame(plotdata, 
+        columns=[
+          'Translation scheme', 'CRN', 
+          'enumerated',
+          'pathway', 
+          'bisimu', 
+          '[nucleotides]', 
+          '[reactions]'])
+    print df.to_string(index=False, justify='right')
 
-  elif args.plot :
-    idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
-    df = pd.DataFrame(plotdata, index=idx, 
-        columns=['Translation scheme', 'CRN', 'bisimulation equivalent', 
-          'pathway equivalent', 'number of nucleotides [nt]', 'size of condensed network [reactions]'])
-    plot_crn_by_crn(df, pfile=args.plot)
+  def fun((x,y)):
+    if True in (x,y) :
+      return True
+    elif nan in (x,y) :
+      return 'timeout'
+    else :
+      return False
+
+  # Add column that combines pathway and bisimulation notion 
+  e = map(fun, zip(df['pathway'], df['bisimu']))
+  df['equivalent'] = e
+  print df.to_string(index=False, justify='left')
+
+  if args.pyplot :
+    single_plot(df, pfile=args.pyplot)
+    #plot_crn_by_crn(df, pfile=args.pyplot)
 
 def get_nuskellCMP_args(parser) :
   """ A collection of arguments for Nuskell """
 
-  parser.add_argument("--ts_dir", action = 'store',
+  parser.add_argument("--ts-dir", action = 'store',
       help="Specify path to the translation scheme directory. " + \
         "Only files that have a *.ts ending will be compared.")
 
-  parser.add_argument("--crn_dir", action = 'store',
+  parser.add_argument("--crn-dir", action = 'store',
       help="Specify path to a CRN directory. " + \
         "Only files that have a *.crn ending will be compared.")
 
   parser.add_argument("--reference", action = 'store',
       help="Specify a translation scheme that serves as a reference.")
 
+  parser.add_argument("--from-csv", action = 'store',
+      help="Plotting only -- read results from csv file.")
+
+  parser.add_argument("--to-csv", action='store', default='',
+      help="Specify name of of a csv file.")
+
+  # NOTE: changing the equivalence notions would break normalization and plotting.
   #parser.add_argument("--verify", nargs='+', default='', action = 'store', 
   #    metavar = '<str>', help="Specify verification methods: \
   #        (bisimulation, pathway, integrated, bisim-loop-search,\
@@ -316,7 +338,7 @@ def get_nuskellCMP_args(parser) :
   parser.add_argument("--verify-timeout", type=int, default=30,
       help="Specify time [seconds] to wait for verification to complete.")
 
-  parser.add_argument("--plot", default='nuskell_compare.pdf', action = 'store',
+  parser.add_argument("--pyplot", default='', action = 'store',
       help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
 
   parser.add_argument("-v", "--verbose", action='count', default=0,
@@ -346,7 +368,7 @@ def get_peppercorn_args(parser):
   parser.add_argument('--ignore-branch-4way', action='store_true',
       help="Peppercorn: Ignore 4-way branch migration events during enumeration.")
 
-  # TODO: explain these options in more deatail!
+  # TODO: explain these options in more detail!
   parser.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
       metavar='<int>',
       help="Peppercorn: Maximum number of bases that will be released spontaneously "+\
@@ -368,7 +390,6 @@ def get_peppercorn_args(parser):
       help="Peppercorn: Apply legacy 'UNZIP=True' behavior. Note: --legacy-unzip" + \
       "mode will have no effect, if max helix semantics are disabled (--no-max-helix)")
 
-  # NOTE: Output formatting: this option is not directly passed on to peppercorn
   parser.add_argument('--enum-detailed', action='store_true',
       help="Peppercorn: Return detailed reaction network, rather than condensed reactions.")
 
