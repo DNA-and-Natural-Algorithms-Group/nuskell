@@ -78,21 +78,28 @@ def crn_document_setup(modular = False):
   else :
     module = expr + ZeroOrMore(S(";") + expr)
 
-  formal = G(O(S(";")) + L("formal") + S(L("=") + \
+  formal = G(O(S(";")) + L("formals") + S(L("=") + \
              L("{")) + O(delimitedList(identifier)) + S("}"))
 
-  constant = G(O(S(";")) + L("constant") + S(L("=") + \
+  signal = G(O(S(";")) + L("signals") + S(L("=") + \
+             L("{")) + O(delimitedList(identifier)) + S("}"))
+
+  fuel = G(O(S(";")) + L("fuels") + S(L("=") + \
                L("{")) + O(delimitedList(identifier)) + S("}"))
-  
-  crn = OneOrMore(module + ZeroOrMore(S(LineEnd()))) + O(formal) + ZeroOrMore(S(LineEnd())) + O(constant) + ZeroOrMore(S(LineEnd()))
+
+  addon = formal | signal | fuel
+
+  crn = OneOrMore(module + ZeroOrMore(S(LineEnd()))) + ZeroOrMore(addon + ZeroOrMore(S(LineEnd())))
 
   document = StringStart() + ZeroOrMore(S(LineEnd())) + crn + StringEnd()
   document.ignore(pythonStyleComment)
   return document
 
 def _post_process(crn):
-  """Take a crn and return it together with a list of formal and
-  constant species.
+  """
+    Take a CRN and return it together with a list of formal species.
+    If additional information on signal and fuel species was provided, this
+    gets processed here as well.
   """
   def remove_multipliers(species) :
     flat = []
@@ -105,18 +112,16 @@ def _post_process(crn):
     return flat
 
   new = []
-  asp = set()
   fsp = set()
-  csp = set()
-  fsp_manual = False
-  csp_manual = False
+  ssp = set()
+  csp = set() # fuel species (formerly called constant species
   for line in crn:
-    if line[0] == "formal":
+    if line[0] == "formals":
       fsp = fsp.union(line[1:])
-      fsp_manual = True
-    elif line[0] == "constant":
+    elif line[0] == "signals":
+      ssp = ssp.union(line[1:])
+    elif line[0] == "fuels":
       csp = csp.union(line[1:])
-      csp_manual = True
     elif len(line) == 3:
       # No rate specified
       r, p, t = line
@@ -142,24 +147,16 @@ def _post_process(crn):
         raise ValueError('Wrong CRN format!', line)
     else :
       raise ValueError('Wrong CRN format!', line)
-    asp = asp.union(r).union(p)
+    fsp = fsp.union(r).union(p)
   crn = new
 
-  # Check that formal/constant assignments make sense!
-  if fsp_manual and csp_manual :
-    # NOTE: Also empty sets can be forced!
-    pass
-  elif csp_manual :
-    fsp = asp - csp
-  elif fsp_manual :
-    csp = asp - fsp
-  else :
-    fsp = asp
+  if not ssp:
+    ssp = fsp
 
-  if fsp & csp :
-    raise ValueError, "species declared as formal & constant"
+  if ssp & csp :
+    raise ValueError, "{} declared as signal & fuel species".format(ssp & csp)
 
-  return crn, sorted(list(fsp)), sorted(list(csp))
+  return crn, sorted(list(fsp)), sorted(list(ssp)), sorted(list(csp))
 
 def split_reversible_reactions(crn):
   """ 

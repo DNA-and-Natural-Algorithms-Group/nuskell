@@ -222,7 +222,7 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
                 print "Formal basis found was:"
                 for [r,p] in fbasis_raw:
                     print r, "->", p
-                return None
+                return False
     # permissive test end
     basis = fbasis
 

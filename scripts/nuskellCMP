@@ -9,8 +9,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from numpy import nan
 
-from nuskell import translate, verify, printCRN
-from nuskell.parser import parse_crn_string, parse_crn_file, split_reversible_reactions
+from nuskell import translate, verify
+from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies
 
@@ -41,7 +41,7 @@ def compare_schemes(reactions, schemedir,
   for (crn,crn_name) in reactions : 
     for scheme in os.listdir(schemedir) :
       if scheme[-3:] != '.ts' : 
-        print "# Ignoring file:", args.ts_dir + scheme
+        print "\n# Ignoring file:", args.ts_dir + scheme
         continue
 
       if crn_name :
@@ -49,10 +49,12 @@ def compare_schemes(reactions, schemedir,
       else :
         current = [scheme, crn]
 
-      (fcrn, fs, cs) = parse_crn_string(crn) 
+      fcrn, fs, _, _ = parse_crn_string(crn) 
       fcrn = split_reversible_reactions(fcrn)
 
-      print '\n# Scheme:', scheme, 'CRN:', crn
+      print "\n# -------"
+      print '# Scheme:', scheme, 'CRN:', crn
+      print "# -------"
       try :
         solution, _ = translate(crn, schemedir + scheme)
       except SystemExit, e:
@@ -93,8 +95,6 @@ def compare_schemes(reactions, schemedir,
         notion.append('rr')
         pc_args.REJECT_REMOTE = False
 
-
-
       current.append(notion)
 
       interpret = solution.interpret_species(fs, prune=True)
@@ -107,22 +107,6 @@ def compare_schemes(reactions, schemedir,
         rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
         icrn.append(rxn)
 
-      # VERIFICATION
-      vcrn = removeSpecies(icrn, fuels)
-      for meth in vnotions :
-        v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-            timeout=vtime, verbose=(verbose>1))
-        if v is True:
-          print " {}: CRNs are {} equivalent.".format(v, meth)
-          current.append(v)
-        elif v is False:
-          print " {}: CRNs are not {} equivalent.".format(v, meth)
-          current.append(v)
-        elif v is None:
-          print " {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
-          current.append(v)
-          #current.append('- [{} s]'.format(vtime))
-
       # IMPLEMENTATION DETAILS
       print "# Enumerated system: {} species, {} reactions".format(
           len(solution.complexes), len(icrn))
@@ -132,9 +116,25 @@ def compare_schemes(reactions, schemedir,
           len([c for c in solution.complexes if c.name in map(str, fuels)]))
       print "#  - {} intermediate species".format(
           len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
-      print 'Number of distinct strands in the system:', len(solution.strands)
-      print 'Length of all distinct strands in the system:', sum(
+      print '# Number of distinct strands in the system:', len(solution.strands)
+      print '# Length of all distinct strands in the system:', sum(
           sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+
+      # VERIFICATION
+      vcrn = removeSpecies(icrn, fuels)
+      for meth in vnotions :
+        v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+            timeout=vtime, verbose=(verbose>1))
+        if v is True:
+          print "# {}: CRNs are {} equivalent.".format(v, meth)
+          current.append(v)
+        elif v is False:
+          print "# {}: CRNs are not {} equivalent.".format(v, meth)
+          current.append(v)
+        elif v is None:
+          print "# {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
+          current.append(v)
+          #current.append('- [{} s]'.format(vtime))
 
       if cmp_total_nuc :
         cost = sum(sum(map(lambda d: d.length, s)) for s in solution.strands.values())
@@ -295,7 +295,7 @@ def main(args):
   def fun((x,y)):
     if True in (x,y) :
       return True
-    elif nan in (x,y) :
+    elif (nan in (x,y)) or (None in (x,y)) :
       return 'timeout'
     else :
       return False

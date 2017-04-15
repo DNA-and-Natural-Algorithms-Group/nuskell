@@ -31,7 +31,7 @@ def ts_code_snippet():
     function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
-def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
+def interpret(ts_parsed, crn_parsed, fs_list,
     name='ts_author', sdlen=6, ldlen=15, verbose=False):
   """Interface to the nuskell environment.
 
@@ -69,11 +69,8 @@ def interpret(ts_parsed, crn_parsed, fs_list, cs_list,
   # translate formal species list using the formal() function 
   fs_result = ts_env.translate_formal_species(fs_list)
 
-  if cs_list :
-    raise NotImplementedError('removed this function @ c107b2c')
-  else :
-    # translate the crn using the main() function 
-    cs_solution = ts_env.translate_reactions(crn_parsed)
+  # translate the crn using the main() function 
+  cs_solution = ts_env.translate_reactions(crn_parsed)
 
   solution = TestTube()
   for k,v in fs_result.items():

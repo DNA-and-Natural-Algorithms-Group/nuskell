@@ -82,17 +82,16 @@ def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
 
 
   ts = parse_ts_file(ts_file)
-  (crn, formal_species, const_species) = parse_crn_string(input_crn)
+  crn, fs, signals, fuels = parse_crn_string(input_crn)
 
-  solution, constant_solution = interpret(ts, crn, 
-      formal_species, const_species)
+  solution, constant_solution = interpret(ts, crn, fs)
 
   if pilfile :
     with open(pilfile, 'w') as pil:
       TestTubeIO(solution).write_pil_kernel(pil)
   if dnafile :
     with open(dnafile, 'w') as dna:
-      TestTubeIO(solution).write_dnafile(dna, formal=formal_species, crn=crn, ts=os.path.basename(ts_file))
+      TestTubeIO(solution).write_dnafile(dna, signals=fs, crn=crn, ts=os.path.basename(ts_file))
 
   return solution, constant_solution
 
