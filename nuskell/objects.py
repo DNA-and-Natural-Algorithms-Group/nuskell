@@ -1366,7 +1366,7 @@ class TestTubeIO(object):
       else :
         fh.write ('| ')
 
-      if cplx.name in signal :
+      if cplx.name in signals :
         fh.write("Signal * ")
       else :
         fh.write("constant Fuel * ")

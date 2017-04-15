@@ -27,12 +27,12 @@ class PathwayEquivalenceTests(unittest.TestCase):
     # Load data from filename into the proper bisimulation format
     if not os.path.isfile(filename):
       raise Exception("File for unittest is missing: {}".format(filename))
-    (crn, formal, _) = parse_crn_file(filename)
+    crn, formal, _, _ = parse_crn_file(filename)
     crn = split_reversible_reactions(crn)
     return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
   def _parse_crn_string(self, string):
-    (crn, formal, _) = parse_crn_string(string)
+    crn, formal, _, _ = parse_crn_string(string)
     crn = split_reversible_reactions(crn)
     return (crn, formal)
 
