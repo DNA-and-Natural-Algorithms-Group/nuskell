@@ -152,8 +152,8 @@ def main() :
   # Argument processing
   # ~~~~~~~~~~~~~~~~~~~
   args.UNZIP = not args.no_max_helix
-  pilfile = args.output + '_translation.pil' if args.pilfile else None
-  dnafile = args.output + '_translation.dna' if args.dnafile else None
+  pilfile = args.output + '_tl.pil' if args.pilfile else None
+  dnafile = args.output + '_tl.dna' if args.dnafile else None
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Parse and process input CRN 
@@ -197,6 +197,21 @@ def main() :
     for cplx in sorted(solution.complexes, key=lambda x : str(x)):
       print ' ', cplx.name, '=', cplx.kernel
 
+  if dnafile:
+    with open(dnafile, 'w') as dna:
+      TestTubeIO(solution).write_dnafile(dna, signals=signals, 
+          crn=fcrn, ts = args.ts if args.ts else None)
+  if pilfile:
+    with open(pilfile, 'w') as pil:
+      TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit, 
+          crn=fcrn, ts = args.ts if args.ts else None)
+
+  if pilfile or dnafile :
+    print "Wrote file(s):",
+    if pilfile: print pilfile,
+    if dnafile: print dnafile,
+    print
+
   # NOTE: if we already know names for signals and fuels, extract them,
   # otherwise they are defined as follows:
   # signals = species that correspond to formal species in the formal CRN
@@ -215,21 +230,6 @@ def main() :
   if args.verbose:
     print "formal species: {}; signal species: {}; fuel species: {}".format(
         fs, map(str, signals), map(str, fuels))
-
-  if dnafile:
-    with open(dnafile, 'w') as dna:
-      TestTubeIO(solution).write_dnafile(dna, signals=signals, 
-          crn=fcrn, ts = args.ts if args.ts else None)
-  if pilfile:
-    with open(pilfile, 'w') as pil:
-      TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit, 
-          crn=fcrn, ts = args.ts if args.ts else None)
-
-  if pilfile or dnafile :
-    print "Wrote file(s):",
-    if pilfile: print pilfile,
-    if dnafile: print dnafile,
-    print
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
@@ -286,7 +286,7 @@ def main() :
           solution.set_complex_concentration(i, 0, False)
 
       if args.pilfile :
-        pilfile = args.output + '_implementation.pil' 
+        pilfile = args.output + '_c0.pil' 
         with open(pilfile, 'w') as pil:
           TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit,
               crn=fcrn, ts = args.ts if args.ts else None)

@@ -87,7 +87,7 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   #  print type(v), v, map(str, v.sequence), v.structure
 
   num=1
-  for cplx in cs_solution.complexes:
+  for cplx in sorted(cs_solution.complexes, key=lambda x : x.name):
     rename = 'f{}_'.format(str(num))
     cplx.name = rename
     ## Make sure nobody calls calls formal species like fuel species
