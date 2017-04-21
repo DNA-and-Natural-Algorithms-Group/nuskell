@@ -1,88 +1,72 @@
 # Nuskell CRN-to-DSD translation schemes
 
-A collection of translation schemes taken from literature.  We destinguish
-three types of schemes:
-  - Name2016.ts (original version from the paper)
-  - Name2016_gen.ts (generalized version)
-  - Name2016_opt.ts (optimized version)
+## Explore
+A collection of translation schemes. We distinguish three types of schemes:
 
-and a separate category of implementation schemes for particular types of
-reactions. You can think of these as a version emulating the VisualDSD
-philosophy.
-  - Name2016_catalyst.ts (implementation of a catalyst)
+  - **literature**: Schemes implemented *exactly* as described in literature.
+    If schemes are only described for a subset of reactions (e.g. only
+    bimolecular reactions), then all other reactions are implemented as
+    combinations of these reactions, with fuel species (f) or intermediate
+    species (i) that look like signal species, for example:
+    ```
+    - { -> X} is implemented as {f -> X} 
+    - {X -> } is implemented as {X -> f} 
+    - {X -> Y} is implemented as {X + f -> f + Y}
 
+    - {W + X + Y -> Z} is implemented as {W + X <=> i; i + Y -> Z} 
+    - {Z -> W + X + Y} is implemented as  {Z -> i + W; i -> X + Y}
+    ```
 
-While the *original* versions are predominantly interesting for historic
-reasons and for testing and performance analysis, the \*gen.ts and \*opt.ts
-schemes will be used by the nuskell compiler. 
+  - **canonical**: recommended schemes for CRN-to-DSD compilation. These can either
+    be identical copies of schemes found in ''literature'', (i.e. schemes with
+    the same name), or they are *corrected*, *optimized* variants of those
+    schemes. These schemes are globally installed with the Nuskell library.
 
-  ```echo "A+B->C" | nuskell ```
-  ... uses some default schemes that we have to determine
+  - **experimental**: new schemes, or variations of schemes that haven't been
+    thoroughly tested.
 
-In cases where the original version and the generalized version
-are equivalent, there will be a softlink from Name20xx.ts to Name20xx_gen.ts.
+  - **implementations**: Alternative input format (*.PIL) for case-by-case testing
+    of pre-compiled systems as described in literature. 
 
-As an example, the scheme qian2011.ts and qian2011_gen.ts are different, as
-qian2011_gen.ts contains an additional irreversible reaction step after product
-species have been consumed. 
+## Contribute
+Most importantly, reference the corresponding literature and yourself as author 
+of the translation scheme. Make sure to emphasize potential optimizations on
+the formal CRN input. For example, answer the following questions: 
 
-An important feature for generalized versions is that they are bisimulation
-equivalent to at least one (?) formal input CRN. Therfore,
-cardelli2011_2D_gen.ts does not include the garbage collection mechanism
-described in the original publication.
+  - *Does the order of reactants/products matter?* A scheme might implement the
+    catalytic reactions more efficiently if they are specified as ```x + c <=>
+    c + y``` than if they are specified as ```c + x <=> c + y```. 
 
-For example, the Cardelli-Schemes with carbage collection are in
-Cardelli2011.ts, but the _gen schemes additionally implement " -> A" and do
-not use garbage collection. Also, the _gen.ts schemes should implement general
-rules to extrapolate from bimolecular to trimolecular reactions.
+  - *Is the scheme optimized?* A translation scheme might implement the
+    *delayed-choice* optimization: ```{A + B -> C; A + B -> D + E}``` where
+    ```A + B``` consumption is implemented only once:
+    ```{A + B -> i; i -> C; i -> D + E}``` 
 
-  - 0->X via f->X where f=fuel (can we call them "instant" reactions?)
-      
-      .. p = if len(r.products) == 0 then [formal(0)] else r.products;
+  - *Should reversible reactions be specified as reversible reactions?* Some
+    schemes require reactions to be irreversible, others are more efficient for
+    reversible reactions. A scheme can make a choice to combine irreversible
+    reactions into reversible ones, but it doesn't have to!
 
-  - A+B+C->X via A+B<=>i; i+C->X
-  - A-> W+X+Y+Z via A->W+i1; i1->X+i2; i2->Y+Z
-
-## How to write your own translation scheme:
-
-Some schemes want reactions to be irreversible, but others save species with
-reversible reactions. That means it is possible to optimize the formal input
-CRN. The translation scheme should specify how the CRN should be compressed.
-
-  - check if the scheme exists in some version already.
-  - start with the original scheme in the publication and put it into original
-    document to your best knowledge whether this scheme is similar, or an
-    extension, or whatever 
-
-
-## Example:
-
-Assume you want to compile the CRN {A+B <=> C+D, D+X -> Y} using the
-translation scheme from [Soloveichik et al. (2010)], then the respective
-command line call would be:
-
-```
-nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
-```
-
-## Schemes
-### published schemes:
+## Overview
+### ./literature/*
   * `soloveichik2010.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
 
-    A scheme for translating CRNs into DNA strand displacement systems. 
-
-    **TODO**: Downgrade?
-
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+    ```
+    # A scheme for translating CRNs into DNA strand displacement systems. 
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+    ```
 
   * `cardelli2011_FJ.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
 
-    The 2-way fork and join gates described in Figures 4-7. 
-
-    **TODO**: Garbage collection (Figure 8) is currently not implemented.
-    
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
-      modified by Stefan Badelt (badelt@caltech.edu)
+    ```
+    # The 2-way fork and join gates described in Figures 4-7. 
+    #
+    # **TODO**: Garbage collection (Figure 8) is currently not implemented.
+    # 
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
+    #   modified by Stefan Badelt (badelt@caltech.edu)
+    ```
 
   * `cardelli2011_NM.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
 
@@ -103,7 +87,7 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
     Coded by Stefan Badelt (badelt@caltech.edu).
 
-### generalized schemes:
+### ./canonical
   * `soloveichik2010_gen.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
 
     The generalized version of soloveichik2010.ts implements instant reactions,
@@ -145,8 +129,7 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
     Coded by Stefan Badelt (badelt@caltech.edu).
 
-### work in progress:
-
+### ./experimental
   * `soloveichik2010_opt.ts`
     
     A variant of soloveichik2010.ts that reduces the number of strands for certain CRNs.
@@ -166,7 +149,6 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
 
     Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
 
-### incomplete schemes:
   * `thachuk2015.ts` *Leakless DNA strand displacement systems* [Thachuk et al. (2015)]
 
     The section 6, figure 8 "cooperative hybridization" CRN implementation.
@@ -191,12 +173,8 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
     not inert, which causes problems for pathway decomposition, and therefore
     only bisimulation deems it to be correct.
 
-### missing schemes:
-  * `qian2011_seesaw.ts` *Scaling Up Digital Circuit Computation with DNA Strand Displacement Cascades*. [Qian & Winfree (2011)]
-  * `lakin2011_buffered.ts` *Abstractions for DNA circuit design*. [Lakin et al. (2011)]
-  * `chen2013.ts` *Programmable chemical controllers made from DNA*. [Chen et al. (2013)]
 
-### single-reaction-schemes:
+### ./implementations/*
   * `turberfield2003-motor.ts` Figure 4 of [Turberfield et al. (2003)] **missing**
 
   * `zhang2007-catalyst.ts` Figure 1 of [Zhang et al. (2007)]
@@ -216,9 +194,12 @@ nuskell --ts soloveichik2010.ts "A + B <=> C + D; D + X -> Y"
   * `song2016-multiply.ts` Figure 9-14 of [Song et al. (2016)] **missing**
 
   * `song2016-2amplify.ts` Figure 15-16 of [Song et al. (2016)] **missing**
+
+### TODO
+  * `lakin2011_buffered.ts` *Abstractions for DNA circuit design*. [Lakin et al. (2011)]
   
 ### Last Update
-July, 27th, 2016
+July, 27th, 2017
 
 [//]: References
 [Turberfield et al. (2003)]: <http://dx.doi.org/10.1103/PhysRevLett.90.118102>
