@@ -16,10 +16,13 @@ A collection of translation schemes. We distinguish three types of schemes:
     - {W + X + Y -> Z} is implemented as {W + X <=> i; i + Y -> Z} 
     - {Z -> W + X + Y} is implemented as  {Z -> i + W; i -> X + Y}
     ```
+    Note: there are exceptions where schemes are not generalized on the CRN
+    level, but they are generalized on the DNA level. Either, because it was
+    pointed out in the publication, or, because the generalization was obvious. 
 
   - **canonical**: recommended schemes for CRN-to-DSD compilation. These can either
     be identical copies of schemes found in ''literature'', (i.e. schemes with
-    the same name), or they are *corrected*, *optimized* variants of those
+    the same name), or they are *corrected* or *optimized variants* of those
     schemes. These schemes are globally installed with the Nuskell library.
 
   - **experimental**: new schemes, or variations of schemes that haven't been
@@ -48,158 +51,400 @@ the formal CRN input. For example, answer the following questions:
     reactions into reversible ones, but it doesn't have to!
 
 ## Overview
-### ./literature/*
-  * `soloveichik2010.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
 
+### ./literature
+  * `soloveichik2010.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
     ```
-    # A scheme for translating CRNs into DNA strand displacement systems. 
     #
-    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+    # Soloveichik, Seelig, Winfree: "DNA as a universal substrate for chemical
+    # kinetics", Proceedings of the National Academy of Sciences, 107: 5393-5398,
+    # 2010.
+    #
+    # Note:   * implements Figure 2 (X1 -> X2 + X3) 
+    #         * implements Figure 3 (X1 + X2 -> X3) 
+    #         * implements (X1 + X2 -> X3 + X4) as combination of the above.
+    #         * DNA level generalization for higher order reactions.
+    #         * CRN level generalization for {->X; X->}
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com)
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
     ```
 
   * `cardelli2011_FJ.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
 
     ```
-    # The 2-way fork and join gates described in Figures 4-7. 
     #
-    # **TODO**: Garbage collection (Figure 8) is currently not implemented.
-    # 
-    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
-    #   modified by Stefan Badelt (badelt@caltech.edu)
+    # Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+    # 407-428, 2011.
+    #
+    #   Note: * This implements the `fork' and `join' gates from the paper,
+    #           - Figure 4 (Annihilator): {X -> }
+    #           - Figure 5 (Transducer):  {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 7 (2-way Join):  {X + Y -> Z}
+    #           - Figure 8 (2-way Join cleanup): garbage collection gates.
+    #
+    #         * Generalized on the CRN level for { -> X} and trimolecular or higher
+    #           order reactions.
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `cardelli2011_FJ_noGC.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+
+    ```
+    #
+    # Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+    # 407-428, 2011.
+    #
+    #   Note: * This implements the `fork' and `join' gates from the paper,
+    #           - Figure 4 (Annihilator): {X -> }
+    #           - Figure 5 (Transducer):  {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 7 (2-way Join):  {X + Y -> Z}
+    #
+    #         * Does not implement Figure 8: garbage collection.
+    #
+    #         * Generalized on the CRN level for { -> X} and trimolecular or higher
+    #           order reactions.
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
     ```
 
   * `cardelli2011_NM.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
 
-    A generalization from 2-way join and fork gates to a gate with n inputs and
-    m outputs. The implementation includes garbage collection as described in the paper.
+    ```
+    #
+    # Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+    # 407-428, 2011.
+    #
+    #   Note: * Implements the scheme shown in Figures 9 and 10. Note that the 
+    #           gate species at the bottom seems like one molecule, but it is 
+    #           in fact two molecules because of an arrowhead separating them.
+    #           - Figure 9 (n x m gate): {X1 + ... + Xn -> Y1 + ... + Ym}
+    #           - Figure 10 (1 x 1 gate): {X1 > Y1}
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
 
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+  * `cardelli2011_NM_noGC.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+    ```
+    #
+    # Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+    # 407-428, 2011.
+    #
+    #   Note: * Implements the scheme shown in Figures 9 and 10. Note that the 
+    #           gate species at the bottom seems like one molecule, but it is 
+    #           in fact two molecules because of an arrowhead separating them.
+    #           - Figure 9 (n x m gate): {X1 + ... + Xn -> Y1 + ... + Ym}
+    #             *modified* to exclude garbage collection.
+    #           - Figure 10 (1 x 1 gate): {X1 > Y1}
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
 
-  * `qian2011.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
+  * `qian2011_3D.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
+    ```
+    #
+    # Qian, Soloveichik, Winfree: "Efficient Turing-universal computation with DNA
+    # polymers", DNA Computing and Molecular Programming 16, 2011.
+    #
+    # Note:   * implements Figure 1 (X + Y -> A + B) 
+    #         * implements Figure 2 (X + Y <=> A + B)
+    #
+    #         * generalized on the DNA level
+    #         * automatically combines corresponding irreversible reactions into 
+    #           one reversible reaction
+    #
+    #         * pathway and bisimulation incorrect for irreversible reactions.
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com)
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `lakin2012_3D.ts`, *Abstractions for DNA circuit design*. [Lakin et al. (2012)]
+
+    ```
+    #
+    # Lakin, Youssef, Cardelli, Phillips "Abstractions for DNA circuit design."
+    # J. R. Soc. Interface 9 (68) (2012) 470-486 (2012)
+    #
+    # Note: * Implements Figure 5: {A + B -> C + D}
+    #
+    #       * no fuel species to reverse the release of second reactant
+    #
+    #       * generalized on the CRN level
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `cardelli2013_2D.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
+    ```
+    #
+    # Luca Cardelli "Two-Domain DNA Strand Displacement", Mathematical Structures
+    # in Computer Science. (2013)
+    #
+    #   Note: * The scheme implements Figures 4-10 (transducer, fork, 
+    #           catalyst, join, 3-way join and the implicit n-way join)
+    #           - Figure 3-5 (Transducer): {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 7 (Catalyst):  {X + Y -> Y + Z}
+    #           - Figure 8,9 (2-way Join): {X + Y -> Z}
+    #           - Figure 10 (3-way Join): {W + X + Y -> Z}
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    #         * Generalized on DNA level for higher order reactions, but supports
+    #           only one catalyst optimization. e.g. X + Y + Z -> Z + Y + W will 
+    #           only optimize for Z, but not for Y.
+    #         * Note, the Catalyst case does not apply to {C -> C + A}, as it is
+    #           not obvious from the paper.
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
+
+    ```
+
+  * `cardelli2013_2D_noGC.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
+    ```
+    #
+    # Luca Cardelli "Two-Domain DNA Strand Displacement", Mathematical Structures
+    # in Computer Science. (2013)
+    #
+    #   Note: * The scheme implements Figures 4-10 (transducer, fork, 
+    #           catalyst, join, 3-way join and the implicit n-way join)
+    #           - Figure 3-5 (Transducer): {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 7 (Catalyst):  {X + Y -> Y + Z}
+    #           - Figure 8,9 (2-way Join): {X + Y -> Z}
+    #           - Figure 10 (3-way Join): {W + X + Y -> Z}
+    #
+    #         * All reactios are implemented *without* garbage collection. This 
+    #           includes the cooperative binding complexes and additional domains
+    #           on the produce complexes.
+    #
+    #         * Intermediate ('garbage') species on react complexes are fuels 
+    #           in this implementation.
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    #         * Generalized on DNA level for higher order reactions.
+    #
+    # Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+    #          Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `cardelli2013_2D_2TGC.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
+
+    ```
+    #
+    # Luca Cardelli "Two-Domain DNA Strand Displacement", Mathematical Structures
+    # in Computer Science. (2013)
+    #
+    #   Note: * The scheme implements Figures 4-6,8-10 (transducer, fork, 
+    #           join, 3-way join and the implicit n-way join) but it uses 
+    #           garbage collection as described in Figures 11, 12 and 14, 
+    #           i.e. avoids cooperative binding by using a second toehold.
+    #           - Figure 3-5 (Transducer): {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 11,12 (2-toehold-2-way Join): {X + Y -> Z}
+    #           - Figure 14 (3-input join collector)
+    #           - Generalized n-way join collector as described in the text
+    #
+    #         * Does not implement Figure 7 (Catalyst):  {X + Y -> Y + Z}
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    #         * Generalized on the DNA level for higher order reactions.
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `cardelli2013_2D_3I.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
+    ```
+    #
+    # Luca Cardelli "Two-Domain DNA Strand Displacement", Mathematical Structures
+    # in Computer Science. (2013)
+    #
+    #   Note: * The scheme implements Figures 4-10 (transducer, fork, 
+    #           catalyst, join, 3-way join and the implicit n-way join)
+    #           but it uses a 3-domain strand to introduce an irreversilbe
+    #           step after all reactants have been consumed (Figure 15).
+    #           - Figure 3-5 (Transducer): {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 7 (Catalyst):  {X + Y -> Y + Z}
+    #           - Figure 8,9 (2-way Join): {X + Y -> Z}
+    #           - Figure 10 (3-way Join): {W + X + Y -> Z}
+    #           - Figure 15 (3-domain transducer modification)
+    #             + same 3-domain mechanism for every other reation.
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    #         * Uses garbage collection with cooperative binding, which cannot be 
+    #           enumerated by peppercorn -> pathway equivalence fails.
+    #
+    #         * Generalized on DNA level for higher order reactions, but supports
+    #           only one catalyst optimization. e.g. X + Y + Z -> Z + Y + W will 
+    #           only optimize for Z, but not for Y.
+    #
+    #         * Note, the Catalyst case does not apply to {C -> C + A}, as it is
+    #           not obvious from the paper.
+    #
+    #         * Needs to be enumerated using --reject-remote
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `cardelli2013_2D_3I_noGC.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
+
+    ```
+    #
+    # Luca Cardelli "Two-Domain DNA Strand Displacement", Mathematical Structures
+    # in Computer Science. (2013)
+    #
+    #   Note: * The scheme implements Figures 4-10 (transducer, fork, 
+    #           catalyst, join, 3-way join and the implicit n-way join)
+    #           but it uses a 3-domain strand to introduce an irreversilbe
+    #           step after all reactants have been consumed (Figure 15).
+    #           - Figure 3-5 (Transducer): {X -> Y}
+    #           - Figure 6 (2-way Fork):  {X -> Y + Z}
+    #           - Figure 7 (Catalyst):  {X + Y -> Y + Z}
+    #           - Figure 8,9 (2-way Join): {X + Y -> Z}
+    #           - Figure 10 (3-way Join): {W + X + Y -> Z}
+    #           - Figure 15 (3-domain transducer modification)
+    #             + same 3-domain mechanism for every other reation.
+    #
+    #         * All reactions are implemented *without* garbage collection. This 
+    #           includes the cooperative binding complexes and additional domains
+    #           on the produce complexes.
+    #
+    #         * Generalized on the CRN level for { -> X}
+    #
+    #         * Generalized on DNA level for higher order reactions, but supports
+    #           only one catalyst optimization. e.g. X + Y + Z -> Z + Y + W will 
+    #           only optimize for Z, but not for Y.
+    #         * Note, the Catalyst case does not apply to {C -> C + A}, as it is
+    #           not obvious from the paper.
+    #
+    #         * Needs to be enumerated using --reject-remote
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `chen2013_2D_FJ.ts` *Programmable chemical controllers made from DNA*. [Chen et al. (2013)]
+    ```
+    #
+    # Chen, Dalchau, Srinivas, Phillips, Cardelli, Soloveichik, Seelig
+    # "Programmable chemical controllers made from DNA", Nature Nanotech., 2013.  
+    #
+    #   Note: * Implements supplementary Figure S7.6 fork and join modules.
+    #           {A->R; R->B; A+B->R; R->B+C; A+B+C->R; R->B+C+D}
+    #
+    #         * generalized on the DNA level higher order reactions and for {X->}
+    #
+    #         * generalized on the CRN level for {->X}
+    #
+    #         * includes the delayed choice optimization suggested by the authors
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `srinivas2015.ts` *Programming chemical kinetics: engineering dynamic
+    reaction networks with DNA strand displacement*. [Srinivas (2015)]
+
+    ```
+    #
+    # Niranjan Srinivas PhD Thesis: "Programming chemical kinetics: engineering
+    # dynamic reaction networks with DNA strand displacement.", Caltech (2015)
+    #
+    # Note: * Implements Figures from Chapter 3: Adventures in programming and
+    #         debugging molecular reaction networks:
+    #         - Figure 3.4: {B + A -> X + Y}
+    #         - Figure 3.5: {B -> X}
+    #         - Figure 3.6: {B -> }
+    #         - Figure 3.7: { -> X}
+    #       * Generalized on the DNA level for higher order reactions.
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
+  * `lakin2016_2D_3I.ts`, *Modular verification of chemical reaction network
+    encodings via serializability analysis*. [Lakin et al. (2016)]
+    ```
+    #
+    # Lakin, Stefanovic, Phillips "Modular verification of chemical reaction
+    # network encodings via serializability analysis" (2016), TCS
+    #
+    #   Note: * The scheme implements Figure 8 from the above publication. 
+    #           {x + y -> y + b}
+    #
+    #         * generalized on the CRN level for all but bimolecular reactions.
+    #
+    #         * requires autocatalytic format, otherwise incorrect, BUT:
+    #           as e.g. {A->B} is implemented as {A+f->f+B} it is correct for 
+    #           a wider class of CRNs!
+    #
+    #         * enumerate using --reject-remote !!!
+    #
+    # Coded by Stefan Badelt (badelt@caltech.edu)
+    #
+    ```
+
   
-    A generalized scheme for translating arbitrary CRNs into DNA strand displacement systems. 
-
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-
-  * `srinivas2015_gen.ts` *Programming chemical kinetics: engineering dynamic reaction networks with DNA strand displacement*. [Srinivas (2015)]
-
-    Niranjan Srinivas' adaptation of the `soloveichik2010.ts` scheme to design the "displacillator".
-
-    Coded by Stefan Badelt (badelt@caltech.edu).
-
 ### ./canonical
-  * `soloveichik2010_gen.ts`, *DNA as a universal substrate for chemical kinetics*. [Soloveichik et al. (2010)]
+  * `soloveichik2010_v1.ts`, *DNA as a universal substrate for chemical kinetics*. 
+    [Soloveichik et al. (2010)]
 
-    The generalized version of soloveichik2010.ts implements instant reactions,
-    e.g. {-> A + B} that have not been discussed in the paper.
+  * `qian2011_3D_v1.ts`, *Efficient Turing-universal computation with DNA polymers*. 
+    [Qian et al. (2011)]
 
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
+  * `srinivas2015.ts` *Programming chemical kinetics: engineering dynamic
+    reaction networks with DNA strand displacement*. [Srinivas (2015)]
 
-  * `cardelli2011_FJ_gen.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
+  * `cardelli2013_2D_3I_noGC.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
 
-    The generalized version of cardelli2011_FJ.ts implements instant reactions, e.g. {-> A + B} that have not been discussed in the paper.
-    
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com), 
-      modified by Stefan Badelt (badelt@caltech.edu)
+  * `lakin2016_2D_3I_v1.ts`, *Modular verification of chemical reaction network
+    encodings via serializability analysis*. [Lakin et al. (2016)]
 
-  * `cardelli2011_NM_gen.ts` *Strand Algebras for DNA Computing*. [Cardelli (2011)]
-
-    A generalization from 2-way join and fork gates to a gate with n inputs and
-    m outputs. The scheme implements instant reactions, e.g. {-> A + B} that
-    have not been discussed in the paper. Garbage collection is not implemented
-    for this scheme.
-
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com),
-      modified by Stefan Badelt (badelt@caltech.edu)
-
-
-  * `qian2011_gen.ts`, *Efficient Turing-universal computation with DNA polymers*. [Qian et al. (2011)]
-  
-    A generalized scheme for translating arbitrary CRNs into DNA strand displacement systems. 
-
-    This scheme adds an irreversible step after reactants and products have been consumed and, therefore,
-    verifies correct on all input CRNs.
-
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-
-  * `srinivas2015_gen.ts` *Programming chemical kinetics: engineering dynamic reaction networks with DNA strand displacement*. [Srinivas (2015)]
-
-    Niranjan Srinivas' adaptation of the soloveichik2010.ts scheme to design the "displacillator".
-    srinivas2015.ts and srinivas2015_gen.ts are identical.
-
-    Coded by Stefan Badelt (badelt@caltech.edu).
-
-### ./experimental
-  * `soloveichik2010_opt.ts`
-    
-    A variant of soloveichik2010.ts that reduces the number of strands for certain CRNs.
-
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-
-  * `lakin2011.ts`, *Abstractions for DNA circuit design*. [Lakin et al. (2011)]
-
-    The translation scheme for unbuffered gates, e.g. Figure 5.
-
-    Coded by: Stefan Badelt (badelt@caltech.edu).
-
-  * `cardelli2013_2domain.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
-
-    **NOTE:** There is a version from SWS with the suffix '_fixed' as well, but
-    what is the difference?
-
-    Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-
-  * `thachuk2015.ts` *Leakless DNA strand displacement systems* [Thachuk et al. (2015)]
-
-    The section 6, figure 8 "cooperative hybridization" CRN implementation.
-    Clamps are not implemented.
-    
-    In order to enumerate cooperative hybridization without considering all toehold release steps to be slow,
-    we use two toehold sizes, and just the "right-side" toeholds are "slow".  Our solution involves enumeration
-    using the options --release-cutoff-1-1 4 --release-cutoff-1-n 8 --k-fast 0.1
-    and thus the verifying compiler invocation will be
-
-    Coded by Erik Winfree (winfree@caltech.edu).
-
-  * `metha2015_3domain.ts` *unpublished*
-
-    An unpublished "three domain" scheme by Jenish Mehta, 2015.  Each signal
-    species is a single long domain flanked by a toehold on each side.
-
-    Coded by Erik Winfree (winfree@caltech.edu).
-
-    **Note:** There appears to be an undesirably 4-way branch migration pathway
-    (not yet investigated).  Also, the waste from the irreversible pathway is
-    not inert, which causes problems for pathway decomposition, and therefore
-    only bisimulation deems it to be correct.
-
-
-### ./implementations/*
+### ./implementations
   * `turberfield2003-motor.ts` Figure 4 of [Turberfield et al. (2003)] **missing**
 
   * `zhang2007-catalyst.ts` Figure 1 of [Zhang et al. (2007)]
 
-  Coded by: Stefan Badelt (badelt@caltech.edu).
-
   * `zhang2007-autocatalyst.ts` Figure 4 of [Zhang et al. (2007)]
 
-  Coded by: Stefan Badelt (badelt@caltech.edu).
-
-  * `song2016-add.ts` Figure 3-5 of [Song et al. (2016)] **missing**
+  * `song2016-add.ts` Figure 3-5 of [Song et al. (2016)]
 
   * `song2016-subtract.ts` Figure 6-8 of [Song et al. (2016)]
-
-  Coded by: Stefan Badelt (badelt@caltech.edu).
 
   * `song2016-multiply.ts` Figure 9-14 of [Song et al. (2016)] **missing**
 
   * `song2016-2amplify.ts` Figure 15-16 of [Song et al. (2016)] **missing**
 
-### TODO
-  * `lakin2011_buffered.ts` *Abstractions for DNA circuit design*. [Lakin et al. (2011)]
-  
 ### Last Update
-July, 27th, 2017
+April, 27th, 2017
 
 [//]: References
 [Turberfield et al. (2003)]: <http://dx.doi.org/10.1103/PhysRevLett.90.118102>
@@ -207,7 +452,8 @@ July, 27th, 2017
 [Soloveichik et al. (2010)]: <http://dx.doi.org/10.1073/pnas.0909380107>
 [Qian et al. (2011)]: <http://dx.doi.org/10.1007/978-3-642-18305-8_12>
 [Qian & Winfree (2011)]: <http://dx.doi.org/10.1126/science.1200520>
-[Lakin et al. (2011)]: <http://dx.doi.org/10.1098/rsif.2011.0343>
+[Lakin et al. (2012)]: <http://dx.doi.org/10.1098/rsif.2011.0343>
+[Lakin et al. (2016)]: <http://dx.doi.org/10.1016/j.tcs.2015.06.033>
 [Cardelli (2011)]: <http://dx.doi.org/10.1007/s11047-010-9236-7>
 [Cardelli (2013)]: <http://dx.doi.org/10.1017/S0960129512000102>
 [Chen et al. (2013)]: <http://dx.doi.org/10.1038/NNANO.2013.189>

@@ -1,25 +1,20 @@
 #
-# David Soloveichik's translation scheme from "DNA as a universal substrate
-# for chemical kinetics", Proceedings of the National Academy of Sciences, 
-# 107: 5393-5398, 2010.
+# Soloveichik, Seelig, Winfree: "DNA as a universal substrate for chemical
+# kinetics", Proceedings of the National Academy of Sciences, 107: 5393-5398,
+# 2010.
 #
-#   Note: * Implements the scheme as shown in Figures 2 and 3 and generalized 
-#           to arbitrary reactions using the following rules:
-#           - ' -> A' : 'f -> A' where f is a fuel species
-#           - 'A -> ' : 'A -> f' where f is a fuel species
-#           - reactions with arity > 2 are implemented by elongating fuel 
-#               complexes and fuel (helper) strands
+# Note:   * implements Figure 2 (X1 -> X2 + X3) 
+#         * implements Figure 3 (X1 + X2 -> X3) 
+#         * implements (X1 + X2 -> X3 + X4) as combination of the above.
+#         * DNA level generalization for higher order reactions.
 #
-#   Note: * The choice for generalization of 'A-> ' can easily be optimized by 
-#           omitting f, see comments in the "rxn" function
+#         * CRN level generalization for {->X; X->}
 #
-#   Note: * Higher arity reactions may also be implemented as: 
-#             A + B + C -> X  becomes  A + B <=> i; i + C -> X
-#           This would increase the number of complexes and reaction steps, but 
-#             reduce the maximal length of strands.
+#         * Omitting f for {X->f} generalization
+#         
 #
 # Coded by Seung Woo Shin (seungwoo.theory@gmail.com)
-# modified by Stefan Badelt (badelt@caltech.edu)
+#          Stefan Badelt (badelt@caltech.edu)
 #
 
 class formal(s) = "? a b c"
@@ -29,7 +24,7 @@ class formal(s) = "? a b c"
         b = long() ;
         c = short() };
 
-class signal() = "? a b c"
+class fuel() = "? a b c"
                 | ". . . ."
     where {
         a = short() ; 
@@ -79,22 +74,14 @@ module rxn(r) =
   if len(r.reactants) == 0 then
     infty(i) + infty(l) + infty(t) + sum(map(infty,b))
       where {
-        i = signal();
+        i = fuel();
         [l, t, b] = maingate([i], r.products)}
 
-  # Comment out the following elseif statement for optimization
-  elseif len(r.products) == 0 then
-    infty(l) + infty(t) + sum(map(infty,b))
-      where {
-        i = signal();
-        [l, t, b] = maingate(r.reactants, [i])}
- 
   else
     infty(l) + infty(t) + sum(map(infty,b))
       where 
         [l, t, b] = maingate(r.reactants, r.products);
 
 module main(crn) = sum(map(rxn, crn))
-    where
-        crn = irrev_reactions(crn)
+    where crn = irrev_reactions(crn)
 

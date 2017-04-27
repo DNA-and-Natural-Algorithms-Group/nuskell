@@ -1,18 +1,22 @@
 #
-# Luca Cardelli's translation scheme from "Strand Algebras for DNA
-# Computing", Natural Computing, 10: 407-428, 2011. Can be found at
-# http://lucacardelli.name/
+# Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+# 407-428, 2011.
 #
 #   Note: * This implements the `fork' and `join' gates from the paper,
-#           which are pointed out to be problematic in the paper. 
-#           Schemes are shown in Figs 4-8.
+#           - Figure 4 (Annihilator): {X -> }
+#           - Figure 5 (Transducer):  {X -> Y}
+#           - Figure 6 (2-way Fork):  {X -> Y + Z}
+#           - Figure 7 (2-way Join):  {X + Y -> Z}
+#           - Figure 8 (2-way Join cleanup): garbage collection gates.
 #
-#         * In addition to the reactions describe in the paper, the 
-#           spontaneous reaction ' -> A' is implemented as 'f -> A' 
-#           where f is a fuel strand.
+#         * Generalized on the CRN level for { -> X} and trimolecular or higher
+#           order reactions.
+#
+#         * Transducer and 2-way Fork are incorrect, therefore {f->X} 
+#           generalization is incorrect.
 #
 # Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
-# modified by Stefan Badelt (badelt@caltech.edu)
+#          Stefan Badelt (badelt@caltech.edu)
 #
 
 class formal(s) = "? t b"
@@ -94,20 +98,21 @@ class joincleanup(r1, r2)
         yb = r2.yb;
         a = r2.a };
 
-module join2(x, y, z) = sum(map(infty, [gb, gt, r1, r2] + joincleanup(r1, r2)))
+module join2(x, y, z) = sum(map(infty, [gb, gt] + joincleanup(r1, r2)))
   where 
+    # don't return r1, r2
     [gb, gt, r1, r2] = joingate(x, y, z);
 
 # r = list, p = single product
 module join(r, p) =
-    if len(r) == 2 then
-        join2(r[0], r[1], p)
-    else
-        # need a reversible reaction!
-        fork2(i, r[0], r[1]) + join2(r[0], r[1], i) +
-        join(tail(tail(r)) + [i], p)
-        where
-            i = signal();
+  if len(r) == 2 then
+    join2(r[0], r[1], p)
+  else
+    # need a reversible reaction!
+    fork2(i, r[0], r[1]) + join2(r[0], r[1], i) +
+    join(tail(tail(r)) + [i], p)
+    where
+      i = signal();
 
 class transgate(x, y)
     = [ "xb yt yb + a + a* yt* xb* xt*"
@@ -146,7 +151,6 @@ module joinfork(r, p) =
         where i = signal()
 
     elseif len(r) == 0 then
-      # abort('reaction type not implemented')          
       if len(p) == 1 then
         transducer(i, p[0]) + infty(i)
         where i = signal()

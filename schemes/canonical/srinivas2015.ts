@@ -1,11 +1,14 @@
 #
-# Niranjan Srinivas's translation scheme "Enzyme-free nucleic acid dynamical systems" 
-#   (2017, article submitted).
+# Niranjan Srinivas PhD Thesis: "Programming chemical kinetics: engineering
+# dynamic reaction networks with DNA strand displacement.", Caltech (2015)
 #
-#   Note: The publication only discusses reactions with two reactants and two products.
-#         The generalization of the scheme implemented in this file can be found in 
-#         Niranjan's Thesis "Programming chemical kinetics: engineering dynamic reaction
-#         networks with DNA strand displacement." (2015)
+# Note: * Implements Figures from Chapter 3: Adventures in programming and
+#         debugging molecular reaction networks:
+#         - Figure 3.4: {B + A -> X + Y}
+#         - Figure 3.5: {B -> X}
+#         - Figure 3.6: {B -> }
+#         - Figure 3.7: { -> X}
+#       * Generalized on the DNA level for higher order reactions.
 #
 # Coded by Stefan Badelt (badelt@caltech.edu)
 #

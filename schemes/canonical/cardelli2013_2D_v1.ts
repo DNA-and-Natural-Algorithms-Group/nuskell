@@ -10,16 +10,13 @@
 #           - Figure 8,9 (2-way Join): {X + Y -> Z}
 #           - Figure 10 (3-way Join): {W + X + Y -> Z}
 #
-#         * Generalized on the CRN level for { -> X}
+#         * Generalized on DNA level for n-way join.
 #
-#         * Generalized on DNA level for higher order reactions, but supports
-#           only one catalyst optimization. e.g. X + Y + Z -> Z + Y + W will 
-#           only optimize for Z, but not for Y.
-#         * Note, the Catalyst case does not apply to {C -> C + A}, as it is
-#           not obvious from the paper.
+#         * Generalized on the CRN level for { -> X} and trimolecular or higher
+#           order reactions.
 #
 # Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-#          Stefan Badelt (badelt@caltech.edu)
+# generalized by Stefan Badelt (badelt@caltech.edu)
 #
 
 global toehold = short();
@@ -30,7 +27,7 @@ class formal(s) = "t x"
         t = toehold;
         x = long() };
 
-class fuel() = "t x"
+class signal() = "t x"
                | ". ."
     where {
         t = toehold;
@@ -69,41 +66,27 @@ class noutput(r, p, a)
         gc2 = reverse(gc2r);
         t = toehold };
 
-class noutput_cat(r, p, a)
-    = [ "x + gc1 out1 t a + t* a* t* out2 gc2 x*"
-      | "( +  ~   ~   ( ( + .  )  )   ~    ~  )"] + l + gl + gcg
-    where {
-        x = (r[0]).x;
-        [out1, out2r, l] = flip(map(output, p), 3);
-        l = reverse(tail(reverse(l)));
-        r = reverse(tail(reverse(r)));
-        [gc1, gc2r, gl, gcg] = flip(map(gcgates, tail(r)),4);
-        out2 = reverse(out2r);
-        gc2 = reverse(gc2r);
-        t = toehold };
-
 macro imac(r) 
   = [ "x t + " | "( ( + ", 
-      "t* x*" | ") )"]
+      "t* x*" | ") )",
+      "x t" | ". ."]
     where { t = r.t; x = r.x };
 
 class gate2D_GC(r,p)
     = [ "i + a t + a + a* t* a* j t*"
       | "~ + ( ( + ( + )  )  )  ~ . ",
         "t a"
-      | ". ."] + nout
+      | ". ."] + noutput(r, reverse(p), a) + ifw
     where {
-      a = long();
-      # generalize?
-      nout = if len(r) > 1 and r[-1] == p[0] then noutput_cat(r, reverse(p), a) else noutput(r, reverse(p), a) ;
-      [i, jr] = flip(map(imac,r),2);
+      [i, jr, ifw] = flip(map(imac,r),3);
       j = reverse(jr);
+      a = long();
       t = toehold };
 
 module reaction(r) =
     if len(r.reactants) == 0 then
       sum(map(infty,gate2D_GC([i], r.products)+[i]))
-        where { i = fuel() }
+        where { i = signal() }
     else
       sum(map(infty, gate2D_GC(r.reactants, r.products)));
 

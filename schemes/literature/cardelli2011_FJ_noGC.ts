@@ -1,20 +1,24 @@
 #
-# Luca Cardelli's translation scheme from "Strand Algebras for DNA
-# Computing", Natural Computing, 10: 407-428, 2011. Can be found at
-# http://lucacardelli.name/
+# Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+# 407-428, 2011.
 #
 #   Note: * This implements the `fork' and `join' gates from the paper,
-#           which are pointed out to be problematic in the paper. 
-#           Schemes are shown in Figs 4-7.
+#           - Figure 4 (Annihilator): {X -> }
+#           - Figure 5 (Transducer):  {X -> Y}
+#           - Figure 6 (2-way Fork):  {X -> Y + Z}
+#           - Figure 7 (2-way Join):  {X + Y -> Z}
 #
-#         * Figure 8, garbage collection for join-gates is omitted here.
+#         * Does not implement Figure 8: garbage collection.
+#         * Does treat Figure 7,8 *r1* and *r2* as fuel species!
 #
-#         * In addition to the reactions describe in the paper, the 
-#           spontaneous reaction ' -> A' is implemented as 'f -> A' 
-#           where f is a fuel strand.
+#         * Generalized on the CRN level for { -> X} and trimolecular or higher
+#           order reactions.
+#
+#         * Transducer and 2-way Fork are incorrect, therefore {f->X} 
+#           generalization is incorrect.
 #
 # Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
-# modified by Stefan Badelt (badelt@caltech.edu)
+#          Stefan Badelt (badelt@caltech.edu)
 #
 
 class formal(s) = "? t b"

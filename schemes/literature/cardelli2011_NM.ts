@@ -1,18 +1,17 @@
 #
-# Luca Cardelli's translation scheme from "Strand Algebras for DNA
-# Computing", Natural Computing, 10: 407-428, 2011. Can be found at
-# http://lucacardelli.name/
+# Luca Cardelli "Strand Algebras for DNA Computing", Natural Computing, 10:
+# 407-428, 2011.
 #
-#   Note: * this implements the scheme shown in Fig 9-10. Note that the 
+#   Note: * Implements the scheme shown in Figures 9 and 10. Note that the 
 #           gate species at the bottom seems like one molecule, but it is 
 #           in fact two molecules because of an arrowhead separating them.
+#           - Figure 9 (n x m gate): {X1 + ... + Xn -> Y1 + ... + Ym}
+#           - Figure 10 (1 x 1 gate): {X1 > Y1}
 #
-#         * In addition to the reactions describe in the paper, the 
-#           spontaneous reaction ' -> A' is implemented as 'f -> A' 
-#           where f is a fuel strand.
+#         * Generalized on the CRN level for { -> X}
 #
-# Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-# modified by Stefan Badelt (badelt@caltech.edu)
+# Coded by Seung Woo Shin (seungwoo.theory@gmail.com) 
+#          Stefan Badelt (badelt@caltech.edu)
 #
 
 class formal(s) = "? t b"

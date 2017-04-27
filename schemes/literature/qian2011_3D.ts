@@ -1,12 +1,19 @@
 #
-# The reversible version of Lulu Qian's translation scheme from "Efficient
-# Turing-universal computation with DNA polymers", DNA Computing and
-# Molecular Programming 16, 2010.
+# Qian, Soloveichik, Winfree: "Efficient Turing-universal computation with DNA
+# polymers", DNA Computing and Molecular Programming 16, 2011.
 #
-# Note: This scheme is incorrect for irreversible reactions
+# Note:   * implements Figure 1 (X + Y -> A + B) 
+#         * implements Figure 2 (X + Y <=> A + B)
 #
-# Coded by Seung Woo Shin (seungwoo.theory@gmail.com).
-# fixed by Stefan Badelt
+#         * generalized on the DNA level
+#         * automatically combines corresponding irreversible reactions into 
+#           one reversible reaction
+#
+#         * pathway and bisimulation incorrect for irreversible reactions.
+#
+# Coded by Seung Woo Shin (seungwoo.theory@gmail.com)
+#          Stefan Badelt (badelt@caltech.edu)
+#
 
 global toehold = short();
 
