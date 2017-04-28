@@ -21,60 +21,46 @@ defines gates, i.e. instructions to design fuel complexes specific for an
 reaction of formal species. Last, the main function applies the gate
 construction to every reaction in the CRN and unifies all fuel strands.
 
-  .. code-block:: none
+.. code-block:: none
 
-    # -----------------------------------------------------------------------------
-    # This script translates reactions with two reactants and two products into a 
-    # DSD network. The scheme has been originally proposed by 
-    #   - Lakin et al. (2011) "..."
-    #
-    # As this script is part of the Nuskell tutorial, try it directly, for example:
-    #
-    # echo "A + B -> C + D" | nuskell --ts tutorial_1.ts
-    #
-    # -----------------------------------------------------------------------------
-    
-    # Start with defining a global short domain:
-    global toehold = short();
+  # -----------------------------------------------------------------------------
+  # Translate formal reactions with two reactants and two products.
+  # Lakin et. al (2012) "Abstractions for DNA circuit design." [Figure 5]
+  # -----------------------------------------------------------------------------
+  
+  # Define a global short toehold domain
+  global toehold = short();
+  
+  # Write a class to define domains and structure of signal species
+  # ? is a wildcard for a history domain.
+  class formal(s) = "? t f" | ". . ."
+    where { t = toehold ; f = long() };
+  
+  # Write a class to produce fuel complexes for bimolecular reactions
+  class bimol_fuels(r, p) = 
+    [ "a t i + b t k + ch t c + dh t d + t* dh* t* ch* t* b* t* a* t*" 
+    | "( ( . + ( ( . + (  ( . + (  ( . + )   )  )   )  )  )  )  )  . ",
+      "a t i" | " . . . ", "t ch t dh t" | ". . . . ." ]
+    where {
+      a = r[0].f; 
+      b = r[1].f;
+      c = p[0].f; ch = long();
+      d = p[1].f; dh = long();
+      i = long(); k = long();
+      t = toehold };
+  
+  # Write a module that applies the fuel production to every reaction
+  module rxn(r) = sum(map(infty, fuels))
+    where fuels = 
+      if len(r.reactants) != 2 or len(r.products) != 2 then
+        abort('Reaction type not implemented')
+      else 
+        bimol_fuels(r.reactants, r.products);
+  
+  # Write the module *main* that applies *rxn* to the crn.
+  module main(crn) = sum(map(rxn, crn)) 
+    where crn = irrev_reactions(crn);
 
-    # Write a class to define domains and structure of formal species:
-    class formal(s) = "h t x" | ". . ."
-      where {
-        h = long();
-        t = toehold;
-        x = long();
-      }
-    ;
-
-    # Write a class to define domains and structure of fuel species:
-    class formal(s) = "h t x" | ". . ."
-      where {
-        h = long();
-        t = toehold;
-        x = long();
-      }
-    ;
-
-
-    #	Write a module that applies the gate :
-    module rxn(r) =
-      if len(r.reactants) == 0 then
-        infty(i) + infty(l) + infty(t) + sum(map(infty,b))
-        where {
-          i = signal();
-          [l, t, b] = maingate([i], r.products)}
-
-      else
-        infty(l) + infty(t) + sum(map(infty,b))
-          where 
-            [l, t, b] = maingate(r.reactants, r.products);
-
-    # Finally, write a module that applies ``rxn`` to the crn.
-    module main(crn) = sum(map(rxn, crn))
-      where crn = irrev_reactions(crn)
-    ;
-
-Here is a VisualDSD image of the compiled DSD system.
 
 -----------------------------------
 Tutorial script 2 - Generalization

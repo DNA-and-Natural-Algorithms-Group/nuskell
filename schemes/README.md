@@ -411,7 +411,6 @@ the formal CRN input. For example, answer the following questions:
     # Coded by Stefan Badelt (badelt@caltech.edu)
     #
     ```
-
   
 ### ./canonical
   * `soloveichik2010_v1.ts`, *DNA as a universal substrate for chemical kinetics*. 
@@ -423,25 +422,10 @@ the formal CRN input. For example, answer the following questions:
   * `srinivas2015.ts` *Programming chemical kinetics: engineering dynamic
     reaction networks with DNA strand displacement*. [Srinivas (2015)]
 
-  * `cardelli2013_2D_3I_noGC.ts` *Two-Domain DNA Strand Displacement*. [Cardelli (2013)]
-
-  * `lakin2016_2D_3I_v1.ts`, *Modular verification of chemical reaction network
-    encodings via serializability analysis*. [Lakin et al. (2016)]
-
 ### ./implementations
-  * `turberfield2003-motor.ts` Figure 4 of [Turberfield et al. (2003)] **missing**
-
-  * `zhang2007-catalyst.ts` Figure 1 of [Zhang et al. (2007)]
-
-  * `zhang2007-autocatalyst.ts` Figure 4 of [Zhang et al. (2007)]
-
   * `song2016-add.ts` Figure 3-5 of [Song et al. (2016)]
 
   * `song2016-subtract.ts` Figure 6-8 of [Song et al. (2016)]
-
-  * `song2016-multiply.ts` Figure 9-14 of [Song et al. (2016)] **missing**
-
-  * `song2016-2amplify.ts` Figure 15-16 of [Song et al. (2016)] **missing**
 
 ### Last Update
 April, 27th, 2017
