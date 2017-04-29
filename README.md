@@ -1,50 +1,42 @@
-# Nuskell -- A verifying and optimizing compiler for toehold-mediated strand displacement circuits.
+# Nuskell: Nucleic acid strand displacement compiler
 
-**Nuskell** is a compiler written in python2.7. It translates formal chemical
-reaction networks (CRNs) into a domain-level specification using a translation
-scheme.  Full documentation will become available at [Nuskell].
+``Nuskell`` compiles formal chemical reaction networks (CRNs) into domain-level
+strand displacement (DSD) systems. It provides a library of ``translation
+schemes`` (i.e. variations of CRN-to-DSD translations) to exploit the diversity
+of DSD circuits implementing the same CRN.
+
+In order to proof/disproof the correctness of a particular translation,
+``Nuskell`` includes the domain-level reaction enumerator ``Peppercorn`` [Grun
+et al. (2014)] to find intended and unintended reaction pathways and then
+provides two notions of stochastic trajectory-type CRN equivalence:
+bisimulation [Johnson et al. (2016)] and pathway decomposition [Shin et al. (2014)].
+
+The domain-level reactions and their approximate rates can be exported in form
+of an ODE system to simulate the dynamics of the compiled DSD network.
 
 ### Examples
 
-If you want to implement a formal CRN using a particular translation-scheme:
+Implement a formal CRN using a particular translation-scheme:
 
 ```
   $ echo "A + B <=> X + Y; X -> A" | nuskell --ts scheme.ts [options]
 ```
-
-If you want to verify the equivalence between a formal CRN and an implementation CRN:
-
-```
-  $ echo "A + B <=> X + Y; X -> A" | nuskell --compare implementation.crn --verify bisimulation 
-```
-
+## Translation Schemes
+Detailed information about translation schemes can be found in the ``/schemes`` directory.
+ 
 ## Installation
 ```
-  python setup.py install
+  $ python setup.py install
 ```
 
-### local installation
-```
-  python setup.py install --user
-```
-  
 ## Version
 0.2.0
-
-### Development / Unittests
-```
-  python setup.py test
-```
-
-### Build the documentation
-```
-  sphinx-build -b html docs ~/your/html/sourcedir/
-```
 
 ### License
 MIT
 
 [//]: References
-[nuskell]: <https://dna.caltech.edu/nuskell>
-[peppersuite]: <https://dna.caltech.edu/peppersuite>
+[Grun et al. (2014)]: <https://arxiv.org/abs/1505.03738>
+[Shin et al. (2014)]: <http://dna.caltech.edu/DNAresearch_publications.html#PathwayDecomposition>
+[Johnson et al. (2016)]: <http://dna.caltech.edu/DNAresearch_publications.html#CRN-Bisimulation>
 

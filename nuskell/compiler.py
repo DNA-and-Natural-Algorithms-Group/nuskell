@@ -21,20 +21,30 @@ from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.objects import TestTube, TestTubeIO
 
 class InvalidSchemeError(Exception):
-  """Raise Error: Cannot find scheme."""
+  """Raise Error: Cannot find translation scheme."""
 
   def __init__(self, ts_file, builtin=None):
     self.message = "Cannot find translation scheme: {}\n".format(ts_file)
 
     if builtin:
       self.message += "You may want to use one of the built-in schemes instead:\n"
+      self.message += "Schemes in {}:\n".format(builtin)
       for s in os.listdir(builtin) :
         self.message += " * {}\n".format(s) 
  
     super(InvalidSchemeError, self).__init__(self.message) 
 
 def printCRN(crn, reversible=True, rates=True):
-  """A wrapper function to print CRNs. """
+  """Pretty printing of CRNs.
+
+  Args:
+    crn (list of lists): A CRN in list of list format.
+    reversible (bool, optional): True to combine reversible reactions into one
+      line.  False to split reversible reactions into irreversible reactions.
+
+  Note:
+    Order of reactants/products may differ from the order in the crn argument.
+  """
   if not rates:
     pcrn = map(lambda rxn: rxn[:2] + [[None]], crn)
   else :
@@ -53,19 +63,29 @@ def printCRN(crn, reversible=True, rates=True):
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
 def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
-  """A formal chemical reaction network (CRN) is translated into domain level
-  representation (DOM) of a DNA strand displacement circuit (DSD).  The
-  translation-scheme has to be formulated using the nuskell programming
-  language. 
+  """CRN-to-DSD translation wrapper function.
+  
+  A formal chemical reaction network (CRN) is translated into a domain-level
+  strand displacement (DSD) system. The translation-scheme and the CRN are
+  parsed into low-level instructions using the **nuskell.parser** module,
+  passed on to the **nuskell.interpreter** and returned in form of a
+  **nuskell.objects.TestTube()** object.
 
   Args: 
-    input_crn: An input string representation of the formal CRN
-    ts_file: The input file name of a translation scheme
-    pilfile: The output file name of a domain-level cirucit in .pil format
+    input_crn (str): An input string representation of the formal CRN.
+    ts_file (str): The input file name of a translation scheme.
+    pilfile (str, optional): Prints the DSD system in form of a PIL file.
+      Defaults to None.  
+    dnafile (str, optional): Prints the DSD system in form of a VisualDSD DNA
+      file. Defaults to None.
+    verbose (bool, optional): Print logging information during translation.
+      Defaults to False.
 
   Returns:
-    solution: A TestTube object 
-    constant_soluiton: A TestTube object that contains only constant species
+    [:obj:`TestTube()`,...]: A list of TestTube objects. 
+    The first object contains signal and fuel species of the full DSD
+    system, followed by *experimental* modular system specifications.
+
   """
 
   TestTube.warnings = verbose

@@ -201,22 +201,22 @@ def combine_reversible_reactions(crn) :
   return new_crn
 
 def parse_crn_file(filename):
-    """Parses the given file and returns the result in the form of
-       (crn, formal species, constant species)."""
-    crn_document = crn_document_setup()
-    crn = crn_document.parseFile(filename, parseAll = True).asList()
-    return _post_process(crn)
+  """Parses a CRN from a file.  
+
+  Args:
+    filename (<str>): Path to the input file.
+  
+  """
+  crn_document = crn_document_setup()
+  crn = crn_document.parseFile(filename, parseAll = True).asList()
+  return _post_process(crn)
 
 def parse_crn_string(data):
-    """Parses a crn in string format and returns the result in the form of
-    (crn, formal_species, constant_species).
+  """Parses a CRN in string format.  
 
-    :returns: 
-    .. ([[['A', 'B'], ['C','D'], 'irreversible'],
-    ..   [[], ['A'], 'irreversible'], 
-    ..   [['X'], [], 'irreversible'], 
-    ..   [['A', 'C'], ['X'], 'reversible'], 
-    ..   ['A', 'B', 'C', 'D', 'X'], [] ])
-    """
-    crn_document = crn_document_setup()
-    return _post_process(crn_document.parseString(data).asList())
+  Args:
+    data (<str>): A CRN string.
+  """
+  crn_document = crn_document_setup()
+  return _post_process(crn_document.parseString(data).asList())
+

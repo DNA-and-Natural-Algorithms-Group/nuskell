@@ -15,11 +15,8 @@ from nuskell.objects import TestTube, Complex, Domain
 from nuskell.interpreter.environment import Environment 
 
 def ts_code_snippet():
-  """ Sample code of the ts language, which is parsed upon initialization of
-  the ts environment.
-
-  :return: a code snippet in the ts language format
-  """
+  # Builtin funtions extending the nuskell language, loaded upon initialization
+  # of the interpreter environment.
   return """ 
     function range(x) = if x == 0 then [] else range(x - 1) + [x - 1] ;
     function sum(x) = if len(x) == 0 then empty elseif len(x) == 1 then x[0] else x[0] + sum(tail(x)) ;
@@ -32,30 +29,32 @@ def ts_code_snippet():
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
 def interpret(ts_parsed, crn_parsed, fs_list,
-    name='ts_author', sdlen=6, ldlen=15, verbose=False):
-  """Interface to the nuskell environment.
+    sdlen=6, ldlen=15, verbose=False):
+  """ Interpretation of a translation scheme.
 
-  The translation scheme is executed in the nuskell environment.
+  Initializes the compiler environment, interprets the instructions of the
+  translation scheme and translates the CRN.
 
   Args:
-    ts_parsed (List[List[...]]) : nuskell code in a complex data structure as
-      it is returned after parsing it with the **nuskell.parser** module.
-    crn_parsed (Llist[List[...]]) : A data structure that describes a formal
-      crn. See **nuskell.parser** for details.
-    fs_list () : A list of formal species. 
-    name (str) : A name for the nuskell environment, usually referring to the
-      implemted translation scheme.
-    sdlen (Optional[int]) : Domain length of the *built-in* short() function
-    ldlen (Optional[int]) : Domain length of the *built-in* long() function
-    .. verbose (Optional[bool]) : Toggle a verbose mode for additional feedback 
-      during computations.
+    ts_parsed (List[List[...]]): Low-level instructions from the translation
+      scheme, as returned from the **nuskell.parser** module.
+    crn_parsed (List[List[...]]): List of list data structure for CRNs as
+      returned from the **nuskell.parser** module.
+    fs_list ([str,...]) : A list of formal species names. 
+
+    sdlen (int, optional): Domain length of the *built-in* short() function.
+    ldlen (int, optional): Domain length of the *built-in* long() function.
+    verbose (bool, optional): Print logging information during compilation.
+      Defaults to False.
 
   Returns:
-    The given CRN translated with the given translation scheme into a DSD circuit.
+    [:obj:`TestTube()`,...]: A list of TestTube objects. 
+    The first object contains signal and fuel species of the full DSD
+    system, followed by *experimental* modular system specifications.
   """
 
   # Initialize the environment
-  ts_env = Environment(name, sdlen=sdlen, ldlen=ldlen)
+  ts_env = Environment('', sdlen=sdlen, ldlen=ldlen)
 
   # Parse a piece of sample code with common utilitiy functions
   header = parse_ts_string(ts_code_snippet())

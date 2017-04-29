@@ -8,6 +8,8 @@
 # Finds the formal basis of the given CRN.
 #
 
+verbose = False
+
 def print_reaction(rxn):
     first = True
     for x in rxn[0]:
@@ -203,7 +205,7 @@ def width(p):
     return w
 
 def enumerate(p, w_max, i_max, crn, fs):
-  verbose = False
+  global verbose
   global ret, ccheck, ebasis, done
   global linear, inter
 
@@ -346,7 +348,7 @@ def enumerate_basis(crn, fs):
   the reactions in a pathway.
   
   """
-  verbose = False
+  global verbose
   global ret, ccheck, ebasis, done
   done = 0
 
@@ -410,6 +412,7 @@ def enumerate_basis(crn, fs):
     current_w = 0
     current_i = 0
     for (i, f, w, fc, dfs, rfs) in signatures:
+      #print i, f, w, fc, dfs, rfs
       if len(dfs) == 0:
         if w > current_w:
           current_w = w
@@ -466,7 +469,7 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
                 hybrid" approach
 
   """
-  verbose = False
+  global verbose
 
   global inter
   inter = inter2

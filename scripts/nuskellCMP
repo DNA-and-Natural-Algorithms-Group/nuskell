@@ -168,12 +168,16 @@ def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
   if not crn_order:
     crn_order = sorted(set(df['CRN']))
 
+  marks=['+','^','v','<','>','*','d','.','x']
+
+  marks = marks[:len(ts_order)]
+
   g = sns.lmplot(data=df, x="[reactions]", y="[nucleotides]", 
       hue="Translation scheme", hue_order = ts_order,
-      col="equivalent", col_order=[True, False, 'timeout'], col_wrap=2,
+      col="equivalent", col_wrap=2, col_order=[True, False, 'timeout'],
       legend=False, legend_out=True,
       x_jitter=0.2,
-      markers=['+','^','v','<','>','*','d','.','x'],
+      markers=marks,
       fit_reg=False,
       scatter=True)
   #g = sns.FacetGrid(data=df,
@@ -204,6 +208,7 @@ def main(args):
   if args.from_csv :
     print '# Parsing data from file ... '
     df = pd.DataFrame().from_csv(args.from_csv)
+    #df[['[nucleotides]','[reactions]']] = df[['[nucleotides]','[reactions]']].astype(int)
 
   else:
     # ***************** #
@@ -269,8 +274,8 @@ def main(args):
           '[nucleotides]', 
           '[reactions]'])
 
-  print 'Rawdata:'
-  print df.to_string(index=False, justify='left')
+  #print 'Rawdata:'
+  #print df.to_string(index=False, justify='left')
   #print df.to_latex(index=False)
 
   # Save to portable format:
@@ -302,6 +307,7 @@ def main(args):
 
   # Add column that combines pathway and bisimulation notion 
   e = map(fun, zip(df['pathway'], df['bisimu']))
+  #e = map(lambda (x,y) : "{}, {}".format(x,y), zip(df['pathway'], df['bisimu']))
   df['equivalent'] = e
   print df.to_string(index=False, justify='left')
 

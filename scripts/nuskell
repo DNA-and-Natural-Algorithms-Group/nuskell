@@ -188,6 +188,7 @@ def main() :
     # but we are not there yet ... use nuskellCMP for such things.
     print "Please specify a translation scheme, see option --ts. For example:"
     schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
+    print 'Schemes in:', schemedir
     for s in os.listdir(schemedir) :
       print " --ts {}".format(s) 
     raise SystemExit
@@ -222,10 +223,10 @@ def main() :
     fuels = solution.present_complexes(exclude=signals)
   signals = solution.selected_complexes(signals)
 
-  if fuels == []:
-    raise ValueError('solution does not contain signals')
+  #if fuels == []:
+  #  raise ValueError('solution does not contain fuels')
   if signals == []:
-    raise ValueError('solution does not contain fuels')
+    raise ValueError('solution does not contain signals')
 
   if args.verbose:
     print "formal species: {}; signal species: {}; fuel species: {}".format(

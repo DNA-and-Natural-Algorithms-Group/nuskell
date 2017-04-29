@@ -50,29 +50,59 @@ def removeDuplicates(l):
   l = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], l))
   return helper(l)
 
-def verify(irrev_crn, enum_crn, input_fs, interpret = None, 
+def verify(formal_crn, impl_crn, formals, interpret = None, 
     method = 'bisimulation', timeout=0, verbose = False):
-  """Wrapper to choose from different notions of equivalence.
+  """Verify the equivalence of a formal CRN and its implementation CRN.
+
+  This wrapper function for two notions of equivalence (bisimulation and
+  pathway decomposition) and variations of in their implementation.
+
+  Args:
+    formal_crn (list[list[...]]): List of list data structure for formal CRNs
+      as returned from the **nuskell.parser** module. The CRN must specify
+      reversible reactions as two irreversible reactions.
+    impl_crn (list[list[...]]): List of list data structure for implementation
+      CRNs as returned from the **nuskell.parser** module. The CRN must specify
+      reversible reactions as two irreversible reactions.
+    formals (list[str,...]): A list of formal species.
+    interpret (:obj:`dict`, optional): A dictionary storing a partial
+      interpretation of the System. Typically stores a mapping between formal
+      and singal species.
+    method (str, optional): Choose a notion of equivalence: 'bisimulation',
+      'pathway', 'integrated'.  
+    timeout (int, optional): Set a timeout (in seconds) for verification. Defaults 
+      to 0, i.e. no timeout.
+    verbose (bool, optional): Print logging information during compilation.
+      Defaults to False.
+
+  Returns:
+    bool: True if equivalent, False otherwise.
+
   """
   interactive = False
   v, i = None, None
 
-  fcrn = [[Counter(part) for part in rxn[:2]] for rxn in irrev_crn]
-  ecrn = [[Counter(part) for part in rxn[:2]] for rxn in enum_crn]
+  for rxn in formal_crn + impl_crn :
+    if len(rxn) > 2:
+      if len(rxn[2]) != 1 :
+        raise Exception('Reaction does not have the required format:', rxn)
+
+  fcrn = [[Counter(part) for part in rxn[:2]] for rxn in formal_crn]
+  ecrn = [[Counter(part) for part in rxn[:2]] for rxn in impl_crn]
 
   signal.signal(signal.SIGALRM, handler)
   signal.alarm(timeout)
   try :
     if method == 'bisimulation' or method == 'bisim-whole-graph' :
-      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs, 
+      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
           interpretation = interpret, permissive='whole-graph', verbose=verbose)
 
     elif method == 'bisim-loop-search':
-      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
           interpretation = interpret, permissive='loop-search', verbose=verbose)
 
     elif method == 'bisim-depth-first':
-      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, input_fs,
+      v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
           interpretation = interpret, permissive='depth-first', verbose=verbose)
 
     elif method == 'pathway':
@@ -85,8 +115,8 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
             pinter[k]=[v]
           else :
             pinter[k]=[]
-      v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
-          (enum_crn, pinter.keys()), pinter, False, interactive, verbose)
+      v = crn_pathway_equivalence.test((formal_crn, formals), 
+          (impl_crn, pinter.keys()), pinter, False, interactive, verbose)
     elif method == 'integrated':
       # TODO: integrated-hybrid -> first consider some species as formal for
       # pathway decomposition, then do bisimulation. This is necessary for
@@ -103,8 +133,8 @@ def verify(irrev_crn, enum_crn, input_fs, interpret = None,
             pinter[k]=[v]
           else :
             pinter[k]=[]
-      v = crn_pathway_equivalence.test((irrev_crn, input_fs), 
-          (enum_crn, pinter.keys()), pinter, True, interactive, verbose)
+      v = crn_pathway_equivalence.test((formal_crn, formals), 
+          (impl_crn, pinter.keys()), pinter, True, interactive, verbose)
     else:
       raise RuntimeError('Unknown verification method.')
   except TimeoutError:
