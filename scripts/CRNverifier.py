@@ -2,13 +2,13 @@
 #
 # Written by Stefan Badelt (badelt@dna.caltech.edu)
 #
-# Condense a strongly connected hypergraph to minimal equivalent CRNs
-#
 
 import os
 import sys
 import argparse
+from collections import Counter
 
+from nuskell import printCRN
 from nuskell.parser import parse_crn_string, parse_crn_file
 from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
@@ -29,16 +29,22 @@ def get_nuskell_args(parser) :
     .. Complain if both a translation scheme and an iCRN are specified.
   """
   # Choose a verification method.
-  parser.add_argument("--verify", default='bisimulation', action = 'store',
-      help="Specify name a verification method: \
+  parser.add_argument("--verify", nargs='+', default='', action = 'store', 
+      metavar = '<str>', help="Specify verification methods: \
           (bisimulation, pathway, integrated, bisim-loop-search,\
           bisim-depth-first, bisim-whole-graph)") 
+
+  parser.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
+      help="Specify time [seconds] to wait for verification to complete.")
 
   parser.add_argument("-o", "--output", default='', action = 'store',
       help="Specify name of output file")
 
   parser.add_argument("-v", "--verbose", default=0, action = 'count',
       help="Verbosity of output")
+
+  parser.add_argument("--independent", action = 'store_true',
+      help="Do not assume ad-hoc interpretation from species names.")
 
   ## Enter the verification-only mode of Nuskell 
   parser.add_argument("--compare", action = 'store', required=True,
@@ -60,69 +66,61 @@ def main() :
   parser = get_nuskell_args(parser)
   args = parser.parse_args()
 
-  # Parse the input CRN 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Parse and process input CRN 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   input_crn = sys.stdin.readlines()
   input_crn = "".join(input_crn)
+  crn1, crn1s, _, _ = parse_crn_string(input_crn) 
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   print "\nVerification preprocessing..."
-  (fcrn, fs, cs) = parse_crn_string(input_crn) 
-  fcrn = split_reversible_reactions(fcrn)
+  crn1 = split_reversible_reactions(crn1)
 
   if args.verbose :
-    rev_crn = combine_reversible_reactions(fcrn)
     print "Formal CRN:"
-    for rxn in rev_crn :
-      if rxn[2] == 'reversible' :
-        print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
-      else :
-        print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
+    printCRN(crn1, reversible = True, rates=False)
 
-  (ccrn, _, _) = parse_crn_file(args.compare)
-  ccrn = split_reversible_reactions(ccrn)
+  crn2, crn2s, _, _ = parse_crn_file(args.compare)
+  crn2 = split_reversible_reactions(crn2)
 
   if args.verbose :
-    rev_crn = combine_reversible_reactions(ccrn)
     print "Implementation CRN:"
-    for rxn in rev_crn :
-      if rxn[2] == 'reversible' :
-        print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
-      else :
-        print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
+    printCRN(crn2, reversible = True, rates=False)
 
   interpret = dict()
-  #if True :
-  #  # Reduce the enumerated CRN and find an interpretation
-  #  icrn, interpret = preprocess(fcrn, enum_crn, fs,
-  #      solution, enum_solution, verbose=(args.verbose>1))
-  #else :
-  #  # Reduce the enumerated CRN without finding an interpretation
-  #  import nuskell.verifier.verifier
-  #  cs = filter(lambda x: x not in fs, solution.complexes)
-  #  icrn = nuskell.verifier.verifier.removeSpecies(enum_crn, cs)
-  #  icrn = nuskell.verifier.verifier.removeDuplicates(icrn)
+  if not args.independent:
+    print 'Ad-hoc partial interpretation:'
+    formals = set(crn1s)
+    for sp in crn2s:
+      if sp in formals:
+        interpret[sp] = Counter([sp])
+
+    if interpret and args.verbose :
+      for impl, formal in sorted(interpret.items()) :
+        print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
 
   print "\nVerification using:", args.verify
-  if args.verbose :
-    print "Partial interpretation:"
-    for impl, formal in sorted(interpret.items()) :
-      print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
+  for meth in args.verify :
+    v, i = verify(crn1, crn2, crn1s, method=meth, interpret=interpret,
+        verbose=(args.verbose>1),
+        timeout=args.verify_timeout)
 
-  v, i = verify(fcrn, ccrn, fs, interpret=interpret, 
-      method=args.verify, verbose=(args.verbose>1))
+    if i and args.verbose :
+      if not v : i = i[0]
+      print "Returned interpretation ['{}']:".format(meth)
+      for impl, formal in sorted(i.items()) :
+        print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
 
-  if i and args.verbose :
-    if not v : i = i[0]
-    print "Returned interpretation:"
-    for impl, formal in sorted(i.items()) :
-      print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
-
-  if v:
-    print "\nCRNs are equivalent."
-  else:
-    print "\nCRNs are not equivalent." 
+    if v is True:
+      print " {}: CRNs are {} equivalent.".format(v, meth)
+    elif v is False:
+      print " {}: CRNs are not {} equivalent.".format(v, meth)
+    elif v is None:
+      print " {}: {} verification did not terminate within {} seconds.".format(v, 
+          meth, args.verify_timeout)
 
 if __name__ == '__main__':
   main()
