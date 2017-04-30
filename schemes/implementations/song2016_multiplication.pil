@@ -1,0 +1,59 @@
+#
+# Song, Garg, Mokhtar, Bui, Reif in ACS (2016)
+# "Analog Compugtation by DNA Strand Displacement Circuits"
+#
+# Figure 9: multiplication gate
+# Im1 +
+# Im2 ..
+#
+# ------------
+# pm = m1 * m2
+# ------------
+#
+# Im1_ -> Im1a
+# Im2_ -> Im2b + Im2a 
+# Im2a + Im1a -> Om1_ 
+# Im2b -> 
+# Im1a ->
+#
+
+# Domain Specifications
+length a  = 6
+length f  = 6
+length g  = 6
+length h  = 6
+length r  = 6
+
+length s1 = 15
+length s2 = 15
+length n1 = 15
+length n2 = 15
+length n3 = 15
+length n4 = 15
+length n5 = 15
+length n6 = 15
+length m1 = 15
+length m2 = 15
+
+# Complex Specifications
+Im1_ = s1 a n1
+Im2_ = s2 a n2
+
+Im1a = m2 g n5 h
+Im2b = n2 g n4
+Im2a = m1 r n3
+Om1_ = n5 h n6
+
+Fm1_ = f m2 g
+Gm1_ = n1( f( + m2( g( n5 h + ) ) ) ) a*
+Dm1_ = n1( + f* )
+
+Fm2_ = g m1 r
+Gm2_ = n2( g( n4 + m1( r( n3 + ) ) ) ) a*
+
+Gm3_ = n3( g( + n5( h( n6 + ) ) ) ) r*
+Dm3_ = n3( + g* )
+
+Gm4_ = n2( + n5( h( + ) ) g* )
+
+
