@@ -32,6 +32,13 @@ Detailed information about translation schemes can be found in the ``/schemes`` 
 ## Version
 0.2.0
 
+### Authors
+  - Seung Woo Shin
+  - Qing Dong
+  - Robert Johnson
+  - Stefan Badelt
+  - Erik Winfree
+
 ### License
 MIT
 
