@@ -9,17 +9,15 @@
 
 from nuskell.objects import TestTube, Complex, Reaction
 
-import nuskell.include.peppercorn.utils as peputils
-from nuskell.include.peppercorn.enumerator import Enumerator
-import nuskell.include.peppercorn.reactions as reactions
-from nuskell.include.peppercorn.condense import condense_resting_states
-
-# Once peppercorn is its own package, we import it as depencency.
-# try :
-#   import peppercorn
-# except ImportError:
-#   sys.exit("""nuskell depends on the peppercorn package
-#   -- download at http://dna.caltech.edu/peppercorn """)
+try :
+  import peppercorn
+  import peppercorn.utils as peputils
+  from peppercorn.enumerator import Enumerator
+  import peppercorn.reactions as reactions
+  from peppercorn.condense import condense_resting_states
+except ImportError:
+  raise ImportError("""Nuskell depends on the Peppercorn library: -- download
+  at https://github.com/DNA-and-Natural-Algorithms-Group/peppercorn""")
 
 class TestTubePeppercornIO(object):
   """ A Wrapperclass to communicate between ``Nuskell'' and ``Peppercorn''.

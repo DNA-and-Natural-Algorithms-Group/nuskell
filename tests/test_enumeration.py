@@ -3,11 +3,15 @@ import unittest
 import argparse
 from collections import Counter
 
-# "External" unless you are on the independent branch
-import nuskell.include.peppercorn.utils as peputils
-from nuskell.include.peppercorn.enumerator import Enumerator
-from nuskell.include.peppercorn.condense import condense_resting_states
-from nuskell.include.peppercorn.input import from_kernel
+try :
+  import peppercorn
+  import peppercorn.utils as peputils
+  from peppercorn.enumerator import Enumerator
+  import peppercorn.reactions as reactions
+  from peppercorn.condense import condense_resting_states
+except ImportError:
+  raise ImportError("""Nuskell depends on the Peppercorn library: -- download
+  at https://github.com/DNA-and-Natural-Algorithms-Group/peppercorn""")
 
 import nuskell.enumeration as ne
 import nuskell.parser as np

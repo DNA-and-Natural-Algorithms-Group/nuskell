@@ -51,13 +51,12 @@ setup(
     long_description=readme,
     author='Seung Woo Shin, Qing Dong, Robert Johnson, Stefan Badelt, Erik Winfree',
     author_email='winfree@caltech.edu',
-    #url='http://www.dna.caltech.edu/nuskell/',
+    url='http://www.github.com/DNA-and-Natural-Algorithms-Group/nuskell/',
     data_files=[('nuskell/schemes', install_schemes)],
     license=license,
     install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1'],
     test_suite='tests',
-    packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier', 
-        'nuskell.include', 'nuskell.include.peppercorn'],
+    packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell', 'scripts/nuskellCMP']
 )
 

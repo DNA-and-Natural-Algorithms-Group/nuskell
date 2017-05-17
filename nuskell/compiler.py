@@ -17,7 +17,6 @@ from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
 
 from nuskell.interpreter import interpret
-from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.objects import TestTube, TestTubeIO
 
 class InvalidSchemeError(Exception):
