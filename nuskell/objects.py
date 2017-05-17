@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2016 Caltech. All rights reserved.
 # Written by Stefan Badelt (badelt@caltech.edu)
 #
 # nuskell.objects: shared between different components of nuskell
@@ -8,14 +7,6 @@
 # nuskell.objects are to some extent identical to "DNAObjects" coded by 
 # Joseph Schaeffer and Joseph Berleant. 
 #
-# The following Objects are implemented:
-#  *IUPAC_translator: handling of nucleic acid constraints
-#  *Domain: A constrained subsequence of a molecule
-#  *ComplementDomain: A domain complementary to a Domain Object.
-#  *Complex: A sequence/structure pair.
-#  *TestTube: A set of Complex objects and interface to
-#     - read/write PIL files
-#     - enumerate species
 
 import networkx as nx
 from collections import Counter
@@ -171,49 +162,59 @@ class IUPAC_translator(object):
     return bin_iupac_dict[nuc]
 
 class Domain(IUPAC_translator):
-  """The Nuskell Domain object.
+  """Nucleic acid domain sequence.
 
-  A domain is a sequence of consecutive nucleotides and/or domains. A domain
-  can be present in multiple complexes, and its secondary structure can change
-  dependent on the context. However, a single domain must always correspond to
-  a single structure. Every domain has a unique descriptor (domain-ID) that
-  allows for accessing/modifying every occurrence in the System.
+  A domain is a sequence of consecutive nucleotides (or domains). Domains can
+  form different secondary structures, however, they always fold as one entity,
+  just like single nucleotides. 
   
-  Every Domain can have exactly one ComplementDomain, but it can be
-  complementary to multiple Domains. Hence, the concept of a ComplementDomain
-  may or may not be used.
+  Implementation:
+    - Domains with the same name have the same nucleotide sequence. 
+    - Domains with the same nucleotide sequence have the same name.
+    - Every Domain() has exactly one ComplementaryDomain().
 
-  Global Variables:
-    id_counter: the next automatically assigned domain-ID in a system.
+  Not implemented:
+    - A domain cannot be complementary to multiple domains, e.g. due to
+      suboptimal hybridizations or wobble-base-pairs.
+ 
+  Globals:
+    id_counter (int): An automatically assigned unique descriptor that allows
+      for accessing/modifying every occurrence in the System.
+
+  Args:
+    sequence (list): A list of nucleotides or Domain() objects.
+    name (str, optional): Name of this domain. If not specified, an automatic
+      name is generated, defaults to ''
+    prefix (str, optional): A prefix for automated naming of Domains. Has to be
+      set if no name is provided. Defaults to 'd' for 'domain'. Usually, the
+      prefix 't' is used for 'toehold domains', and 'h' for 'histoy domains'.
+
+  Raises:
+    ValueError: Domain name must not end with '*'!
+    ValueError: Domain name must not end with a digit!
+    ValueError: Domain prefix must not be empty!
+    ValueError: Domain prefix must not end with a digit!
+    ValueError: Must pass a sequence of constraints or domain objects.
+
+  Note: 
+    The Domain function does not allow names or prefixes ending with digits or
+    '*'. Proximal digits are reseved to name domains automatically using their
+    unique domain-IDs. A mixture of both naming modes is forbidden.  Beware,
+    that it is still possible to initialize two different domains with the same
+    name, but that the information that these domain are different is lost when
+    writing them to a file.
   """
 
   id_counter = 0
  
-  def __init__(self, sequence=[], name='', prefix='d', complements=None):
-    """Initialization of the Domain object.
-
-    Arguments:
-      sequence <list>         = A list of sequence constraints on this domain.
-      name <optional: str>    = Name of this domain. If not specified, an
-                                automatic name is generated.
-      prefix <optional: str>  = A prefix for autmated naming of Domains. 
-                                Default: 'd' for 'domain'
-
-    Note: The Domain function does not allow names or prefixes ending with
-    digits or '*'. Proximal digits are reseved to name domains automatically
-    using their unique domain-IDs. A mixture of both naming modes is forbidden.
-    Beware, that it is still possible to initialize two different domains with
-    the same name, and that the information that these domain are different is
-    lost when writing them to a file.
-    """
-
-    # Assign name
+  def __init__(self, sequence=[], name='', prefix='d'):
+    # Assign name #
     self.id = Domain.id_counter
     Domain.id_counter += 1
 
     if name :
       if name[-1]=='*' :
-        raise ValueError('Invalid name for Domain Object!')
+        raise ValueError("Domain name must not end with '*'!", name)
       if name[-1].isdigit() :
         raise ValueError('Domain name must not end with a digit!', name)
       self._name = name
@@ -233,36 +234,36 @@ class Domain(IUPAC_translator):
 
     self._ComplementDomain = None
 
-    # Initialize an empty set of complementary Domains. This is an experimental
-    # feature and an alternative to defining *one* ComplementDomain.
-    if complements :
-      raise NotImplementedError(
-          "Specifying complements this is an experimental feature.")
-      assert all(isinstance(d, Domain) for d in complements)
-      #self.add_complements(complements)
-    else :
-      self._complements = set()
-
   @property
   def name(self):
+    """str: name of the domain."""
     return self._name
 
   @property
   def length(self):
+    """int: length of the domain sequence. """
     return len(self.sequence)
 
   @property
   def sequence(self):
+    """list: Domain sequence."""
     return self._sequence
 
   @property
   def base_length(self):
-    """Return the length of the nucleotide sequence."""
+    """int: length of the nucleotide sequence."""
     return len(self.base_sequence)
     
   @property
   def base_sequence(self):
-    """Breaks down the domain into non-composite domains."""
+    """Breaks the domain into non-composite domains.
+    
+    Raises:
+      NotImplementedError: Mixed composite and non-composite domain sequence.
+
+    Returns:
+      [list]: non-composite domain sequence.
+    """
     if all(isinstance(s, str) for s in self._sequence):
       return self._sequence
     else :
@@ -270,15 +271,26 @@ class Domain(IUPAC_translator):
         return list(''.join(
           map(lambda x: ''.join(x.base_sequence), self._sequence)))
       else :
-        # Implement mixed composite / non-composite case here
-        raise NotImplementedError
+        raise NotImplementedError('''Mixed composite and non-composite domain
+            sequence.''')
 
   def _merge_constraints(self, con, con2):
-    """Return a new list of unified constraints. """
+    #"""Return a new list of unified constraints. """
     return map(self.iupac_union, zip(con,con2))
 
   def update_constraints(self, con):
-    """Unify new and old constraint. """
+    """Apply nucleotide sequence constraint and check if it is compatible.
+    
+    Args:
+      con (list): A new sequence constraint.
+
+    Raises:
+      ValueError: Must pass constraints as list.
+      ValueError: Constraints have different length.
+      ValueError: Constraints cannot be satisfied.
+      NotImplementedError: Cannot update constraints on composite domains.
+    
+    """
     if not con or type(con) != list :
       raise ValueError("Must pass a constraints as a list.")
 
@@ -299,7 +311,14 @@ class Domain(IUPAC_translator):
   def get_ComplementDomain(self, compseq):
     """This function initializes or updates a ComplementDomain. 
 
-    Note: To return the complement, use the __invert__ operator.
+    Args:
+      compseq (list): list of IUPAC nucleic acid sequence constraints.
+
+    Note: 
+      To simply return the complement, use the '~' operator.
+
+    Returns:
+      [nuskell.objects.ComplementDomain()]
     """
     # Implement when needed!!!
     if not all(isinstance(s,str) for s in self.sequence + compseq) :
@@ -319,15 +338,12 @@ class Domain(IUPAC_translator):
 
   @property
   def is_ComplementDomain(self):
+    """ Checks if this domain is a ComplementDomain.
+
+    Returns:
+      [bool]: True if the domain is a complement domain, False othwerwise. """
     return self._name[-1:] == '*'
 
-  # def add_complements(self, other):
-  #   raise Warning("add_complements: Experimental Feature.")
-  #   for c in other :
-  #     other.add_complements(set(self))
-  #     self.complements.add(other)
-
-  # Built-in functions
   def __eq__(self, other):
     # NOTE: this might actually be equivalent to Python's "is"
     if type(self) == type(other):
@@ -338,36 +354,35 @@ class Domain(IUPAC_translator):
     return not (self == other)
 
   def __str__(self):
+    """Return the name of this domain. """
     return self._name
 
   def __invert__(self):
     """ Return a complement of this Domain. 
 
-    This function will not automatically make a ComplementDomain, as it is
-    unclear how constraints should be handled in this case. However,
-    self._ComplementDomain can be initilized with get_ComplementDomain()
+    Note: 
+      This function will not automatically make a ComplementDomain, as it is
+      unclear how constraints should be handled in this case. Use
+      get_ComplementDomain() first to initialize the complementary domain.
+
+    Returns:
+      [nuskell.objects.ComplementDomain()]
     """
-    if self._complements:
-      raise NotImplementedError("Multiple complements not implemented")
-      return self._complements
-    else :
-      return self._ComplementDomain
+    return self._ComplementDomain
 
 class ComplementDomain(Domain):
-  """ Represents a ComplementDomain, assuming that every Domain has exactly one
-  ComplementDomain. Note that this object is always defined in terms of an
-  original domain.
+  """A domain complementary to an existing Domain() object.
+
+   Every Domain has exactly one ComplementDomain. This object is always
+   initialized via an original domain using the get_ComplementDomain()
+   function.
+
   """
   def __init__(self, CompDomain, sequence=[]):
-    """Create the ComplementDomain for a given domain. A ComplementDomain can
-    only be initialized with respect to a given Domain. There can only exist
-    one ComplementDomain for every Domain. 
-    """
     self.id   = CompDomain.id 
     self._name = CompDomain._name + '*'
     self._ComplementDomain = CompDomain
 
-    # Assign domain sequence 
     if not sequence or type(sequence) != list :
       raise ValueError("Must pass a sequence of constraints or domain objects.")
     else :
@@ -378,17 +393,17 @@ class ComplementDomain(Domain):
     return self._ComplementDomain
 
   def __eq__(self, other):
-    """ Returns True iff their complements are equal."""
+    #""" Returns True iff their complements are equal."""
     if isinstance(other, ComplementDomain): 
       return self._ComplementDomain.__eq__(other._ComplementDomain)
     else :
       return False
   def __ne__(self, other):
-    """ Returns True iff they are not equal."""
+    #""" Returns True iff they are not equal."""
     return not self.__eq__(other)
 
 class Complex(object):
-  """A complex is a sequence & structure pair. 
+  """A sequence and structure pair. 
   
   Sequence and structure can be specified on the domain or on the nucleotide
   level, but they have to be of the same length. Although not yet implemented,
@@ -397,23 +412,20 @@ class Complex(object):
 
   Global Variables:
     id_counter: the next automatically assigned complex-ID in a system.
+
+  Args:
+    sequence (list): A list of sequence constraints on this domain.
+    structure (list): A list of dot-parens characters corresponding to the
+      sequence.
+    name (str, optional): Name of this domain. If not specified, an automatic
+      name is generated.
+    prefix (str): A prefix for automatic naming of Domains. Defaults to 'cplx'.
+
   """
 
   id_counter = 0
 
   def __init__(self, sequence=[], structure=[], name='', prefix='cplx', interpret=None):
-    """Initialization of the Complex object.
-
-    Arguments:
-      sequence <list>         = A list of sequence constraints on this domain.
-      structure <list>        = A list of dot-parens characters corresponding
-                                to the specified sequence.
-      name <optional: str>    = Name of this domain. If not specified, an
-                                automatic name is generated.
-      prefix <optional: str>  = A prefix for autmated naming of Domains. 
-                                Default: 'cplx' for 'complex'
-    """
-
     # Assign id
     self.id = Complex.id_counter
     Complex.id_counter += 1
@@ -442,6 +454,7 @@ class Complex(object):
 
   @property
   def name(self):
+    """str: name of the complex object. """
     return self._name
 
   @name.setter
@@ -454,16 +467,17 @@ class Complex(object):
 
   @property
   def sequence(self):
+    """list: sequence the complex object. """
     return self._sequence
 
   @property
   def lol_sequence(self):
-    """ Returns sequence as a list of lists, rather than one flat list with the
-    '+' separator.
-    
-    Example: 
-      ['d1', 'd2', '+', 'd3'] ==> [['d1', 'd2'], ['d3']]
-    """
+    #""" Returns sequence as a list of lists, rather than one flat list with the
+    #'+' separator.
+    #
+    #Example: 
+    #  ['d1', 'd2', '+', 'd3'] ==> [['d1', 'd2'], ['d3']]
+    #"""
     indices = [-1] + [i for i, x in enumerate(self._sequence) if x == "+"]
     indices.append(len(self._sequence))
     return [self._sequence[indices[i-1]+1: indices[i]] 
@@ -471,7 +485,7 @@ class Complex(object):
 
   @property
   def nucleotide_sequence(self):
-    """Return the complex sequence in form of a flat list of nucleotides. """
+    """list: the complex sequence in form of a flat list of nucleotides. """
     lol = self.lol_sequence
     def my_base_sequence(seq) :
       if all(isinstance(d, Domain) for d in seq):
@@ -484,6 +498,7 @@ class Complex(object):
 
   @property
   def structure(self):
+    """list: the complex structure. """
     return self._structure
 
   @property
@@ -495,7 +510,7 @@ class Complex(object):
 
   @property
   def nucleotide_structure(self):
-    """Return the complex structure on nucleotide-level. """
+    """list: the complex structure on nucleotide-level. """
     lol = zip(self.lol_sequence, self.lol_structure)
     def my_base_sequence(seq, sst) :
       if all(isinstance(d, Domain) for d in seq):
@@ -509,6 +524,7 @@ class Complex(object):
 
   @property
   def kernel(self):
+    """str: print sequence and structure in `kernel` notation. """
     seq = self.sequence
     sst = self.structure
     knl = ''
@@ -548,17 +564,22 @@ class Complex(object):
 
   @property
   def rotate(self):
-    """Generator function yielding every rotation of the complex. """
+    """Generator function yields every rotation of the complex. """
     for i in range(len(self.lol_sequence)):
       yield self.rotate_once
 
   def __str__(self):
+    """str: the name of the complex. """
     return self._name
 
   def __eq__(self, other): 
-    """ Two complexes are equal if they have the same coarse-graining in terms
-    of domains and the same secondary structure. 
-    NOTE: This function might change the strand-ordering of the complex!
+    """ Test if two complexes are equal.
+    
+    They are equal if they have the same coarse-graining in terms of domains
+    and the same secondary structure. 
+
+    Note: 
+      This function might change the strand-ordering of the complex!
     """
     if type(self) != type(other):
       return False
@@ -575,55 +596,80 @@ class Complex(object):
       return False
 
   def __ne__(self, other):
-    """ Returns True if the complexes are not equal. """
     return not self.__eq__(other)
 
 class TestTube(object):
   """A reaction network of nucleic acid complexes.
 
   **Description:**
-    TestTube() objects are Nuskell's standard interface to enumerate and
-    simulate nucleic acid systems.  Domain-level reaction networks are
-    enumerated using the Python package ``Peppercorn'' and simulated using the
-    Python package ``crnsimulator''. TestTube() objects can be exported to
-    low-level data structures, e.g. to verify the equivalence between two
-    TestTube() objects.
+    :obj:`TestTube()` objects are Nuskell's interface to enumerate and simulate
+    nucleic acid systems.  Domain-level reaction networks are enumerated using
+    the Python package `Peppercorn`_ and simulated using the Python package
+    `crnsimulator`_. :obj:`TestTube()` objects to low-level data structures,
+    e.g. to verify the equivalence between two :obj:`TestTube()` objects.
 
-    Single or multiple Complex() and/or Reaction() objects can be accessed,
-    added and removed from the system.  TestTube() provides (optional) assert
-    statements checking if Complex() and Domain() instances have been
-    duplicated, but they might be time-consuming for large networks.
+    Single or multiple :obj:`Complex()` and/or :obj:`Reaction()` objects can be
+    accessed, added and removed from the system.  :obj:`TestTube()` provides
+    (optional) assert statements checking if :obj:`Complex()` and
+    :obj:`Domain()` instances have been duplicated, but they might be
+    time-consuming for large networks.
 
     Built-in functions can process domain-level networks to remove strands with
-    wildcard-domains (also called history-domains). 
-    There are a few options to replace a wildcard-strand:
-      * replace with any matching complex in the TestTube()
-      * replace with all matching complexes in the TestTube()
-      * remove the wildcard-domain.
-    It is recommended that these settings reflect your experimental protocol.
+    wildcard-domains (also called history-domains).  Together with the
+    remainder of the molecule, a species with a wildcard forms a
+    regular-expression, matching every other species in the system that differs
+    only by a single domain instead of ‘?’.  If there exists a species matching
+    the regular expression, then the species with the wildcard domain and every
+    enumerated reaction emerging from that species is be removed from the
+    system, otherwise, the wildcard domain is replaced by a regular long
+    domain. 
 
   **Structure:**
-    TestTube() is based on networkx.MultiDiGraph(), with two types of nodes: (a)
-    nuskell.Complex() and (b) nuskell.Reaction().  The graph is bipartite, edges
+    :obj:`TestTube()` is based on networkx.MultiDiGraph(), with two types of nodes: (a)
+    :obj:`Complex()` and (b) :obj:`Reaction()`.  The graph is bipartite, edges
     are directed (from reactants to prodcuts), they connect reactants to a
     reaction node and a reaction node to products.
     
-    TestTube() provides an additional *concentration* attribute and *constant*
-    atribute to Complex() nodes, as well as a rate attribute to Reaction()
-    nodes. These attributes are accessed when writing ODE systems and
-    (optionally) updated after simulations. This means a TestTube() **can** be
-    initialized without using Complex() and Reaction() objects, but by using a
-    consistent naming scheme.
+    :obj:`TestTube()` provides an additional *concentration* attribute and *constant*
+    atribute to :obj:`Complex()` nodes, as well as a rate attribute to
+    :obj:`Reaction()` nodes. These attributes are accessed when writing ODE
+    systems and (optionally) updated after simulations. This means a
+    :obj:`TestTube()` *can* be initialized without using :obj:`Complex()` and
+    :obj:`Reaction()` objects, but by using a consistent naming scheme.
 
   **Developers:**
     It is recommended to store all other node attributes (e.g. free energies,
-    etc.) directly in the nuskell.Complex() and nuskell.Reaction() objects.
-    TestTube() does not provide an I/O interface for file formats. There is a
-    separate TestTubeIO() object explicitly to parse and write compatible file
-    formats (*.pil, *.dom, *.dna, etc.).
+    etc.) directly in the :obj:`Complex()` and :obj:`Reaction()` objects.
+    :obj:`TestTube()` does not provide an I/O interface for file formats. There is a
+    separate :obj:`TestTubeIO()` object explicitly to parse and write compatible file
+    formats (\*.pil, \*.dom, \*.dna, etc.).
 
-  **TODO:**
-    allow all sorts of boolean and set operations for TestTube(): AND, OR, ...
+  Args:
+    complexes (:obj:`dict`, optional) =  A dictionary of complex names that stores
+      a tuple of [0]: the respective :obj:`Complex()` object or :obj:`None`, [1]: the
+      concentration, and [2]: boolean value to specify if the concentration
+      stays constant during a simulation: True = constant; False = initial
+      For example: complexes['A'] = (None, 100, True) is a new
+      species called 'A', which has no :obj:`Complex()` object initialized, and
+      remains constant at 100 [nM] concentration.
+      Note: The constant attribute defaults to False if not specified, in which
+      case the concentrations specify the initial state and might be updated
+      after a simulation.
+
+    reactions <dict(), optional> =  A dictionary of reaction names that stores
+      either a :obj:`Reaction()` object or a list [[reactants], [products], rate]
+      Reactants and products have to be known complexes.
+
+  Raises:
+    ValueError: 'Wrong initialization of arguments for TestTube()'
+    ValueError: 'Invalid Reaction format'
+
+ 
+  .. _Peppercorn:
+      http://www.github.com/DNA-and-Natural-Algorithms-Group/peppercorn
+  .. _crnsimulator:
+      http://www.github.com/bad-ants-fleet/crnsimulator
+
   """
 
   # A global TestTube() variable to make (time-consuming) sanity-checks when
@@ -632,22 +678,6 @@ class TestTube(object):
   warnings = True
 
   def __init__(self, complexes=None, reactions=None):
-    """Initialization of TestTube object. 
-
-    Arguments:
-      complexes <optional: dic()> =  A dictionary of complex names that stores
-        a tuple of [0]: the respective Complex() object or None, [1]: the
-        concentration, and [2]: boolean value to specify if the concentration
-        stays constant during a simulation: True = constant; False = initial
-        For example: complexes['A'] = (None, 100, True) is a new
-        species called 'A', which has no Complex() object initialized, and
-        remains constant at 100 [nM] concentration.
-
-        Note: The constant attribute defaults to False if not specified, in
-        which case the concentrations specify the initial state and might be
-        updated after a simulation.
-    
-    """
     self._RG = nx.MultiDiGraph() 
 
     if complexes :
@@ -658,7 +688,7 @@ class TestTube(object):
           if len(data) == 3:
             assert isinstance(data[2], bool) or data[2] is None
         else :
-          raise RuntimeError('wrong initialization of arguments for TestTube()')
+          raise ValueError('Wrong initialization of arguments for TestTube()')
 
         cplx = data[0]
         conc = data[1]
@@ -696,6 +726,7 @@ class TestTube(object):
 
   @property
   def ReactionGraph(self):
+    """:obj:`networkx.MultiDiGraph()`: bipartite reaction graph. """
     return self._RG
   
   @ReactionGraph.setter
@@ -706,28 +737,44 @@ class TestTube(object):
 
   @property
   def complexes(self):
+    """list: a list of :obj:`Complex()` objects. """
     #TODO: This only works with Complex() objects
     return [n for n in self._RG.nodes() if isinstance(n, Complex)]
 
   @property
   def reactions(self):
+    """list: a list of :obj:`Reaction()` objects. """
     #TODO: This only works with Reaction() objects
     return [n for n in self._RG.nodes() if isinstance(n, Reaction)] 
 
   def set_complex_concentration(self, cplx, concentration, constant):
+    """
+    Args:
+      cplx (:obj:`Complex()`): complex.
+      concentration (flt): concentration.
+      constant (bool): True if the concentration is kept constant, False for
+        initial concentration.
+    """
     self._RG.node[cplx]['concentration'] = concentration
     self._RG.node[cplx]['constant'] = constant
 
   def get_complex_concentration(self, cplx):
+    """flt, bool: First value is concentration, second is True if it is constant, 
+    False if it is variable."""
     return self._RG.node[cplx]['concentration'], self._RG.node[cplx]['constant']
 
   def selected_complexes(self, names):
+    """list: a list of :obj:`Complex()` objects that correspond to specified names. """
     #TODO: This only works with Complex() objects
     return [n for n in self._RG.nodes() if isinstance(n, Complex) and n.name in names]
 
   def present_complexes(self, exclude=[], th=0):
-    """ Returns complexes with concentration greater than a threshold, if they
-    are not explicitly excluded, e.g. because they are Signal species.
+    """Returns a list of :obj:`Complex()` objects with occupancy greater than a threshold.
+
+    Args:
+      exclude (list, optional): Exclude particular complex names.
+      th (flt, optional): Specify the threshold to consider complexes as
+        *present* in solution. Defaults to 0.
     """
     return [n for n, att in self._RG.node.items() if \
         isinstance(n, Complex) and att['concentration'] > th and n.name not in exclude]
@@ -735,38 +782,35 @@ class TestTube(object):
   def interpret_species(self, species, prune=True):
     """Get an interpretation dictionary.
 
-    Args:
-      species <list[str] > : A list of complex names.
-      prune <bool> : Remove all wildcards from the network. If a matching
-                     complex has been found, then the regex-node is removed, if
-                     no matching complex has been found, then the wildcard
-                     domain is removed.
+    If a :obj:`Complex()` sequence contains a wildcard, then this function will find
+    all matching complexes, and return those as interpretation.  Regex-nodes
+    may have at most *one wildcard* per complex, a wildcard corresponds to
+    exactly *one unpaired domain*.
 
-    Note: 
-      If a complex sequence contains a wildcard, then this function will find
-      all matching complexes, and return those as interpretation.  Regex-nodes
-      may have at most *one wildcard* per complex, a wildcard corresponds to
-      exactly *one unpaired domain*.
+    Args:
+      species (list[str], optional): A list of complex names that are potential
+        regular-expression complexes.
+      prune (bool, optinal): True: Remove all wildcards from the network. If a
+        matching complex has been found, then the regex-complex and all emerging
+        complexes are removed, if no matching complex has been found, then the
+        wildcard domain is replaced by a regular long domain. False: Return the 
+        interpretation without udating the reaction network. Defaults to True.
 
     Example:
-      A = "? a b c" | ". . . ."
-      B = "a ? b + c* a*" | "( . . + . )"
+      - It is possible to specify sthg like: 
+        A = "? a b c" | ". . . ."
+        B = "a ? b + c* a*" | "( . . + . )"
 
-    =====
-    In particular, it is not possible to specify sthg like: 
-      A = "? a b ?" | "( . . )" 
-      A = "* a b c" | "* . . ."
-      A = "? a ? *" | "( . ) *"
-      A = "? a ? x + z* x* f* " | "? ? ? ( + . ) ."
-      A = "* a * t" | "* . * ."
+      - It is not possible to specify sthg like: 
+        A = "? a b ?" | "( . . )" 
+        A = "* a b c" | "* . . ."
+        A = "? a ? *" | "( . ) *"
+        A = "? a ? x + z* x* f* " | "? ? ? ( + . ) ."
+        A = "* a * t" | "* . * ."
+
+    Returns:
+      [:obj:`dict()`]: Interpretation of signal species: dict['A_i'] = Counter('A':1)
     """ 
-    # Interpretation from signal to formal: dict['A_i'] = Counter('A':1)
-
-    # Get all complexes with the names in *species*.
-    # If the complex is a regex-complex: find all matching complexes
-    # If prune == True:
-    #   Remove the regex-complex if matching complexes have been found, reduce it otherwise.
-    #   Update the reaction graph
 
     def patternMatch(x, y, ignore = '?'):
       """Matches two complexes if they are the same, ignoring history domains. 
@@ -903,7 +947,16 @@ class TestTube(object):
   def add_complex(self, cplx, (conc, const), sanitycheck=True):
     """Add a complex to the TestTube. 
 
-    A new complex resets .domains and .strands
+    Args:
+      cplx (:obj:`Complex()`): The complex object.
+      (conc, const) (flt, bool): Concentration and True/False for constant or
+        initial concentrations.
+      sanitycheck (bool): True: Check if complex exists under a different name.
+        This can be time consuming. Defaults to True.
+
+    Note:
+      A new complex resets TestTube.domains and TestTube.strands
+
     """ 
     if not isinstance(cplx, Complex) :
       #TODO: do the formal stuff later
@@ -939,7 +992,16 @@ class TestTube(object):
   def rm_complex(self, cplx, force=False):
     """Remove a Complex from the TestTube. 
 
-    Removing a complex resets .domains and .strands
+    Args:
+      cplx (:obj:`Complex()`): The complex object.
+      force (bool): True: remove complex and all reactions it is engaged in.
+        False: Raise an Error if complex is engaged in a reaction.
+
+    Raises:
+      RuntimeError: Cannot remove a complex engaged in reactions.
+
+    Note:
+      Removing a complex resets TestTube.domains and TestTube.strands
     """
     if self._RG.has_node(cplx):
       if force :
@@ -956,7 +1018,13 @@ class TestTube(object):
       self._strands = None
 
   def add_reaction(self, react, sanitycheck=True):
-    """Add an irreversible reaction to the TestTube.  """ 
+    """Add a reaction to the TestTube.  
+
+    Args:
+      react (:obj:`Reaction()`): The *irreversible* reaction to be added.
+      sanitycheck (bool): True: Check if reaction exists under a different name.
+        This can be time consuming. Defaults to True.
+    """ 
 
     if not isinstance(react, Reaction) :
       #TODO: do the formal stuff once we need it...
@@ -972,7 +1040,7 @@ class TestTube(object):
           (set(x.reactants) == set(react.reactants) and \
            set(x.products) == set(react.products) and x.name == react.name), 
           self.reactions):
-        raise Warning('duplicate!!!')
+        print 'WARNING: One reaction, one name! Skipping reaction:', react.kernel
       else :
         self._RG.add_node(react, rate=react.rate)
         for r in react.reactants :
@@ -983,6 +1051,11 @@ class TestTube(object):
           self._RG.add_edge(react, p)
 
   def rm_reaction(self, react):
+    """Remove a reaction from the TestTube. 
+
+    Args:
+      react (:obj:`Reaction()`): The reaction object to be removed.
+    """
     if self._RG.has_node(react):
       self._RG.remove_node(react)
 
@@ -995,7 +1068,7 @@ class TestTube(object):
     whenever a new Complex is added to the TestTube.
 
     Returns: 
-      strands[strand_1] = [Domain(X), Domain(Y), Domain(Z)]
+      [:obj:`dict()`]: strands[strand_1] = [Domain(X), Domain(Y), Domain(Z)]
     """
     if not self._strands :
       count = 0
@@ -1015,7 +1088,7 @@ class TestTube(object):
     """Return a dictionary of Domain Objects present in the TestTube. 
     
     Returns:
-      domains[Domain.name] = Domain
+      [:obj:`dict()`]: domains[Domain.name] = Domain
     """
     if not self._domains :
       self._domains = dict()
@@ -1029,19 +1102,23 @@ class TestTube(object):
     return self._domains
  
   def enumerate_reactions(self, args=None, condensed = True):
-    # Initialize Object for communication between the ``Peppercorn''
-    # Enumerator() and this TestTube()
+    """Enumerate reactions using the *peppercorn* enumerator. 
+    Args:
+      args(:obj:`argparse.ArgumentParser()`, optional): Arguments for *peppercorn*.
+      condensed (bool, optional): Udate the reaction graph using *condensed* format.
+    """
     from nuskell.enumeration import TestTubePeppercornIO
     TestTubePeppercornIO.condensed = condensed
     interface = TestTubePeppercornIO(testtube = self, enumerator = None, pargs = args)
     interface.enumerate()
     self.ReactionGraph = nx.compose(self.ReactionGraph, interface.testtube.ReactionGraph)
+
+    # TODO: do we really need to reset domains and strands??
     self._domains = None
     self._strands = None
-    return 
 
   def simulate_crn(self, odename, sorted_vars=[], unit='M'):
-    """ """
+    # TODO : needs documentation.
     from crnsimulator import writeODElib
     import sympy
 
@@ -1166,7 +1243,13 @@ class TestTube(object):
       return self.__add__(other)
 
 class TestTubeIO(object):
-  """A wrapper class to handle I/O of TestTube objects."""
+  """A wrapper class to handle I/O of TestTube objects.
+  
+  Args:
+    ttube (obj:`TestTube()`): A :obj:`TestTube()` object that should be initialized 
+      or written to a text format.
+  
+  """
 
   def __init__(self, ttube):
     assert isinstance(ttube, TestTube)
@@ -1174,16 +1257,23 @@ class TestTubeIO(object):
 
   @property
   def testtube(self):
+    """:obj:`TestTube()` property."""
     return self._testtube
 
   def write_pil_kernel(self, pil, unit='M', crn=None, ts=None):
-    """Write the contents of TestTube() into a pilfile (kernel notation). 
+    """Write the contents of :obj:`TestTube()` into a PIL file -- KERNEL notation). 
 
-    length d1 = 6
-    #sequence d1 = NNNNNN
-    length d2 = 4
-    length h3 = 1
-    cplx1 = h3 d1( d2( + ))
+    Args:
+      pil (filehandle): A filehandle that the output is written to.
+      unit (str, optional): Specify a unit of concentrations (M, mM, uM, nM, pM).
+      crn (list[list], optional): a nuskell-style CRN expression
+      ts (str, optional): name of the translation scheme
+
+    Example:
+      length d1 = 6
+      length d2 = 4
+      length h3 = 1
+      cplx1 = h3 d1( d2( + )) @ initial 10 nM
     """
     pil.write("# File autogenerated by nuskell. ")
 
@@ -1242,7 +1332,7 @@ class TestTubeIO(object):
       pil.write(" \n")
 
   def load_pil_kernel(self, pilfile):
-    """Parses a pil file written in KERNEL notation! """
+    """Parses a file written in PIL - KERNEL notation! """
     ppil = parse_pil_file(pilfile)
 
     def rename(name):
@@ -1325,17 +1415,17 @@ class TestTubeIO(object):
     return self._testtube
 
   def write_dnafile(self, fh, signals=[], crn=None, ts=None):
-    """ Write a TestTube Object into VisualDSD *.dna format.
+    """ Write a TestTube Object into VisualDSD \*.dna format.
 
-    Note: This function assumes that toehold domains are named starting with a
-    't', history domains start with a 'h' and anti-sense domains end with '*'.
+    Note: 
+      This function assumes that toehold domains are named starting with a 't',
+      history domains start with a 'h' and anti-sense domains end with '*'.
 
     Args:
-      fh <filehandle>: The function prints to this filehandle.
-      signals <optional: list(str)>: A list of signal species.
-      crn <optional: list(list)>: a nuskell-style parsed CRN expression
-      ts <optional: str>: name of the translation scheme
-
+      fh (filehandle): The function prints to this filehandle.
+      signals (list[str], optional): A list of signal species.
+      crn (list[list], optional): a nuskell-style CRN expression
+      ts (str, optional): name of the translation scheme
     """
     fh.write("(* File autogenerated by nuskell. ")
 
@@ -1479,13 +1569,18 @@ class TestTubeIO(object):
 class Reaction(object):
   """ A reaction pathway. 
 
-  Almost equivalent with peppercorn.ReactionPathway
-  Stores common attributes such as reactants, products, rates, rtype, etc.
+  Args:
+    reactants (list): A list of reactants. Reactants can be strings or :obj:`Complex()` objects.
+    products (list): A list of products. Products can be strings or :obj:`Complex()` objects.
+    rtype (str, optional): Reaction type, e.g. bind21, condensed, ..
+    rate (flt, optional): Reaction rate.
+    name (str, optional): Name of the reaction.
+    prefix (str, optional): Prefix for atomatic naming scheme.
+
   """
   id_counter = 0
 
   def __init__(self, reactants, products, rtype=None, rate=None, name='', prefix='REACT'):
-    """ """
 
     # Assign name
     self.id = Reaction.id_counter
@@ -1509,46 +1604,46 @@ class Reaction(object):
 
   @property
   def name(self):
+    """str: name of the reaction. """
     return self._name
 
   @property
   def rate(self):
+    """flt: reaction rate. """
     return self._rate
 
   @property
   def rateunits(self):
+    """str: reaction rate units. """
     return "/M" * (self.arity[0]-1) + "/s"
 
   @property
   def rtype(self):
-    """ Returns the peppercorn reaction type that corresponds to this reaction """
+    """str: *peppercorn* reaction type (bind21, condensed, ...) """
     return self._rtype
 
   @property
   def reactants(self):
-    """ Returns the list of reactants.  """
+    """list: list of reactants. """
     return self._reactants
 
   @property
   def products(self):
-    """ Returns the list of products.  """
+    """list: list of products. """
     return self._products
 
   @property
   def arity(self):
-    """
-    Gives a pair containing the number of reactants and the number of products in the reaction
-    """
+    """(int, int): number of reactants, number of products."""
     return (len(self._reactants),len(self._products))	
   
   def __str__(self):
+    """prints the formal chemical reaction."""
     return "{} -> {}".format(
         " + ".join(map(str,self.reactants)), " + ".join(map(str,self.products)))
 
   def __eq__(self, other):
-    """
-    Compares two Reaction() objects. Equal if they have the same rtype, reactants, and products.
-    """
+    """bool: Checks if two Reaction() objects have the same rtype, reactants, and products. """
     if not self.rtype or not other.rtype :
       raise Exception('Cannot compare reactions without knowing the reaction-type.')
     return (self.rtype == other.rtype) and \
@@ -1557,5 +1652,4 @@ class Reaction(object):
 
   def __ne__(self, other):
     return not (self == other)
-
 

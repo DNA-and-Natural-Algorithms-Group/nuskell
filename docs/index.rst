@@ -125,6 +125,9 @@ API Reference
   compiler
   interpreter
   verifier
+  parser
+  enumeration
+  objects
 
 ..  enumeration
 ..  objects
