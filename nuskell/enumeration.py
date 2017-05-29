@@ -10,14 +10,14 @@
 from nuskell.objects import TestTube, Complex, Reaction
 
 try :
-  import peppercorn
-  import peppercorn.utils as peputils
-  from peppercorn.enumerator import Enumerator
-  import peppercorn.reactions as reactions
-  from peppercorn.condense import condense_resting_states
+  from peppercornenumerator import Enumerator
+  import peppercornenumerator.utils as peputils
+  import peppercornenumerator.reactions as reactions
+  from peppercornenumerator.condense import condense_resting_states
 except ImportError:
-  raise ImportError("""Nuskell depends on the Peppercorn library: -- download
-  at https://github.com/DNA-and-Natural-Algorithms-Group/peppercorn""")
+  raise ImportError("""Nuskell depends on the peppercornenumerator library: --
+  download at 
+  https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator""")
 
 class TestTubePeppercornIO(object):
   """ A Wrapperclass to communicate between ``Nuskell'' and ``Peppercorn''.
