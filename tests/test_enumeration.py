@@ -3,15 +3,11 @@ import unittest
 import argparse
 from collections import Counter
 
-try :
-  import peppercorn
-  import peppercorn.utils as peputils
-  from peppercorn.enumerator import Enumerator
-  import peppercorn.reactions as reactions
-  from peppercorn.condense import condense_resting_states
-except ImportError:
-  raise ImportError("""Nuskell depends on the Peppercorn library: -- download
-  at https://github.com/DNA-and-Natural-Algorithms-Group/peppercorn""")
+import peppercornenumerator as pep
+import peppercornenumerator.utils as peputils
+import peppercornenumerator.reactions as reactions
+from peppercornenumerator.enumerator import Enumerator
+from peppercornenumerator.condense import condense_resting_states
 
 import nuskell.enumeration as ne
 import nuskell.parser as np
@@ -157,13 +153,13 @@ class EnumerationTests(unittest.TestCase):
     
     solution = self._TestTube_from_DOM(domstring)
     peppercorn = ne.TestTubePeppercornIO(testtube=solution, pargs=self.args)
-    self.assertIsInstance(peppercorn.enumerator, Enumerator)
+    self.assertIsInstance(pep.enumerator, Enumerator)
 
-    peppercorn.enumerate()
+    pep.enumerate()
 
     ###########################
     # Get full output CRN
-    reactions = peppercorn.enumerator.reactions
+    reactions = pep.enumerator.reactions
     r1 = 'tf bm  +  bm( tb( + ) ) tf*  ->  tf( bm + bm( tb( + ) ) )'
     r2 = 'tf( bm( + tb* ) )  +  bm tb  ->  tf( bm( + bm tb( + ) ) )'
     r3 = 'tf( bm + bm( tb( + ) ) )  ->  tf( bm( + bm tb( + ) ) )'
@@ -177,7 +173,7 @@ class EnumerationTests(unittest.TestCase):
 
     ###########################
     # Get condensed output CRN
-    condensed = condense_resting_states(peppercorn.enumerator)
+    condensed = condense_resting_states(pep.enumerator)
     reactions = condensed['reactions']
 
     rc1 = 'tf bm  +  bm( tb( + ) ) tf*  ->  tf( bm( + tb* ) )  +  bm tb'
@@ -203,13 +199,13 @@ class EnumerationTests(unittest.TestCase):
     
     solution = self._TestTube_from_DOM(domstring)
     peppercorn = ne.TestTubePeppercornIO(testtube=solution, pargs=self.args)
-    self.assertIsInstance(peppercorn.enumerator, Enumerator)
+    self.assertIsInstance(pep.enumerator, Enumerator)
 
-    peppercorn.enumerate()
+    pep.enumerate()
 
     ###########################
     # Get full output CRN
-    reactions = peppercorn.enumerator.reactions
+    reactions = pep.enumerator.reactions
     r1 = 'tf bm  +  tf( bm( + tf* ) )  ->  tf( bm( + tf( bm + ) ) )'
     r2 = 'tf bm  +  bm( tf( + ) ) tf*  ->  tf( bm + bm( tf( + ) ) )'
     r3 = 'tf( bm( + tf* ) )  +  bm tf  ->  tf( bm( + bm tf( + ) ) )'
@@ -228,7 +224,7 @@ class EnumerationTests(unittest.TestCase):
 
     ###########################
     # Get condensed output CRN
-    condensed = condense_resting_states(peppercorn.enumerator)
+    condensed = condense_resting_states(pep.enumerator)
     reactions = condensed['reactions']
 
     rc1 = 'tf bm  +  bm( tf( + ) ) tf*  ->  tf( bm( + tf* ) )  +  bm tf'
@@ -279,12 +275,12 @@ class EnumerationTests(unittest.TestCase):
     self.args.ignore_branch_4way = True
  
     peppercorn = ne.TestTubePeppercornIO(testtube=solution, pargs=self.args)
-    self.assertIsInstance(peppercorn.enumerator, Enumerator)
+    self.assertIsInstance(pep.enumerator, Enumerator)
 
-    peppercorn.enumerate()
+    pep.enumerate()
     ###########################
     # Get full output CRN
-    reactions = peppercorn.enumerator.reactions
+    reactions = pep.enumerator.reactions
 
     count = 0
     ks_t_cp = dict()
@@ -295,7 +291,7 @@ class EnumerationTests(unittest.TestCase):
     print '--'
     ###########################
     # Get condensed output CRN
-    condensed = condense_resting_states(peppercorn.enumerator)
+    condensed = condense_resting_states(pep.enumerator)
     reactions = condensed['reactions']
 
     for r in sorted(reactions):

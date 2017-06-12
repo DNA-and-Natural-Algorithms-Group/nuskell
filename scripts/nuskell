@@ -5,24 +5,14 @@ import sys
 import argparse
 import pkg_resources
 
-from nuskell import translate, verify, printCRN
+#'http://www.github.com/bad-ants-fleet/crnsimulator'
+from crnsimulator import ReactionGraph
 
+from nuskell import translate, verify, printCRN
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.objects import TestTube, TestTubeIO 
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies
-
-class LibError(Exception):
-  """Raise Error: Library not found."""
-
-  def __init__(self, library, download=None):
-    self.message = "{} not found.\n".format(library)
-    self.message += "|==== \n"
-    if download:
-      self.message += "|Download: {}\n".format(download)
-    self.message += "|====\n"
-
-    super(LibError, self).__init__(self.message) 
 
 def get_peppercorn_args(parser):
   """Selected arguments for the peppercorn interface. """
@@ -332,12 +322,6 @@ def main() :
   # Simulate CRNs in a TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.simulate :
-    try:
-      __import__('crnsimulator')
-    except ImportError:
-      raise LibError('crnsimulator', 'http://www.github.com/bad-ants-fleet/crnsimulator')
- 
-    from crnsimulator import ReactionGraph
 
     print "\nWriting executable simulator scripts: {}_fCRN.py {}_iCRN.py".format(
         args.output, args.output)

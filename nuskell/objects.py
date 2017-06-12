@@ -8,8 +8,12 @@
 # Joseph Schaeffer and Joseph Berleant. 
 #
 
+import sympy
 import networkx as nx
 from collections import Counter
+
+#'http://www.github.com/bad-ants-fleet/crnsimulator'
+from crnsimulator import writeODElib
 
 from nuskell.parser import parse_pil_file
 
@@ -1119,8 +1123,6 @@ class TestTube(object):
 
   def simulate_crn(self, odename, sorted_vars=[], unit='M'):
     # TODO : needs documentation.
-    from crnsimulator import writeODElib
-    import sympy
 
     oR = dict()
     conc = dict()

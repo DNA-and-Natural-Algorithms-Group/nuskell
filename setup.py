@@ -54,8 +54,15 @@ setup(
     url='http://www.github.com/DNA-and-Natural-Algorithms-Group/nuskell/',
     data_files=[('nuskell/schemes', install_schemes)],
     license=license,
-    install_requires=['pyparsing>=1.5.5', 'argparse>=1.2.1', 'peppercornenumerator>=0.4.0'],
-    dependency_links=['http://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/master#egg=peppercornenumerator-0.4.0'],
+    install_requires=[
+        'pyparsing>=1.5.5', 
+        'sympy>=0.7.6.1', 
+        'networkx>=1.10',
+        'peppercornenumerator>=0.4.0',
+        'crnsimulator>=0.1'],
+    dependency_links=[
+        'http://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/master#egg=peppercornenumerator-0.4.0',
+        'https://github.com/bad-ants-fleet/crnsimulator/tarball/master#egg=crnsimulator-0.1'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell', 'scripts/nuskellCMP']
