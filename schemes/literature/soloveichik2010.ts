@@ -3,11 +3,12 @@
 # kinetics", Proceedings of the National Academy of Sciences, 107: 5393-5398,
 # 2010.
 #
-# Note:   * implements Figure 2 (X1 -> X2 + X3) 
-#         * implements Figure 3 (X1 + X2 -> X3) 
+# Note:   * implements Figure 2 (X1 -> X2 + X3).
+#         * implements Figure 3 (X1 + X2 -> X3).
 #         * implements (X1 + X2 -> X3 + X4) as combination of the above.
 #         * DNA level generalization for higher order reactions.
-#         * CRN level generalization for {->X; X->}
+#         * CRN level generalization for {->X; X->}.
+#         * Omitting f for {X->f} CRN level generalization.
 #
 # Coded by Seung Woo Shin (seungwoo.theory@gmail.com)
 #          Stefan Badelt (badelt@caltech.edu)
@@ -72,13 +73,15 @@ module rxn(r) =
       where {
         i = fuel();
         [l, t, b] = maingate([i], r.products)}
-
-  # Comment out the following elseif statement for optimization
-  elseif len(r.products) == 0 then
-    infty(i) + infty(l) + infty(t) + sum(map(infty,b))
-      where {
-        i = fuel();
-        [l, t, b] = maingate(r.reactants, [i])}
+  
+  # -----------------------------------------------------
+  # Omitting f for {X->f} optimization
+  # elseif len(r.products) == 0 then
+  #   infty(i) + infty(l) + infty(t) + sum(map(infty,b))
+  #     where {
+  #       i = fuel();
+  #       [l, t, b] = maingate(r.reactants, [i])}
+  # -----------------------------------------------------
  
   else
     infty(l) + infty(t) + sum(map(infty,b))

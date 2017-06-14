@@ -1,9 +1,12 @@
 #
-# Yuan-Jyue Chen's translation scheme from "Programmable chemical controllers
-#   made from DNA", Nature, 2013.  #
+# Chen, Dalchau, Srinivas, Phillips, Cardelli, Soloveichik, Seelig
+# "Programmable chemical controllers made from DNA", Nature Nanotech., 2013.  
 #
-#   Note: * Implements supplementary Figure S7.6
-#         * includes the delayed choice optimization suggested by the authors
+#   Note: * Implements supplementary Figure S7.6 fork and join modules.
+#           {A->R; R->B; A+B->R; R->B+C; A+B+C->R; R->B+C+D}
+#         * includes the 3-domain irreversible step suggested in Cardelli 2013
+#         * generalized on the DNA level, removes Join reactions for {->X} 
+#         * does not include the delayed choice optimization suggested by the authors
 #
 # Coded by Stefan Badelt (badelt@caltech.edu)
 #
@@ -11,15 +14,13 @@
 # Switch delayedChoice optimization ON or OFF
 global ON = 1;
 global OFF = 0;
-global do_opti = ON;
+global do_opti = OFF;
 
 global void = if do_opti then print("Optimization: ON") else print ("Optimization: OFF");
 
 class formal(s) = "t x" | ". ."
     where { t = short(); x = long() };
 
-#class fuel() = "t x" | ". ."
-#    where { t = short(); x = long() };
 
 class flux_domains() = "tr dr tq di" | ". . . ."
   where {
@@ -54,25 +55,17 @@ macro chen2D_fo(data, c) = "d t"|". ."
     d = if c == 0 then i else pr[(c-1)].x;
     t = if c == len(pr) then tr else pr[c].t };
 
-module chen2D_JF_nm_del(react, prod, flux) = 
-  [ " a inp tr + i r tq + tq* r* tr* rinp a* ta*" 
-  | " (  ~  (  + . ( (  +  )  )   )   ~   )   . " ] + 
-  [ " tr r " | ". ." ] + ifuels +
-  [ " i + out + tr i + r + tq* r* i* tr* rout i* "
-  | " ( +  ~  + (  ( + ( +  .  )  )   )   ~   )  " ] +
-    ofuels
+module chen2D_JF_spon(prod, flux) = 
+  [ " i + out + tr r + i + tq* i* r* tr* rout i* "
+  | " ( +  ~  + (  ( + ( +  .  )  )   )   ~   )  " ] + 
+  [ "r i tq"|". . ."] + ofuels
     where {
-      a = react[0].x;
-      ta = react[0].t;
-      [inp, rin] = flip(map(chen2D_I, tail(react)), 2);
-      rinp = reverse(rin);
       [out, rou] = flip(map(chen2D_O, reverse(prod)), 2);
       rout = reverse(rou);
       r = flux.dr;
       tr = flux.tr;
       tq = flux.tq;
       i = flux.di;
-      ifuels = map2(chen2D_fi, [a, tr, react], range(len(react)+1));
       ofuels = map2(chen2D_fo, [i, tr, reverse(prod)], range(len(prod)+1))
     };
 
@@ -81,8 +74,7 @@ module chen2D_JF_nm(react, prod, flux) =
   | " (  ~  (  + ( + ( (  +  )  )  )   )   ~   )   . " ] + 
   [ " tr i r " | ". . ." ] + ifuels +
   [ " i + out + tr r + tq* r* tr* rout i* "
-  | " ( +  ~  + (  ( +  .  )   )   ~   )  " ] +
-    ofuels
+  | " ( +  ~  + (  ( +  .  )   )   ~   )  " ] + ofuels
     where {
       a = react[0].x;
       ta = react[0].t;
@@ -100,32 +92,35 @@ module chen2D_JF_nm(react, prod, flux) =
 
 # find previous reactions with the same reactants in same order, return shared domains
 function optimize(data, i) =
-  if len(crn[i].reactants) > 0 and crn[i].reactants == r.reactants then previous[i] else 0 
+  if crn[i].reactants == r.reactants then previous[i] else 0 
   where {
-    #void = print('optimizing');
     crn = data[0];
     previous = data[1];
     r = data[2] };
 
-# remove ever entry of l that does not contain data.
+# remove every entry of l that does not contain data.
 function trim(l) = 
   if l == [] then [] elseif l[0] == 0 then trim(tail(l)) else [l[0]] + trim(tail(l));
 
 module delayedChoice(crn, i, previous) =
   if i >= len(crn) then
     empty
+  elseif len(crn[i].reactants) == 0 then
+    sum(map(infty, gates)) + delayedChoice(crn, i+1, previous + [newfl])
+      where {
+	r = crn[i];
+	seen = if do_opti then trim(map2(optimize, [crn, previous, r], range(i))) else [];
+	flux = if len(seen) > 0 then seen[0] else flux_domains();
+        newfl = if len(seen) > 0 then [] else flux;
+        gates = chen2D_JF_spon(r.products, flux) }
   else
     sum(map(infty, gates)) + delayedChoice(crn, i+1, previous + [newfl])
       where {
         r = crn[i];
         seen = if do_opti then trim(map2(optimize, [crn, previous, r], range(i))) else [];
-        #void = print('s', seen);
         flux = if len(seen) > 0 then seen[0] else flux_domains();
-        #void = print('f', flux);
         newfl = if len(seen) > 0 then [] else flux;
-        #void = print('nf', newfl);
         gates = chen2D_JF_nm(r.reactants, r.products, flux)
-        #void = print('g', gates)
       };
 
 module main(crn) = delayedChoice(crn, 0, [])

@@ -3,8 +3,9 @@
 # J. R. Soc. Interface 9 (68) (2012) 470-486 (2012)
 #
 # Note: * Implements Figure 5: {A + B -> C + D}
-#
-#       * Not generalized.
+#       * uses more fuel species (to reverse the release of all reactants)
+#       * generalized on the DNA level, for all but {X->}
+#       * generalized on the CRN level, for {X->} as {X->f}
 #
 # Coded by Stefan Badelt (badelt@caltech.edu)
 #
@@ -13,8 +14,13 @@
 global toehold = short();
 
 # Write a class to define domains and structure of signal species
-class formal(s) = "h t f" | ". . ."
-  where { h = long() ; t = toehold ; f = long() };
+class formal(s) = "? t f" | ". . ."
+  where { t = toehold ; f = long() };
+
+class inter() = "? t f" | ". . ."
+  where { t = toehold ; f = long() };
+
+global gfuel = inter();
 
 macro pmac(s) = [ "i t j +" 
                 | "( ( . +", 
@@ -23,7 +29,7 @@ macro pmac(s) = [ "i t j +"
                   "t i"   
                 | ". ." ]
   where {
-    i = s.h;
+    i = long();
     t = s.t;
     j = s.f 
   };
@@ -40,11 +46,11 @@ macro rmac(s) =
     i = long() 
   };
 
-class lakin_gate(r, p) 
+class lakin2012_variant(r, p) 
   = [ "k + x + y l t* " 
     | "~ + ~ + ~ ~ .  ",
       "z t" 
-    | "~ ."] + [m]
+    | "~ ."] + m
   where {
     t = toehold ; 
     [k, l, m] = flip(map(rmac, r), 3);
@@ -53,10 +59,17 @@ class lakin_gate(r, p)
     y = reverse(y) 
   };
 
-module rxn(r) = infty(gate) + infty(fuel)  + sum(map(infty,help))
+module reaction(rxn) = sum(map(infty, lakin2012_variant(r, p)) + extra)
   where {
-    [gate, fuel, help] = lakin_gate(r.reactants, r.products) };
+    extra = if len(rxn.products) >= 1 then [] else [infty(gfuel)];
+    r = rxn.reactants;
+    p = if len(rxn.products) == 0 then 
+          [gfuel]
+        else
+          rxn.products
+   };
 
 # Write the module *main* that applies *rxn* to the crn.
-module main(crn) = sum(map(rxn, crn)) 
+module main(crn) = sum(map(reaction, crn)) 
   where crn = irrev_reactions(crn);
+
