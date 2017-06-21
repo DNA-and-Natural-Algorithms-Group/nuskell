@@ -67,8 +67,11 @@ setup(
     license=license,
     install_requires=[
         'pyparsing>=1.5.5', 
-        'sympy>=0.7.6.1', 
         'networkx>=1.10',
+        'seaborn>=0.7.1', # nuskellCMP
+        'pandas>=0.19.1', # nuskellCMP
+        'numpy>=1.11.0',  # nuskellCMP
+        'sympy>=0.7.6.1', 
         'peppercornenumerator>=0.4.0',
         'crnsimulator>=0.1'],
     dependency_links=[
