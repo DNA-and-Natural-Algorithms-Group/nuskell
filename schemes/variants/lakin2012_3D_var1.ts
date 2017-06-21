@@ -3,6 +3,7 @@
 # J. R. Soc. Interface 9 (68) (2012) 470-486 (2012)
 #
 # Note: * Implements Figure 5: {A + B -> C + D}
+#       * removes reaction-specific domains "I" and "K" from reverse strands
 #       * uses more fuel species (to reverse the release of all reactants)
 #       * generalized on the DNA level, for all but {X->}
 #       * generalized on the CRN level, for {X->} as {X->f}
@@ -35,15 +36,14 @@ macro pmac(s) = [ "i t j +"
   };
 
 macro rmac(s) = 
-  [ "a t i + " 
-  | "( ( . + ", 
+  [ "a t + " 
+  | "( ( + ", 
     "t* a*" 
   | ")  )",
-    "a t i" | ". . ."]
+    "a t" | ". ."]
   where {
     a = s.f ;
-    t = s.t ;
-    i = long() 
+    t = s.t 
   };
 
 class lakin2012_variant(r, p) 
