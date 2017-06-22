@@ -25,15 +25,14 @@ def compare_schemes(reactions, schemedir,
   """Compare schemes for (multiple) CRNs.
 
   Arguments:
-    reactions <list[str]>: A list of CRN stings.
-    schemedir <str>: A path to a directory with translation schemes.
-    vtime <int>: Timeout of verification [seconds]
-    args <argparse()>: An object that contains arguments for peppercorn.
+    reactions (list[str]): A list of CRN stings.
+    schemedir (str): A path to a directory with translation schemes.
+    vtime (int): Timeout of verification [seconds]
+    args (argparse()): An object that contains arguments for peppercorn.
 
-  Note: This function contains hacks, i.e. it is not publication-ready:
+  Note: This function contains hacks ... not production ready
     * reject-remote hack for soloveichik-like schemes
     * number of nucleotides is wrong for schemes with history domains.
-
   
   """
 
@@ -164,29 +163,29 @@ def normalize(rawdata, refscheme, ns=5):
 
 def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
   if not ts_order:
-    ts_order = sorted(set(df['Translation scheme']))
+    ts_order = sorted(set(df['Translation scheme']), 
+        key=lambda x: list(df['Translation scheme']).index(x))
   if not crn_order:
-    crn_order = sorted(set(df['CRN']))
+    crn_order = sorted(set(df['CRN']),
+        key=lambda x: list(df['CRN']).index(x))
 
-  marks=['+','^','v','<','>','*','d','.','x']
+  marks=['^','+','x','<','>','d','s','p','_', '*', 
+      '.', 'h', 'v', 'p', '1', '2', '3', '4', '8', '_']
 
   marks = marks[:len(ts_order)]
 
-  g = sns.lmplot(data=df, x="[reactions]", y="[nucleotides]", 
+  g = sns.lmplot(data=df, x="reactions in condensed network", y="number of nucleotides", 
       hue="Translation scheme", hue_order = ts_order,
-      col="equivalent", col_wrap=2, col_order=[True, False, 'timeout'],
+      #col="equivalent", col_wrap=2, col_order=[True, False, 'timeout'],
+      #col="CRN", col_wrap=2, col_order=crn_order,
       legend=False, legend_out=True,
+      #size=3.6,
       x_jitter=0.2,
       markers=marks,
       fit_reg=False,
       scatter=True)
-  #g = sns.FacetGrid(data=df,
-  #    #sharex=False, sharey=FalseTrue,
-  #    #col="CRN", col_wrap=3,
-  #    hue='Translation scheme')
-  #g = g.map(plt.scatter, '[reactions]', '[nucleotides]', alpha=0.3)
 
-  g = g.add_legend(bbox_to_anchor=(.9, 0.25))
+  g = g.add_legend() #bbox_to_anchor=(1.63, 0.53))
   plt.savefig(pfile, bbox_inches="tight")
   return
 
@@ -208,7 +207,6 @@ def main(args):
   if args.from_csv :
     print '# Parsing data from file ... '
     df = pd.DataFrame().from_csv(args.from_csv)
-    #df[['[nucleotides]','[reactions]']] = df[['[nucleotides]','[reactions]']].astype(int)
 
   else:
     # ***************** #
@@ -271,8 +269,8 @@ def main(args):
           'enumerated',
           'pathway', 
           'bisimu', 
-          '[nucleotides]', 
-          '[reactions]'])
+          'number of nucleotides', 
+          'reactions in condensed network'])
 
   #print 'Rawdata:'
   #print df.to_string(index=False, justify='left')
@@ -293,11 +291,11 @@ def main(args):
           'enumerated',
           'pathway', 
           'bisimu', 
-          '[nucleotides]', 
-          '[reactions]'])
+          'number of nucleotides', 
+          'reactions in condensed network'])
     print df.to_string(index=False, justify='right')
 
-  def fun((x,y)):
+  def equiv((x,y)):
     if True in (x,y) :
       return True
     elif (nan in (x,y)) or (None in (x,y)) :
@@ -306,14 +304,12 @@ def main(args):
       return False
 
   # Add column that combines pathway and bisimulation notion 
-  e = map(fun, zip(df['pathway'], df['bisimu']))
-  #e = map(lambda (x,y) : "{}, {}".format(x,y), zip(df['pathway'], df['bisimu']))
+  e = map(equiv, zip(df['pathway'], df['bisimu']))
   df['equivalent'] = e
   print df.to_string(index=False, justify='left')
 
   if args.pyplot :
     single_plot(df, pfile=args.pyplot)
-    #plot_crn_by_crn(df, pfile=args.pyplot)
 
 def get_nuskellCMP_args(parser) :
   """ A collection of arguments for Nuskell """
