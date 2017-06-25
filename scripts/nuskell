@@ -154,7 +154,7 @@ def main() :
 
   if args.verbose:
     print "formal species: {}; signal species: {}; fuel species: {}".format(
-        fs, signals, fuels)
+        sorted(fs), sorted(signals), sorted(fuels))
 
   if not (set(fs) <= set(signals)):
     # If this is not caught here, it will assign fs as fuels...
@@ -220,7 +220,7 @@ def main() :
 
   if args.verbose:
     print "formal species: {}; signal species: {}; fuel species: {}".format(
-        fs, map(str, signals), map(str, fuels))
+        sorted(fs), sorted(map(str, signals)), sorted(map(str, fuels)))
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube

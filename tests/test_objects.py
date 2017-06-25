@@ -18,12 +18,12 @@ class DomainObjectTest(unittest.TestCase):
     doodle = objects.Domain(list('Y'*5), prefix='doodle')
 
     self.assertIsInstance(doodle, objects.Domain, "doodle is a Domain")
-    self.assertEqual(str(doodle), 'doodle{}'.format(doodle.id), "print Domain")
+    self.assertEqual(str(doodle), '{}'.format(doodle.name), "print Domain")
     self.assertEqual(doodle.length, 5, "Domain length")
     self.assertEqual(doodle.sequence, list('Y'*5), "Domain sequence")
 
     moodle = objects.Domain(list('Y'*5))
-    self.assertEqual(str(moodle), 'd{}'.format(moodle.id), 
+    self.assertEqual(str(moodle), '{}'.format(moodle.name), 
         "Automatic Domain Name")
 
   def test_ComplementDomainInit(self):
@@ -38,7 +38,6 @@ class DomainObjectTest(unittest.TestCase):
       foo.update_constraints(list('R'*6))
 
     bar = foo.get_ComplementDomain(list('R'*5))
-    self.assertEqual(foo.id, bar.id)
 
     moo = ~foo
     self.assertTrue(bar == moo, "bar is moo")
@@ -103,7 +102,7 @@ class ComplexObjectTest(unittest.TestCase):
 
   def test_ComplexInit(self):
     #NOTE: There is no particular reason for this Error, so it might change!
-    with self.assertRaises(ValueError):
+    with self.assertRaises(objects.NuskellObjectError):
       foo = objects.Complex()
 
     foo = objects.Complex(sequence=list('RNNNY'), structure=list('(...)'))

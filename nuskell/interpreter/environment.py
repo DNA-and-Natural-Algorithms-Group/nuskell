@@ -24,17 +24,20 @@ from copy import copy
 
 from nuskell.objects import Domain, Complex, TestTube, flatten
 
-class RuntimeError(Exception):
-  """Exception for environment.py module.
+class NuskellEnvError(Exception):
+  """Nuskell Environment Error.
 
   Args:
-    value (str): Human readable string describing the exception.
+    msg (str): Error description.
   """
-  def __init__(self, value):
-    self.value = "Runtime error : " + value
+  def __init__(self, msg):
+    self.message = msg
+    super(NuskellEnvError, self).__init__(self.message) 
 
-  def __str__(self):
-    return self.value
+class NuskellExit(SystemExit):
+  """Nuskell Scheme Exit """
+  def __init__(self, msg):
+    super(NuskellExit, self).__init__(msg)
 
 class void(object):
   """An empty object returned by the print function"""
@@ -62,8 +65,15 @@ class Reaction(object):
     self.products = products
     self.reversible = reversible
 
-class Function(object):
-  """A function object of the nuskell language."""
+class NusFunction(object):
+  """
+  A function object of the Nuskell language.
+
+  Args:
+    args (): The arguments of a function.
+    body (): The function body.
+
+  """
   def __init__(self, args, body):
     self.args = args
     self.body = body
@@ -143,9 +153,9 @@ class NusComplex(Complex):
     self._structure = newstr
     return self._sequence, self._structure
 
-class builtin_expressions(object):
-  """ Builtin expressions of Nuskell translation schemes.
-
+class NuskellExpressions(object):
+  """ 
+  Builtin expressions for Nuskell translation schemes.
   """
   # Say something about special trailer functions here?
 
@@ -203,7 +213,7 @@ class builtin_expressions(object):
       return keywords[tag](self, content)
 
     else :
-      raise RuntimeError("Unknown expression: `" + tag + "'")
+      raise NuskellEnvError("Unknown expression: `" + tag + "'")
       return self._env, None
 
   # Context-dependent
@@ -283,7 +293,7 @@ class builtin_expressions(object):
         id_list = self._bfunc_Obj.remove_id_tags(id_list)
 
         for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, value) :
-          theenv._env = theenv._create_binding(key, value)
+          theenv._create_binding(key, value)
 
     theenv._env, value = theenv.interpret_expr(content[0])
     theenv._destroy_level()
@@ -292,7 +302,7 @@ class builtin_expressions(object):
   def _uminus(self, theenv, content): 
     theenv._env, value = theenv.interpret_expr(content[0])
     if type(value) != int:
-      raise RuntimeError(
+      raise NuskellEnvError(
           "The unary minus operator can only be used with integers.")
     return theenv._env, -value
 
@@ -306,9 +316,9 @@ class builtin_expressions(object):
   def _index(self, theenv, head, args):
     theenv._env, subscript = theenv.interpret_expr(args[0])
     if type(head) != list:
-      raise RuntimeError("Only lists can be indexed.")
+      raise NuskellEnvError("Only lists can be indexed.")
     if type(subscript) != int:
-      raise RuntimeError("Subscript should be an integer.")
+      raise NuskellEnvError("Subscript should be an integer.")
     head = head[subscript]
     return theenv._env, head
 
@@ -319,17 +329,21 @@ class builtin_expressions(object):
     elif identifier in head.__dict__:
       head = head.__dict__[identifier]
     else:
-      raise RuntimeError(
+      raise NuskellEnvError(
           "The attribute `"+identifier+"' could not be found.")
     return theenv._env, head
 
-class builtin_functions(object):
+class NuskellFunctions(object):
   """Builtin functions of Nuskell translation schemes.
 
-  This object is typically initialized within the environment after the
+  This object is initialized within the :obj:`NuskellEnvironment()` after the
   respective functions have been bound.  Most methods do not require any class
   variables and are therefore declared as staticmethods.  As a consequence, the
   functions can be accessed without prior initialization of the Object. 
+
+  Args:
+    sdl (int, optional): Short domain length
+    ldl (int, optional): Long domain length
   """
   ################################
   ### Builtin-function section ###
@@ -340,8 +354,19 @@ class builtin_functions(object):
     self._long_domain_length = ldl
 
   def eval_builtin_functions(self, f, args):
-    """Evaluate built-in functions. These functions do not alter the
-    environment and they are contained in their own class for readability.
+    """Evaluate built-in functions. 
+    
+    These functions are independent of the environment. 
+
+    Args:
+      f (str) : The built-in function name.
+      args (list): The arguments for the function call.
+
+    Raises:
+      NuskellEnvError: "Function could not be found."
+
+    Returns:
+      The results form f(args)
     """
 
     keywords = {
@@ -361,11 +386,14 @@ class builtin_functions(object):
     if f in keywords.keys() :
       return keywords[f](args)
     else :
-      raise RuntimeError("`" + f + "' could not be resolved.")
-      return None
+      raise NuskellEnvError("`" + f + "' could not be found.")
 
   def long(self, args):
-    """A function that returns branch-migration domains. """
+    """A function that returns branch-migration domains. 
+    
+    Contains some experimental features to pass the length of a domain as well
+    as sequence constraints for sense and antisense strands, 
+    """
     if args :
       kwargs = args[0]
     else :
@@ -386,10 +414,11 @@ class builtin_functions(object):
   def short(self, args):
     """A function that returns toehold domains.
  
-    # supported keywords: 'len', 'sense', 'antisense', 'tag'
-    # len is short for standard 'sense & antisense'
-    # tag supports toehold and branch-migration which is
-    # currently equal to short() and long()
+    Contains some experimental features to pass the length of a domain as well
+    as sequence constraints for sense and antisense strands, tags, etc.
+      * len is short for standard 'sense & antisense'
+      * tag supports toehold and branch-migration which is
+        currently equal to short() and long()
    
     """
     if args :
@@ -420,31 +449,32 @@ class builtin_functions(object):
     return void()
 
   def _abort(self, args):
-    """Raise SystemExit and print the error message"""
-    raise SystemExit('EXIT: ' + args[0])
+    """Raise NuskellExit and print the error message"""
+    raise NuskellExit(args[0])
 
   @staticmethod
   def tail(args) :
     """ Returns the list minus the first element.. """
     if type(args[0]) != list:
-      raise RuntimeError("`tail' should have a list as its argument.")
+      raise NuskellEnvError("`tail' should have a list as its argument.")
     return args[0][1:]
 
   @staticmethod
   def flip(args) :
     """A matrix transpose function for lists of lists. 
 
-    :param args: a list that contains both the lol and and integer to specify
-    the dimenstion.
+    Args: 
+      args (list): Contains both the lol and and integer to specify the
+        dimenstion.
 
-    for example:
-    input: [[[x,y,z],[a,b,c],[n,l,k],[u,v,w]],3]
-    returns: [[x,a,n,u],[y,b,l,v],[z,c,k,w]]
+    Example:
+      input: [[[x,y,z],[a,b,c],[n,l,k],[u,v,w]],3]
+      returns: [[x,a,n,u],[y,b,l,v],[z,c,k,w]]
     """
     if type(args[0]) != list:
-      raise RuntimeError("The first argument of `flip' should be a list.")
+      raise NuskellEnvError("The first argument of `flip' should be a list.")
     if type(args[1]) != int:
-      raise RuntimeError("The second argument of `flip' should be an integer.")
+      raise NuskellEnvError("The second argument of `flip' should be an integer.")
 
     l = args[0]
     n = args[1]
@@ -453,7 +483,7 @@ class builtin_functions(object):
       res[i] = [0] * len(l)
     for i in range(len(l)):
       if len(l[i]) != n:
-        raise RuntimeError(
+        raise NuskellEnvError(
             "The argument of `flip' does not have a required form.")
       for j in range(n):
         res[j][i] = l[i][j]
@@ -467,7 +497,7 @@ class builtin_functions(object):
     resulting object will be a TestTube instance
     """
     if not isinstance(args[0], Complex):
-      raise RuntimeError("The argument of `infty' should be a Complex")
+      raise NuskellEnvError("The argument of `infty' should be a Complex")
     args[0].flatten_cplx
     if args[0].sequence == [] and args[0].structure == [] :
       return TestTube()
@@ -483,9 +513,9 @@ class builtin_functions(object):
   @staticmethod
   def const_nM(args) :
     if not isinstance(args[0], Complex):
-      raise RuntimeError("The first argument of `const_nM' should be a Complex")
+      raise NuskellEnvError("The first argument of `const_nM' should be a Complex")
     if type(args[1]) != float:
-      raise RuntimeError("The second argument of `const_nM' should be a concentration <float>")
+      raise NuskellEnvError("The second argument of `const_nM' should be a concentration <float>")
     args[0].flatten_cplx
     if args[0].sequence == [] and args[0].structure == [] :
       return TestTube()
@@ -495,7 +525,7 @@ class builtin_functions(object):
   #@staticmethod
   #def unique(args) :
   #  if type(args[0]) != int:
-  #    raise RuntimeError("The first argument of `unique' should be an integer.")
+  #    raise NuskellEnvError("The first argument of `unique' should be an integer.")
   #  return Domain(args[0])
 
   @staticmethod
@@ -532,7 +562,7 @@ class builtin_functions(object):
   @staticmethod
   def rev_reactions(args) : 
     if type(args[0]) != list:
-      raise RuntimeError("The argument of `rev_reactions' should be a list.")
+      raise NuskellEnvError("The argument of `rev_reactions' should be a list.")
     crn = args[0]
     new_crn = []
     removed = []
@@ -557,7 +587,7 @@ class builtin_functions(object):
     irreversible reaction.
     """
     if type(args[0]) != list:
-      raise RuntimeError("The argument of `irrev_reactions' should be a list.")
+      raise NuskellEnvError("The argument of `irrev_reactions' should be a list.")
     crn = args[0]
     new_crn = []
     for r in crn:
@@ -575,16 +605,16 @@ class builtin_functions(object):
     """
     if type(id) == list:
       if type(value) != list or len(id) != len(value):
-        raise RuntimeError(
+        raise NuskellEnvError(
             "Pattern matching failed while assigning values to " + str(id) + ".")
       result = []
       for i in range(len(id)):
-        result += builtin_functions.asgn_pattern_match(id[i], value[i])
+        result += NuskellFunctions.asgn_pattern_match(id[i], value[i])
       return result
     elif type(id) == str:
       return [(id, value)]
     else:
-      raise RuntimeError("""The left hand side of an assignment should be 
+      raise NuskellEnvError("""The left hand side of an assignment should be 
       either an identifier or a list-tree consisting only of identifiers.""")
 
   @staticmethod
@@ -592,57 +622,46 @@ class builtin_functions(object):
     """Helper function to remove all tags from the given id_list."""
     kwd = l[0]
     if kwd == "idlist":
-      return map(builtin_functions.remove_id_tags, l[1:])
+      return map(NuskellFunctions.remove_id_tags, l[1:])
     elif kwd == "id":
       return l[1]
     else:
-      raise RuntimeError("""The left hand side of an assignment should be 
+      raise NuskellEnvError("""The left hand side of an assignment should be 
       either an identifier or a list-tree consisting only of identifiers.""")
   
-class Environment(builtin_expressions):
-  """The Nuskell environment to interpret translation schemes. 
+class NuskellEnvironment(NuskellExpressions):
+  """The Nuskell language environment.
   
-  Environment inherits all builtin expressions. It provides the interface to
-  interpret code in a translation scheme, and to execute the code by assigning
-  formal species and applying them to the main() function.
+  :obj:`NuskellEnvironment()` interprets the Nuskell language using low-level
+  instructions, and executes the formal and main functions of translation
+  schemes. Inherits from :obj:`NuskellExpressions()` and initializes built-in
+  functions provided by :obj:`NuskellFunctions()`.
+
+  Args:
+    sdlen (optional, int): Default length of built-in short() domains
+    ldlen (optional, int): Default length of built-in long() domains
+
+  Raises:
+    NuskellEnvError 
+  
   """
 
-  def __init__(self, name='default_env', sdlen = 6, ldlen = 15):
-    """ Initialize the environment. 
-
-    Collects optional arguments for the setup of the Environment and
-    initializes built-in functions: short(), long(), tail(), flip(), etc...
-    
-    Args:
-      name (optional, str): The name of the Environment.
-      sdlen (optional, int): Dlfault length of built-in short() domains
-      ldlen (optional, int): Default length of built-in long() domains
-
-    Note:
-      short() and long() domain lengths can also be changed at each assignment,
-      e.g. short(7) is a toehold of length 7, long(10) is a branch-migration
-      domain of length 10.
-    """
-    self._name = name
-    self._env = [{}]
-
+  def __init__(self, sdlen = 6, ldlen = 15):
     # Setup the builtin functions. 
-    self._env, self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
+    self._env = [{}]
+    self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
 
   # Public functions #
   def interpret(self, code):
-    """ Returns the Environment (the final namespace).
+    """Build the Environment (the final namespace).
     
     Creates bindings for variables and functions defined in the body of the
     translation scheme. 
 
     Note: 
-      At this point all keywords (class, function, macro, module) are treated
-      exactly the same, only the **global** keyword is special, because the 
-      global expressions are **interpreted first** and then bound.
-
-    Returns:
-      self.env: An updated Environment
+      All keywords (class, function, macro, module) are treated the same, only
+      the **global** keyword is special, as global expressions are
+      **interpreted first** and then bound.
     """
     for stmt in code:
       kwd = stmt[0]
@@ -665,8 +684,7 @@ class Environment(builtin_expressions):
         id = body[0][1]
         args = map(lambda x: x[1], body[1]) # remove 'id' tags from args
         body_ = body[2] # the ['where' [...]] part
-        self._create_binding(id, Function(args, body_))
-    return self._env
+        self._create_binding(id, NusFunction(args, body_))
 
   def translate_formal_species(self, fs_list):
     """ Apply the formal() function to the formal species in the input CRN.
@@ -675,7 +693,7 @@ class Environment(builtin_expressions):
     function is applied to every formal species in the input CRN.
 
     Returns:
-      self.formal_species_dict : A dictionary of {fs:NusComplex()}.
+      [dict()] A dictionary of key=name, value=:obj:`NusComplex()`
     """
     formal_species_objects = map(Species, fs_list)
 
@@ -702,16 +720,14 @@ class Environment(builtin_expressions):
     Args:
       crn_paresed (List[Lists]): A crn in crn_parser format.
 
-    Returns:
-      self.main_solution (Solution) : The Solution object with all constant
-      species
-
     Raises:
-      RuntimeError: If the compiled formal species cannot be found
+      NuskellEnvError: If the compiled formal species cannot be found
 
+    Returns:
+      [:obj:`nuskell.objects.TestTube()`]: Fuel species
     """
     if not self.formal_species_dict :
-      raise RuntimeError('Could not find the compiled formal species!')
+      raise NuskellEnvError('Could not find the compiled formal species!')
 
     # replace every fs (str) with fs(NusComplex())
     crn_remap = map(
@@ -729,23 +745,37 @@ class Environment(builtin_expressions):
     return self.constant_species_solution
 
   # Private Functions #
-  def _init_builtin_functions(self, sdlen, ldlen):
-    self._create_binding("print", Function(["s"], "print"))
-    self._create_binding("abort", Function(["s"], "abort"))
-    self._create_binding("tail", Function(["l"], "tail"))
-    self._create_binding("flip", Function(["l", "n"], "flip"))
-    self._create_binding("long", Function([], "long"))
-    self._create_binding("short", Function([], "short"))
-    self._create_binding("infty", Function(["species"], "infty"))
-    #self._create_binding("unique", Function(["l"], "unique"))
-    #self._create_binding("complement", Function(["l"], "complement"))
-    self._create_binding("rev_reactions", Function(["crn"], "rev_reactions"))
-    self._create_binding("irrev_reactions", Function(["crn"], "irrev_reactions"))
+  def _init_builtin_functions(self, sdlen, ldlen): 
+    """ Initialized built-in Nuskell functions.
+
+    Add a binding for every builtin-fuction to the environment.
+
+    Args:
+      sdlen (int): Short domain length.
+      ldlen (int): Long domain length.
+    
+    Returns:
+      [:obj:`NuskellFunctions()`] Execution object for built-in Nuskell
+      functions.
+    """
+    self._create_binding("print", NusFunction(["s"], "print"))
+    self._create_binding("abort", NusFunction(["s"], "abort"))
+    self._create_binding("tail", NusFunction(["l"], "tail"))
+    self._create_binding("flip", NusFunction(["l", "n"], "flip"))
+    self._create_binding("long", NusFunction([], "long"))
+    self._create_binding("short", NusFunction([], "short"))
+    self._create_binding("infty", NusFunction(["species"], "infty"))
+    #self._create_binding("unique", NusFunction(["l"], "unique"))
+    #self._create_binding("complement", NusFunction(["l"], "complement"))
+    self._create_binding("rev_reactions", NusFunction(["crn"], "rev_reactions"))
+    self._create_binding("irrev_reactions", NusFunction(["crn"], "irrev_reactions"))
     self._create_binding("empty", TestTube())
-    return self._env, builtin_functions(sdlen, ldlen)
+    return NuskellFunctions(sdlen, ldlen)
 
   def _create_binding(self, name, value):
     """ Create binding of a Nuskell function.
+
+    Adds a binding to the last level of function bindings.
 
     Args:
       name (str): Name of the function.
@@ -756,7 +786,7 @@ class Environment(builtin_expressions):
       An updated environment inclding the function binding in the top-level.
     """
 
-    bindings = (Function, TestTube, Species, Domain, Reaction, NusComplex, 
+    bindings = (NusFunction, TestTube, Species, Domain, Reaction, NusComplex, 
         void, int, list)
     if isinstance(value, list) :
       assert all(isinstance(s, bindings) for s in value)
@@ -764,45 +794,61 @@ class Environment(builtin_expressions):
       assert isinstance(value, bindings)
 
     self._env[-1][name] = value
-    return self._env
 
   # Private environment modification functions #
   def _create_level(self): 
-    # Create a new level for function bindings.
-    # It is commonly triggered by a 'where' statement or during the evaluation
-    # of a non-built-in function call.
+    """
+    Create a new level for function bindings.
 
+    Note:
+      This commonly initializes a level for a 'where' statement or the
+      evaluation of a not built-in function call.
+    """
     # interpret_expr -> _where
     # interpret_expr -> _trailer -> _apply -> _eval_func
     self._env.append({})
-    return self._env
   
   def _destroy_level(self):
-    # Revert to the old level for function bindings.
-    # It is commonly triggered by a 'where' statement or after the evaluation
-    # of a non-built-in function call.
+    """
+    Revert to previous level of function bindings.
 
+    Note:
+      This commonly closes a 'where' environment or the evaluation of a
+      not built-in function call.
+    """
     # interpret_expr -> _where
     # interpret_expr -> _trailer -> _apply -> _eval_func
     self._env.pop()
-    return self._env
 
   def _ref_binding(self, name):
-    # Search levels from last to first to find a reference to an exisiting
-    # function binding.
+    """
+    Search levels of function bindings from last to first to find a reference.
 
-    # Args: 
-    #   name (str) : Name of a function
+    Args: 
+      name (str) : Name of a function
 
-    # Return: 
-    #   Function binding (self._env[?][name])
+    Returns: 
+      Function binding (self._env[?][name])
+    """
     for level in reversed(self._env):
       if name in level.keys():
         return level[name]
-    raise RuntimeError("Cannot find a binding for `" + name + "'.")
-    return None
+    raise NuskellEnvError("Cannot find a binding for `" + name + "'.")
 
   def _eval_func(self, f, args):
+    """
+    Evaluate a function. 
+
+    The function can either be one of the built-in functions or a module,
+    class, macro, etc. as specified in the translation scheme.
+
+    Args:
+      f (:obj:`NusFunction()`): The function to evaluate
+      args (list): A list of arguments for the function.
+    """
+    if not isinstance(f, NusFunction):
+      raise NuskellEnvError(str(f) + "is not a function.")
+  
     if type(f.body) == str: # the function is a built-in function
       return self._env, self._bfunc_Obj.eval_builtin_functions(f.body, args)
   
@@ -811,21 +857,17 @@ class Environment(builtin_expressions):
         return copy(l)
       return map(hardcopy_list, l)
   
-    self._create_level()
-    if not isinstance(f, Function):
-      raise RuntimeError(str(f) + "is not a function.")
-  
     if len(f.args) > len(args):
-      raise RuntimeError("The function `" + f.name + "' requires at least " \
+      raise NuskellEnvError("The function `" + f.name + "' requires at least " \
           + str(len(f.args)) + " arguments but only found " + str(args) +\
           " arguments.")
   
+    self._create_level()
     for i in range(len(f.args)):
       arg_name = f.args[i]
       arg_value = args[i]
-      self._env = self._create_binding(arg_name, arg_value)
-  
-    # hardcopy the function body so that it does not change during evaluation.
+      self._create_binding(arg_name, arg_value)
+
     self._env, value = self.interpret_expr(hardcopy_list(f.body))
     self._destroy_level()
     return self._env, value

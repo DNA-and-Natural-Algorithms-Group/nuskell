@@ -17,6 +17,14 @@ from crnsimulator import writeODElib
 
 from nuskell.parser import parse_pil_file
 
+class NuskellObjectError(Exception):
+  """nuskell.objects error class."""
+
+  def __init__(self, msg):
+    self.message = msg
+    super(NuskellObjectError, self).__init__(self.message) 
+
+
 def pair_table(ss, chars=['.']):
   """Return a secondary struture in form of pair table:
 
@@ -209,29 +217,32 @@ class Domain(IUPAC_translator):
     writing them to a file.
   """
 
+  names = set()
   id_counter = 0
  
   def __init__(self, sequence=[], name='', prefix='d'):
     # Assign name #
-    self.id = Domain.id_counter
-    Domain.id_counter += 1
-
     if name :
       if name[-1]=='*' :
-        raise ValueError("Domain name must not end with '*'!", name)
-      if name[-1].isdigit() :
-        raise ValueError('Domain name must not end with a digit!', name)
+        raise NuskellObjectError("Domain name \"{}\" must not end with '*'!".format(name))
+      if name in Domain.names :
+        raise NuskellObjectError('Duplicate domain name!')
       self._name = name
+      Domain.names.add(name)
     else :
       if prefix == '' :
-        raise ValueError('Domain prefix must not be empty!')
+        raise NuskellObjectError('Domain prefix must not be empty!')
       if prefix[-1].isdigit():
-        raise ValueError('Domain prefix must not end with a digit!')
-      self._name = prefix + str(self.id)
+        raise NuskellObjectError('Domain prefix must not end with a digit!')
+      self._name = prefix + str(Domain.id_counter)
+      Domain.id_counter += 1
+
+    if Domain.names and Domain.id_counter:
+      raise NuskellObjectError('Mixed naming schemes! Reset Domain.id_counter or Domain.names.')
 
     # Assign domain sequence 
     if not sequence or type(sequence) != list :
-      raise ValueError("Must pass a sequence of constraints or domain objects.")
+      raise NuskellObjectError("Must pass a sequence of constraints or domain objects.")
     else :
       assert all(isinstance(s, (str, Domain)) for s in sequence)
       self._sequence = sequence
@@ -349,9 +360,11 @@ class Domain(IUPAC_translator):
     return self._name[-1:] == '*'
 
   def __eq__(self, other):
-    # NOTE: this might actually be equivalent to Python's "is"
-    if type(self) == type(other):
-      return self.id == other.id
+    """ 
+    Domains are equal if they have the same name.
+    """
+    if isinstance(self, Domain) and isinstance(other, Domain):
+      return self.name == other.name
     else :
       return False
   def __ne__(self, other):
@@ -383,7 +396,6 @@ class ComplementDomain(Domain):
 
   """
   def __init__(self, CompDomain, sequence=[]):
-    self.id   = CompDomain.id 
     self._name = CompDomain._name + '*'
     self._ComplementDomain = CompDomain
 
@@ -427,32 +439,34 @@ class Complex(object):
 
   """
 
+  names = set()
   id_counter = 0
 
   def __init__(self, sequence=[], structure=[], name='', prefix='cplx', interpret=None):
-    # Assign id
-    self.id = Complex.id_counter
-    Complex.id_counter += 1
- 
     # Assign name
     if name :
-      if name[-1]=='*' :
-        raise ValueError('Invalid name for Complex Object!')
-      if name[-1].isdigit() :
-        raise ValueError('Complex name must not end with a digit!', name)
+      #if name[-1]=='*' :
+      #  raise ValueError('Invalid name for Complex Object!')
+      if name in Complex.names :
+        raise NuskellObjectError('Duplicate complex name!')
       self._name = name
+      Complex.names.add(name)
     else :
       if prefix == '' :
-        raise ValueError('Complex prefix must not be empty!')
+        raise NuskellObjectError('Complex prefix must not be empty!')
       if prefix[-1].isdigit():
-        raise ValueError('Complex prefix must not end with a digit!')
-      self._name = prefix + str(self.id)
+        raise NuskellObjectError('Complex prefix must not end with a digit!')
+      self._name = prefix + str(Complex.id_counter)
+      Complex.id_counter += 1
+
+    if Complex.names and Complex.id_counter:
+      raise NuskellObjectError('Mixed naming schemes! Reset Complex.id_counter or Complex.names.')
 
     if sequence == [] :
-      raise ValueError('Complex() requires Sequence and Structure Argument')
+      raise NuskellObjectError('Complex() requires Sequence and Structure Argument')
 
     if len(sequence) != len(structure) :
-      raise ValueError("Complex() sequence and structure must have same length")
+      raise NuskellObjectError("Complex() sequence and structure must have same length")
     self._sequence = sequence
     self._structure = structure
 
@@ -585,7 +599,7 @@ class Complex(object):
     Note: 
       This function might change the strand-ordering of the complex!
     """
-    if type(self) != type(other):
+    if not isinstance(self, Complex) or not isinstance(other, Complex):
       return False
     if len(self.sequence) != len(other.sequence):
       return False
@@ -1304,7 +1318,7 @@ class TestTubeIO(object):
 
     # Print Domains
     pil.write("# Domain Specifications\n")
-    for k, v in sorted(domains.items(), key=lambda x : x[1].id):
+    for k, v in sorted(domains.items(), key=lambda x : x[1].name):
       if v.name[-1]=='*' : continue
       pil.write("length {:s} = {:d}\n".format(v.name, v.length))
       #pil.write("sequence {:s} = {:s}\n".format(v.name, ''.join(v.sequence)))
@@ -1338,9 +1352,6 @@ class TestTubeIO(object):
     ppil = parse_pil_file(pilfile)
 
     def rename(name):
-      if name[-1].isdigit() :
-        return name + '_'
-      else :
         return name
 
     def resolve_loops(loop):
@@ -1583,11 +1594,7 @@ class Reaction(object):
   id_counter = 0
 
   def __init__(self, reactants, products, rtype=None, rate=None, name='', prefix='REACT'):
-
     # Assign name
-    self.id = Reaction.id_counter
-    Reaction.id_counter += 1
-
     if name :
       if name[-1].isdigit() :
         raise ValueError('Reaction name must not end with a digit!', name)
@@ -1597,7 +1604,8 @@ class Reaction(object):
         raise ValueError('Reaction prefix must not be empty!')
       if prefix[-1].isdigit():
         raise ValueError('Reaction prefix must not end with a digit!')
-      self._name = prefix + str(self.id)
+      self._name = prefix + str(Reaction.id_counter)
+      Reaction.id_counter += 1
 
     self._reactants = sorted(reactants)
     self._products = sorted(products)
