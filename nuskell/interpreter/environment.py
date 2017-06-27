@@ -319,7 +319,10 @@ class NuskellExpressions(object):
       raise NuskellEnvError("Only lists can be indexed.")
     if type(subscript) != int:
       raise NuskellEnvError("Subscript should be an integer.")
-    head = head[subscript]
+    try :
+      head = head[subscript]
+    except IndexError:
+      raise NuskellEnvError("Bug in translation scheme, expected element in empty list.")
     return theenv._env, head
 
   def _attribute(self, theenv, head, args):

@@ -9,7 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from numpy import nan
 
-from nuskell import translate, verify
+from nuskell import translate, verify, reset_names, NuskellExit
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies
@@ -52,12 +52,13 @@ def compare_schemes(reactions, schemedir,
       fcrn = split_reversible_reactions(fcrn)
 
       print "\n# -------"
-      print '# Scheme:', scheme, 'CRN:', crn
+      print '# Scheme:', scheme, 'CRN:', crn.strip()
       print "# -------"
       try :
+        reset_names()
         solution, _ = translate(crn, schemedir + scheme)
-      except SystemExit, e:
-        print e
+      except NuskellExit, e:
+        print '# ERROR:', e
         current.extend([None, None, None, None, None])
         plotdata.append(current)
         continue

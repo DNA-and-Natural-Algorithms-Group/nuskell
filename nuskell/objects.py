@@ -24,22 +24,34 @@ class NuskellObjectError(Exception):
     self.message = msg
     super(NuskellObjectError, self).__init__(self.message) 
 
+def reset_names():
+  """
+  Reset all names, counters of nukell.objects.
+  """
+  Complex.id_counter = 0
+  Complex.names = set()
+  Domain.id_counter = 0
+  Domain.names = set()
+  Reaction.id_counter = 0
 
 def pair_table(ss, chars=['.']):
   """Return a secondary struture in form of pair table:
 
-  :param ss: secondary structure in dot-bracket format
-  :param base: choose between a pair-table with base 0 or 1
-  :param chars: a list of characters that are ignored, default: ['.']
+  Args:
+    ss (str): secondary structure in dot-bracket format
+    chars (list, optional): a list of characters that are ignored. Defaults to
+      ['.']
 
-  :exmaple:
-     base=0: ((..)). => [5,4,-1,-1,1,0,-1]
-      i.e. start counting from 0, unpaired = -1
-     base=1: ((..)). => [7,6,5,0,0,2,1,0]
-      i.e. start counting from 1, unpaired = 0, pt[0]=len(ss)
+  Example:
+     ((..)). => [5,4,-1,-1,1,0,-1]
 
-  :return: a pair-table
-  :return-type: list
+  Raises:
+     NuskellObjectError: Too many closing brackets in secondary structure.
+     NuskellObjectError: Too many opening brackets in secondary structure.
+     NuskellObjectError: Unexpected character in sequence: "{}"
+
+  Returns:
+    [list]: A pair-table
   """
   stack=[];
 
@@ -52,16 +64,16 @@ def pair_table(ss, chars=['.']):
       try :
         j=stack.pop();
       except IndexError, e :
-        raise RuntimeError("Too many closing brackets in secondary structure")
+        raise NuskellObjectError("Too many closing brackets in secondary structure")
       pt[i]=j
       pt[j]=i
     elif (char == '+') :
       pt[i] = '+'
     elif (char not in set(chars)):
-      raise ValueError("unexpected character in sequence: '" + char + "'")
+      raise NuskellObjectError("Unexpected character in sequence: '" + char + "'")
 
   if stack != [] :
-    raise RuntimeError("Too many opening brackets in secondary structure")
+    raise NuskellObjectError("Too many opening brackets in secondary structure")
   return pt
 
 def find(l, key):
@@ -202,11 +214,11 @@ class Domain(IUPAC_translator):
       prefix 't' is used for 'toehold domains', and 'h' for 'histoy domains'.
 
   Raises:
-    ValueError: Domain name must not end with '*'!
-    ValueError: Domain name must not end with a digit!
-    ValueError: Domain prefix must not be empty!
-    ValueError: Domain prefix must not end with a digit!
-    ValueError: Must pass a sequence of constraints or domain objects.
+    NuskellObjectError: Domain name must not end with '*'!
+    NuskellObjectError: Domain name must not end with a digit!
+    NuskellObjectError: Domain prefix must not be empty!
+    NuskellObjectError: Domain prefix must not end with a digit!
+    NuskellObjectError: Must pass a sequence of constraints or domain objects.
 
   Note: 
     The Domain function does not allow names or prefixes ending with digits or
@@ -300,26 +312,26 @@ class Domain(IUPAC_translator):
       con (list): A new sequence constraint.
 
     Raises:
-      ValueError: Must pass constraints as list.
-      ValueError: Constraints have different length.
-      ValueError: Constraints cannot be satisfied.
+      NuskellObjectError: Must pass constraints as list.
+      NuskellObjectError: Constraints have different length.
+      NuskellObjectError: Constraints cannot be satisfied.
       NotImplementedError: Cannot update constraints on composite domains.
     
     """
     if not con or type(con) != list :
-      raise ValueError("Must pass a constraints as a list.")
+      raise NuskellObjectError("Must pass a constraints as a list.")
 
     # Implement this when needed!
     if not all(isinstance(s,str) for s in self.sequence + con) :
       raise NotImplementedError('Cannot update constraints on composite domains.')
 
     if len(self._sequence) != len(con):
-      raise ValueError("Constraints differ in length.")
+      raise NuskellObjectError("Constraints differ in length.")
 
     new = self._merge_constraints(self.sequence, con)
 
     if '' in new :
-      raise ValueError("Constraints cannot be satisfied")
+      raise NuskellObjectError("Constraints cannot be satisfied")
     else :
       self._sequence = new
 
@@ -343,11 +355,11 @@ class Domain(IUPAC_translator):
       self._ComplementDomain.update_constraints(compseq)
     else :
       if len(compseq) != len(self._sequence) :
-        raise ValueError("Length of constraint != complementary constraint")
+        raise NuskellObjectError("Length of constraint != complementary constraint")
       complement = map(self.iupac_neighbor, self._sequence)
       new = self._merge_constraints(complement, compseq)
       if '' in new :
-        raise ValueError("Constraints cannot be satisfied")
+        raise NuskellObjectError("Constraints cannot be satisfied")
       self._ComplementDomain = ComplementDomain(self, new)
     return self._ComplementDomain
 
@@ -400,7 +412,7 @@ class ComplementDomain(Domain):
     self._ComplementDomain = CompDomain
 
     if not sequence or type(sequence) != list :
-      raise ValueError("Must pass a sequence of constraints or domain objects.")
+      raise NuskellObjectError("Must pass a sequence of constraints or domain objects.")
     else :
       assert all(isinstance(s, (str, Domain)) for s in sequence)
       self._sequence = sequence
@@ -445,8 +457,6 @@ class Complex(object):
   def __init__(self, sequence=[], structure=[], name='', prefix='cplx', interpret=None):
     # Assign name
     if name :
-      #if name[-1]=='*' :
-      #  raise ValueError('Invalid name for Complex Object!')
       if name in Complex.names :
         raise NuskellObjectError('Duplicate complex name!')
       self._name = name
@@ -477,11 +487,12 @@ class Complex(object):
 
   @name.setter
   def name(self, name):
-    if name[-1]=='*' :
-      raise ValueError('Invalid name for Complex Object!')
-    if name[-1].isdigit() :
-      raise ValueError('Complex name must not end with a digit!', name)
+    if Complex.id_counter:
+      raise NuskellObjectError('Mixed naming schemes! Reset Complex.id_counter.')
+    if self._name in Complex.names:
+      Complex.names.remove(self._name)
     self._name = name
+    Complex.names.add(name)
 
   @property
   def sequence(self):
@@ -679,8 +690,8 @@ class TestTube(object):
       Reactants and products have to be known complexes.
 
   Raises:
-    ValueError: 'Wrong initialization of arguments for TestTube()'
-    ValueError: 'Invalid Reaction format'
+    NuskellObjectError: 'Wrong initialization of arguments for TestTube()'
+    NuskellObjectError: 'Invalid Reaction format'
 
  
   .. _Peppercorn:
@@ -706,7 +717,7 @@ class TestTube(object):
           if len(data) == 3:
             assert isinstance(data[2], bool) or data[2] is None
         else :
-          raise ValueError('Wrong initialization of arguments for TestTube()')
+          raise NuskellObjectError('Wrong initialization of arguments for TestTube()')
 
         cplx = data[0]
         conc = data[1]
@@ -737,7 +748,7 @@ class TestTube(object):
             assert self._RG.has_node(p)
             self._RG.add_edge(name, p)
         else :
-          raise ValueError('Invalid Reaction format')
+          raise NuskellObjectError('Invalid Reaction format')
 
     self._domains = None
     self._strands = None
@@ -882,7 +893,7 @@ class TestTube(object):
       regstr = regex.structure
       hist = filter(lambda x:x[0]=='h', map(str, regseq))
       if len(hist) > 1:
-        raise ValueError("multiple history domains!")
+        raise NuskellObjectError("multiple history domains!")
       else :
         hist = hist[0]
 
@@ -1030,7 +1041,7 @@ class TestTube(object):
           assert isinstance(r, Reaction)
           self.rm_reaction(r)
       elif (self._RG.in_edges(cplx) or self._RG.out_edges(cplx)):
-        raise RuntimeError("Cannot remove a complex engaged in reactions.")
+        raise NuskellObjectError("Cannot remove a complex engaged in reactions.")
       self._RG.remove_node(cplx)
       self._domains = None
       self._strands = None
@@ -1127,7 +1138,8 @@ class TestTube(object):
     """
     from nuskell.enumeration import TestTubePeppercornIO
     TestTubePeppercornIO.condensed = condensed
-    interface = TestTubePeppercornIO(testtube = self, enumerator = None, pargs = args)
+    interface = TestTubePeppercornIO(testtube = self, enumerator = None, 
+            pargs = args, rename = 110)
     interface.enumerate()
     self.ReactionGraph = nx.compose(self.ReactionGraph, interface.testtube.ReactionGraph)
 
@@ -1159,7 +1171,7 @@ class TestTube(object):
         elif unit == 'nM' :
           concentration *= 1e9
         else :
-          raise ValueError('concentration unit not supported', unit)
+          raise NuskellObjectError('Concentration unit not supported', unit)
 
         conc[str(r)] = concentration
         continue
@@ -1186,7 +1198,7 @@ class TestTube(object):
         else :
           oR[rate] = str(r.rate)
       else :
-        raise ValueError('concentration unit not supported', unit)
+        raise NuskellObjectError('concentration unit not supported', unit)
 
       reactants = []
       for reac in self._RG.predecessors_iter(r) :
@@ -1351,9 +1363,6 @@ class TestTubeIO(object):
     """Parses a file written in PIL - KERNEL notation! """
     ppil = parse_pil_file(pilfile)
 
-    def rename(name):
-        return name
-
     def resolve_loops(loop):
       """ Return a sequence, structure pair from kernel format with parenthesis. """
       sequen = []
@@ -1378,9 +1387,9 @@ class TestTubeIO(object):
     domains = []
     for line in ppil :
       if line[0] == 'domain':
-        domains.append(Domain(name=rename(line[1]), sequence = list('N'* int(line[2]))))
+        domains.append(Domain(name=line[1], sequence = list('N'* int(line[2]))))
       elif line[0] == 'complex':
-        name = rename(line[1])
+        name = line[1]
         sequence, structure = resolve_loops(line[2])
         constant, concentration = None, float('inf')
         if len(line) > 3:
@@ -1397,27 +1406,27 @@ class TestTubeIO(object):
           elif u == 'pM':
             concentration = float(c)*1e-12
           else :
-            raise ValueError('unknown unit for concentrations specified.')
+            raise NuskellObjectError('unknown unit for concentrations specified.')
 
         for e in range(len(sequence)):
           d = sequence[e]
           if d == '+': continue
           if d[-1] == '*' : 
-            dname = rename(d[:-1])
+            dname = d[:-1]
             dom = filter(lambda x: x.name == dname, domains)
             if len(dom) < 1 :
-              raise RuntimeError('Missing domain specification', d)
+              raise NuskellObjectError('Missing domain specification', d)
             elif len(dom) > 1 :
-              raise RuntimeError('Conflicting matches for domain specification', d)
+              raise NuskellObjectError('Conflicting matches for domain specification', d)
             sequence[e] = dom[0].get_ComplementDomain(list('R'*dom[0].length))
 
           else :
-            dname = rename(d)
+            dname = d
             dom = filter(lambda x: x.name == dname, domains)
             if len(dom) < 1 :
-              raise RuntimeError('Missing domain specification', d)
+              raise NuskellObjectError('Missing domain specification', d)
             elif len(dom) > 1 :
-              raise RuntimeError('Conflicting matches for domain specification', d)
+              raise NuskellObjectError('Conflicting matches for domain specification', d)
             sequence[e] = dom[0]
 
         self._testtube.add_complex(Complex(sequence = sequence, structure =
@@ -1506,7 +1515,7 @@ class TestTubeIO(object):
           if sequ[e].name[-1] == '*' :
             expr = sequ[e].name[:-1] + toe + '*'
           elif sequ[e].name[0] == 'h':
-            raise Exception('unexpected bound history domain.')
+            raise NuskellObjectError('Unexpected bound history domain.')
           else :
             expr = sequ[e].name + toe
 
@@ -1518,10 +1527,10 @@ class TestTubeIO(object):
           expr = None
           pos -= 1
           if pos < 0 :
-            raise Exception('too many closing base-pairs')
+            raise NuskellObjectError('too many closing base-pairs')
           continue
         else :
-          raise Exception('strange case:', e, d)
+          raise NuskellObjectError('strange case:', e, d)
 
         if dnaexpr[pos] == [] :
           dnaexpr[pos] = [[flag, expr]]
@@ -1597,13 +1606,13 @@ class Reaction(object):
     # Assign name
     if name :
       if name[-1].isdigit() :
-        raise ValueError('Reaction name must not end with a digit!', name)
+        raise NuskellObjectError('Reaction name must not end with a digit!', name)
       self._name = name
     else :
       if prefix == '' :
-        raise ValueError('Reaction prefix must not be empty!')
+        raise NuskellObjectError('Reaction prefix must not be empty!')
       if prefix[-1].isdigit():
-        raise ValueError('Reaction prefix must not end with a digit!')
+        raise NuskellObjectError('Reaction prefix must not end with a digit!')
       self._name = prefix + str(Reaction.id_counter)
       Reaction.id_counter += 1
 
@@ -1655,7 +1664,7 @@ class Reaction(object):
   def __eq__(self, other):
     """bool: Checks if two Reaction() objects have the same rtype, reactants, and products. """
     if not self.rtype or not other.rtype :
-      raise Exception('Cannot compare reactions without knowing the reaction-type.')
+      raise NuskellObjectError('Cannot compare reactions without knowing the reaction-type.')
     return (self.rtype == other.rtype) and \
         (self.reactants == other.reactants) and \
         (self.products == other.products)

@@ -11,7 +11,7 @@ import sys
 from copy import copy
 
 from nuskell.parser import parse_ts_string
-from nuskell.objects import TestTube, Complex, Domain
+from nuskell.objects import TestTube, Complex
 from nuskell.interpreter.environment import NuskellEnvironment 
 
 def ts_code_snippet():
