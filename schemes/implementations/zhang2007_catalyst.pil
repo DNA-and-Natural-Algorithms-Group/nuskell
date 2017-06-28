@@ -1,0 +1,41 @@
+#
+# Zhang, Turberfield, Yurke, Winfree (2007) 
+# "Engineering Entropy-Driven Reactions and Networks Catalyzed by DNA"
+#
+# A DSD implementation of the catalyst reaction (Figure 1A + 1D)
+# Note: Domain 2 is actually contains two toeholds (2a, 2b)
+#
+# CRN:
+#   C + S -> C + OB
+#   OB -> ROX
+#
+# verify:
+#   echo "C + S -> C + OB; OB -> ROX" | nuskell --readpil zhang2007_catalyst.pil --verify pathway bisimulation
+#     => not pathway equivalent
+#     => bisimulation equivalent
+#   echo "C -> C + OB; OB -> ROX" | nuskell --readpil zhang2007_catalyst.pil --verify pathway bisimulation
+#     => not pathway equivalent
+#     => bisimulation equivalent
+#
+# Coded by Stefan Badelt (badelt@caltech.edu)
+
+# Domains
+length d1  = 10
+length d2a =  6
+length d2b =  6
+length d2c = 12
+length d3  =  4
+length d4  = 16 
+length d5  =  6
+length d6  = 16
+
+# Species
+C = d4 d5                 @initial 2 nM
+OB = d1 d2a d2b d2c       @initial 0 nM
+ROX = d1 d2a              @initial 0 nM
+S = d1 d2a( d2b( d2c( + d6 d3( d4( + d5* ) ) ) ) )  @initial 100 nM
+F = d2a d2b d2c d3 d4     @initial 100 nM
+OR = d1( d2a( + d2b* ) )  @initial 100 nM
+SB = d6 d3 d4             @initial 0 nM
+
+
