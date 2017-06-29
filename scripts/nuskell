@@ -154,12 +154,15 @@ def main() :
 
   if args.verbose:
     print "formal species: {}; signal species: {}; fuel species: {}".format(
-        fs, signals, fuels)
+        sorted(fs), sorted(signals), sorted(fuels))
 
   if not (set(fs) <= set(signals)):
     # If this is not caught here, it will assign fs as fuels...
     raise Warning('all formal species {} should also be signals {}'.format(
       fs, signals))
+
+  if args.simulate and 'S' in set(fs + signals + fuels):
+    raise Exception('Name "S" is not allowed when simulating CRNs!')
 
   # ~~~~~~~~~~~~~~~~~~~~~~~
   # Initialize the TestTube
@@ -216,11 +219,11 @@ def main() :
   #if fuels == []:
   #  raise ValueError('solution does not contain fuels')
   if signals == []:
-    raise ValueError('solution does not contain signals')
+    raise SystemExit('EXIT: solution does not contain signals.')
 
   if args.verbose:
     print "formal species: {}; signal species: {}; fuel species: {}".format(
-        fs, map(str, signals), map(str, fuels))
+        sorted(fs), sorted(map(str, signals)), sorted(map(str, fuels)))
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
@@ -322,7 +325,6 @@ def main() :
   # Simulate CRNs in a TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if args.simulate :
-
     print "\nWriting executable simulator scripts: {}_fCRN.py {}_iCRN.py".format(
         args.output, args.output)
 
@@ -332,7 +334,6 @@ def main() :
     # Simulate the formal CRN using crnsimulator
     CRG = ReactionGraph(scrn)
     fFile, _ = CRG.write_ODE_lib(sorted(CRG.species), filename = args.output+'_fCRN')
-
     if args.verbose :
       print 'Wrote formal CRN simulator:', fFile 
       print ' - execute with: python {}'.format(fFile)

@@ -1,0 +1,49 @@
+# Zhang, Turberfield, Yurke, Winfree (2007) 
+# "Engineering Entropy-Driven Reactions and Networks Catalyzed by DNA"
+#
+# A DSD implementation of an autocatalyst reaction (Figure 4)
+#
+# CRN:
+#   A -> A + A + SB
+#   SB -> TET
+#
+# verify:
+#   echo "A <=> SB + I; I -> A + A; SB -> TET" | nuskell --readpil zhang2007_autocatalyst.pil --verify pathway bisimulation --release-cutoff 7
+#     => pathway equivalent
+#     => bisimulation equivalent
+#   echo "A <=> SB + I; I -> A + A; SB -> TET" | nuskell --readpil zhang2007_autocatalyst.pil --verify pathway bisimulation --release-cutoff 7 --enum-detailed
+#     => NOT pathway equivalent
+#     => bisimulation equivalent
+#   echo "A -> A + A; SB -> TET" | nuskell --readpil zhang2007_autocatalyst.pil --verify pathway bisimulation --release-cutoff 7
+#     => NOT pathway equivalent
+#     => NOT bisimulation equivalent
+#
+# Coded by Stefan Badelt (badelt@caltech.edu)
+
+# Domains
+# This might look confusing, but it is including the information 
+# from the Erratum: d4t is a subsequence of the *original* d4a
+length d1  = 10
+length d2b =  6
+length d2c = 12
+length d3  =  4
+length d4t =  7
+length d4a =  3
+length d4b =  6 
+length d6  = 16
+
+# Formal species
+A = d4t d4a d4b d2b d2c   @initial 5 nM
+SB = d6 d3 d4t d4a d4b    @initial 0 nM
+TET = d6 d3               @initial 0 nM
+I = d4t d4a d4b( d2b( d2c( + d4t( d4a( d4b( d2b( d2c + ) ) ) ) d3* ) ) ) @initial 0 nM
+
+# Fuel species
+Sub = d4t d4a d4b( d2b( d2c( + d6 d3( d4t( d4a( d4b( + d2b* ) ) ) ) ) ) ) @initial 100 nM
+R = d6( d3( + d4t* ) )         @initial 100 nM
+F = d4b d2b d2c d3 d4t d4a d4b  @initial 100 nM
+
+# Intermediate species
+W = d4b( d2b( d2c( d3( d4t( d4a( d4b( + d2b* ) ) ) ) ) ) )  @initial 0 nM
+FQ = d6( d3( d4t( d4a d4b + ) ) )  @ initial 0 M 
+

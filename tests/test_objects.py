@@ -18,27 +18,26 @@ class DomainObjectTest(unittest.TestCase):
     doodle = objects.Domain(list('Y'*5), prefix='doodle')
 
     self.assertIsInstance(doodle, objects.Domain, "doodle is a Domain")
-    self.assertEqual(str(doodle), 'doodle{}'.format(doodle.id), "print Domain")
+    self.assertEqual(str(doodle), '{}'.format(doodle.name), "print Domain")
     self.assertEqual(doodle.length, 5, "Domain length")
     self.assertEqual(doodle.sequence, list('Y'*5), "Domain sequence")
 
     moodle = objects.Domain(list('Y'*5))
-    self.assertEqual(str(moodle), 'd{}'.format(moodle.id), 
+    self.assertEqual(str(moodle), '{}'.format(moodle.name), 
         "Automatic Domain Name")
 
   def test_ComplementDomainInit(self):
     foo = objects.Domain(list('Y'*5))
 
     # Conflicting Constraints
-    with self.assertRaises(ValueError):
+    with self.assertRaises(objects.NuskellObjectError):
       bar = foo.get_ComplementDomain(list('R'*3))
-    with self.assertRaises(ValueError):
+    with self.assertRaises(objects.NuskellObjectError):
       bar = foo.get_ComplementDomain(list('Y'*5))
-    with self.assertRaises(ValueError):
+    with self.assertRaises(objects.NuskellObjectError):
       foo.update_constraints(list('R'*6))
 
     bar = foo.get_ComplementDomain(list('R'*5))
-    self.assertEqual(foo.id, bar.id)
 
     moo = ~foo
     self.assertTrue(bar == moo, "bar is moo")
@@ -103,7 +102,7 @@ class ComplexObjectTest(unittest.TestCase):
 
   def test_ComplexInit(self):
     #NOTE: There is no particular reason for this Error, so it might change!
-    with self.assertRaises(ValueError):
+    with self.assertRaises(objects.NuskellObjectError):
       foo = objects.Complex()
 
     foo = objects.Complex(sequence=list('RNNNY'), structure=list('(...)'))
@@ -131,6 +130,26 @@ class ComplexObjectTest(unittest.TestCase):
 
     self.assertEqual(foo, bar)
     self.assertTrue(foo == bar)
+
+  def test_names(self):
+    objects.reset_names()
+    foo = objects.Complex(sequence=[self.d1, self.d2, self.d3, '+', self.d1,
+      '+', self.d1c, self.d3c, self.d1c, self.d2], structure=list('..(+(+))..'))
+    self.assertEqual(foo.name, 'cplx0')
+    with self.assertRaises(objects.NuskellObjectError):
+      foo.name = 'bar'
+
+    objects.reset_names()
+
+    foo.name = 'foo'
+    self.assertEqual(foo.name, 'foo')
+    self.assertSetEqual(objects.Complex.names, set(['foo']))
+
+    foo.name = 'bar'
+    self.assertEqual(foo.name, 'bar')
+    self.assertSetEqual(objects.Complex.names, set(['bar']))
+
+    objects.reset_names()
 
   def test_rotations(self):
     foo = objects.Complex(sequence=[self.d1, self.d2, self.d3, '+', self.d1,

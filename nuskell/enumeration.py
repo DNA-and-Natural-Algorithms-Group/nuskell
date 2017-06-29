@@ -27,13 +27,18 @@ class TestTubePeppercornIO(object):
   and then load it back into the Enumerator().
 
   Both objects refer to the same complexes and domains.
+
+  Args:
+    rename(int, optional): Name enumerated species automatically starting with
+      this number. Defaults to None (use peppercorn enumeration number).
+
   """
 
   condensed = True
   interruptible = False
 
   def __init__(self, testtube=None, enumerator=None, pargs=None, nargs=None,
-      rename = False):
+      rename = None):
 
     if not (bool(testtube) != bool(enumerator)) : # NOT XOR
       raise ValueError("Need to specify either TestTube() or Enumerator(), but not both!")
@@ -41,9 +46,9 @@ class TestTubePeppercornIO(object):
     # Autoname resets Peppercorn() complex names and replace it with TestTube()
     # complex names. Two dictionaries store the mapping of names in TestTube()
     # and Enumerator() objects.
-    self._autoname = rename
+    self._rename = rename
     self._enum_prefix = 'e'
-    self._enum_append = '' if self._autoname else '_'
+    self._enum_append = ''
     self._enumN_to_ttubeO = dict()
     self._ttubeN_to_enumO = dict()
 
@@ -141,7 +146,12 @@ class TestTubePeppercornIO(object):
     """
     assert x[0].isdigit()
     assert x[-1].isdigit()
-    return self._enum_prefix + x + self._enum_append
+    if self._rename is None:
+      return self._enum_prefix + x + self._enum_append
+    else :
+      n = self._enum_prefix + str(self._rename) + self._enum_append
+      self._rename += 1
+      return n
 
   def _get_reaction_networkx(self):
     """ Merge the reaction network into self.testtube object. """
@@ -191,14 +201,10 @@ class TestTubePeppercornIO(object):
       # remove the first '+' again
       if len(domseq)>0: domseq = domseq[1:]
       domstr = list(cx.dot_paren_string())
-      if self._autoname :
-        ttcplx = Complex(sequence=domseq, structure=domstr, 
-            prefix=self._enum_prefix)
-      else :
-        cplxname = self._ecplx_rename(cx.name)
-        if cplxname in ttcomplexes:
-          raise ValueError("Complex found in muliple resting states?")
-        ttcplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
+      cplxname = self._ecplx_rename(cx.name)
+      if cplxname in ttcomplexes:
+        raise ValueError("Complex found in muliple resting states?")
+      ttcplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
 
       ttcomplexes[ttcplx.name] = (ttcplx, None, None) 
       self._enumN_to_ttubeO[cx.name] = ttcplx

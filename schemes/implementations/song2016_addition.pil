@@ -1,15 +1,19 @@
 # Song, Garg, Mokhtar, Bui, Reif in ACS (2016)
 # "Analog Compugtation by DNA Strand Displacement Circuits"
 #
-# Figure 4: addition gate
-# Ia1 + A1 -> Oa [k1]
-# Ia2 + A2 -> Oa [k2]
+# Figure 4: Addition Gate [pa = a1 + a2]
 #
-# A1 := Fa + Ga1 + Da1
-# A2 := Fa + Ga2 + Da2
+# CRN:
+#   Ia1 + A1 -> Oa [k1]
+#   Ia2 + A2 -> Oa [k2]
 #
-# try:
-#   echo "Ia1_ -> Oa; Ia2_ -> Oa" | nuskell --readpil ./schemes/implementations/song2016_addition.pil
+# verify:
+#   echo "Ia1 -> Oa; Ia2 -> Oa" | nuskell --readpil song2016_addition.pil --verify pathway bisimulation
+#     => bisimulation equivalent
+#     => pathway equivalent
+#   echo "Ia1 + Ga1 -> Oa; Ia2 + Ga2 -> Oa" | nuskell --readpil song2016_addition.pil --verify pathway bisimulation
+#     => bisimulation equivalent
+#     => pathway equivalent
 #
 
 # Domain Specifications
@@ -23,8 +27,8 @@ length x2 = 15
 length x3 = 15
 
 # Complex Specifications
-Ia1_ = i1 a x1
-Ia2_ = i2 a x2
+Ia1 = i1 a x1
+Ia2 = i2 a x2
 Oa = y1 a x3
 
 Fa = b y1 a

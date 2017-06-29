@@ -11,8 +11,8 @@ import sys
 from copy import copy
 
 from nuskell.parser import parse_ts_string
-from nuskell.objects import TestTube, Complex, Domain
-from nuskell.interpreter.environment import Environment 
+from nuskell.objects import TestTube, Complex
+from nuskell.interpreter.environment import NuskellEnvironment 
 
 def ts_code_snippet():
   # Builtin funtions extending the nuskell language, loaded upon initialization
@@ -54,7 +54,7 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   """
 
   # Initialize the environment
-  ts_env = Environment('', sdlen=sdlen, ldlen=ldlen)
+  ts_env = NuskellEnvironment(sdlen=sdlen, ldlen=ldlen)
 
   # Parse a piece of sample code with common utilitiy functions
   header = parse_ts_string(ts_code_snippet())
@@ -72,29 +72,25 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   cs_solution = ts_env.translate_reactions(crn_parsed)
 
   solution = TestTube()
+
+  # reset the id_counter to switch to different naming scheme
+  Complex.id_counter = 0
   for k,v in fs_result.items():
     v.flatten_cplx
     #print type(v), k, map(str, v.sequence), v.structure
-    if k in map(str, solution.complexes) :
-      raise ValueError("Overwriting existing name")
     new = Complex(name = k, 
         sequence = v.sequence, 
         structure = v.structure)
     solution.add_complex(new, (None, None), sanitycheck=True)
 
-  #for k,v in solution.complexes.items():
+  #for v in solution.complexes:
   #  print type(v), v, map(str, v.sequence), v.structure
 
-  num=1
+  num = 0
   for cplx in sorted(cs_solution.complexes, key=lambda x : x.name):
-    rename = 'f{}_'.format(str(num))
-    cplx.name = rename
-    ## Make sure nobody calls calls formal species like fuel species
-    #if rename in map(str, solution.complexes) :
-    #  raise ValueError("Duplicate fuel species name!")
-    new = Complex(sequence = cplx.sequence, structure = cplx.structure, name = rename)
+    new = Complex(sequence = cplx.sequence, structure = cplx.structure, name = 'f'+str(num))
     solution.add_complex(new, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
-    num += 1
+    num+=1
 
   return solution, cs_solution
 

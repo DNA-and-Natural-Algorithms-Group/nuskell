@@ -1,19 +1,20 @@
 # Song, Garg, Mokhtar, Bui, Reif in ACS (2016)
 # "Analog Compugtation by DNA Strand Displacement Circuits"
 #
-# Figure 7: substraction gate
-# Is2 + S -> S' [k1]
-# Is1 + S' -> [k2]
+# Figure 7: Substraction Gate [ps = s1 - s2] where s1 > s2 (!!)
 #
-# ------------
-# ps = s1 - s2
-# ------------
-# Is2 -> Gp
-# Is1 + Gp ->
-# 
-# s1 = [Is1]_0
-# s2 = [Is2]_0
-# ps = [Is1]_eq
+# CRN:
+#   Is2 + S -> S' [k1]
+#   Is1 + S' -> [k2]
+#
+# verify:
+#   echo "Is2 + Gs -> Gps; Is1 + Gps -> " | nuskell --readpil song2016_substraction.pil --verify pathway bisimulation
+#     => not equivalent
+#
+#   echo "Is2 + Is1 -> "
+#     => bisimulation equivalent
+#     => pathway inequivalent
+#
 
 # Domain Specifications
 length a  = 6
@@ -23,10 +24,11 @@ length h1 = 15
 length h2 = 15
 
 # Complex Specifications
-Is1_ = h1 a v1
-Is2_ = h2 a v2
+Is1 = h1 a v1
+Is2 = h2 a v2
 
 Gs = v2( a( + v1( + ) ) ) a*
-Gp = h2 a( v2( + v1( + ) a* ) )
 Ds = v2( + a* )
 
+Gps = h2 a( v2( + v1( + ) a* ) ) @ initial 0 nM
+int = v2 a @initial 0 nM
