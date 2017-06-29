@@ -1149,6 +1149,14 @@ class TestTube(object):
 
   def simulate_crn(self, odename, sorted_vars=[], unit='M'):
     # TODO : needs documentation.
+    if 'S' in Complex.names :
+      [cplxS] = self.selected_complexes(['S'])
+      assert cplxS.name == 'S'
+      for i in range(100) :
+        if 'S'+str(i) not in Complex.names :
+          cplxS.name = 'S'+str(i)
+          break
+      print '# WARNING: renamed complex S to S{} to resolve conflicts with sympy'.format(str(i))
 
     oR = dict()
     conc = dict()
