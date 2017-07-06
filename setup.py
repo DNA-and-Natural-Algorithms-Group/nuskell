@@ -73,10 +73,10 @@ setup(
         'numpy>=1.11.0',  # nuskellCMP
         'sympy>=0.7.6.1', 
         'peppercornenumerator>=0.4.2',
-        'crnsimulator>=0.1'],
+        'crnsimulator>=0.2'],
     dependency_links=[
         'http://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/master#egg=peppercornenumerator-0.4.2',
-        'https://github.com/bad-ants-fleet/crnsimulator/tarball/master#egg=crnsimulator-0.1'],
+        'https://github.com/bad-ants-fleet/crnsimulator/tarball/master#egg=crnsimulator-0.2'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell', 'scripts/nuskellCMP'],

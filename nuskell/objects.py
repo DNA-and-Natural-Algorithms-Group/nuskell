@@ -8,9 +8,9 @@
 # Joseph Schaeffer and Joseph Berleant. 
 #
 
-import sympy
 import networkx as nx
 from collections import Counter
+from sympy import Symbol, sympify, Matrix
 
 #'http://www.github.com/bad-ants-fleet/crnsimulator'
 from crnsimulator import writeODElib
@@ -1147,17 +1147,7 @@ class TestTube(object):
     self._domains = None
     self._strands = None
 
-  def simulate_crn(self, odename, sorted_vars=[], unit='M'):
-    # TODO : needs documentation.
-    if 'S' in Complex.names :
-      [cplxS] = self.selected_complexes(['S'])
-      assert cplxS.name == 'S'
-      for i in range(100) :
-        if 'S'+str(i) not in Complex.names :
-          cplxS.name = 'S'+str(i)
-          break
-      print '# WARNING: renamed complex S to S{} to resolve conflicts with sympy'.format(str(i))
-
+  def simulate_crn(self, odename, sorted_vars=None, unit='M'):
     oR = dict()
     conc = dict()
     ode = dict()
@@ -1211,12 +1201,12 @@ class TestTube(object):
       reactants = []
       for reac in self._RG.predecessors_iter(r) :
         for i in range(self._RG.number_of_edges(reac, r)) :
-          reactants.append(str(reac))
+          reactants.append(Symbol(str(reac)))
 
       products = []
       for prod in self._RG.successors_iter(r) :
         for i in range(self._RG.number_of_edges(r, prod)) :
-          products.append(str(prod))
+          products.append(Symbol(str(prod)))
 
       for x in reactants: 
         if x in ode :
@@ -1232,18 +1222,21 @@ class TestTube(object):
 
     if sorted_vars :
       assert len(sorted_vars()) == len(ode.keys())
-      oV = sorted_vars
+      oV = map(Symbol, sorted_vars)
     else :
-      oV = sorted(ode.keys())
-      oC = map(lambda x:conc[x], oV)
+      oV = sorted(ode.keys(), key=lambda x : str(x))
+      oC = map(lambda x:conc[str(x)], oV)
+
+    # Sympy Symbol namespace
+    ns = dict(zip(map(str,oV), oV))
 
     oM = []
     for dx in oV :
-      sfunc = sympy.sympify(' + '.join(['*'.join(map(str,xp)) for xp in ode[dx]]))
+      sfunc = sympify(' + '.join(['*'.join(map(str,xp)) for xp in ode[dx]]), locals=ns)
       ode[dx] = sfunc
       oM.append(sfunc)
 
-    oM = sympy.Matrix(oM)
+    oM = Matrix(oM)
     oJ = None
 
     oFile, oname = writeODElib(oV, oM, jacobian=oJ, rdict=oR, concvect=oC, filename=odename)

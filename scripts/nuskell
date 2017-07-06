@@ -161,9 +161,6 @@ def main() :
     raise Warning('all formal species {} should also be signals {}'.format(
       fs, signals))
 
-  if args.simulate and 'S' in set(fs + signals + fuels):
-    raise Exception('Name "S" is not allowed when simulating CRNs!')
-
   # ~~~~~~~~~~~~~~~~~~~~~~~
   # Initialize the TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -288,9 +285,9 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
+  fcrn = split_reversible_reactions(fcrn)
   if args.verify :
     print "\nVerification using:", args.verify
-    fcrn = split_reversible_reactions(fcrn)
 
     # NOTE: implicitly also removes rate constants
     vcrn = removeSpecies(icrn, map(str, fuels))

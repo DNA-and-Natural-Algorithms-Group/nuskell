@@ -39,7 +39,7 @@ TET = d6 d3               @initial 0 nM
 I = d4t d4a d4b( d2b( d2c( + d4t( d4a( d4b( d2b( d2c + ) ) ) ) d3* ) ) ) @initial 0 nM
 
 # Fuel species
-Sub = d4t d4a d4b( d2b( d2c( + d6 d3( d4t( d4a( d4b( + d2b* ) ) ) ) ) ) ) @initial 100 nM
+S = d4t d4a d4b( d2b( d2c( + d6 d3( d4t( d4a( d4b( + d2b* ) ) ) ) ) ) ) @initial 100 nM
 R = d6( d3( + d4t* ) )         @initial 100 nM
 F = d4b d2b d2c d3 d4t d4a d4b  @initial 100 nM
 
