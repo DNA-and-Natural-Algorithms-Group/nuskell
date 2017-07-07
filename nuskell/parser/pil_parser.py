@@ -8,7 +8,7 @@
 #
 
 from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore, Combine, White,
-    OneOrMore, alphas, alphanums, nums, delimitedList, StringStart, StringEnd, Forward,
+    OneOrMore, alphas, alphanums, nums, delimitedList, StringStart, StringEnd, Forward, 
     LineEnd, pythonStyleComment, ParseElementEnhance)
 # from pyparsing import Group, Forward, Word, Combine, Literal, Optional, Suppress, ZeroOrMore, OneOrMore, StringEnd, delimitedList, nestedExpr, alphanums
 
@@ -38,6 +38,8 @@ def pil_document_setup():
   C = Combine
   L = Literal
  
+  # NOTE: Exchange comment to forbid/allow names starting with digits
+  #identifier = W(alphanums + "_-")
   identifier = W(alphas, alphanums + "_-")
   number = W(nums, nums)
   gorf = C(W(nums) + O((L('.') + W(nums)) | (L('e') + O('-') + W(nums))))
@@ -53,6 +55,7 @@ def pil_document_setup():
 
   pattern = Forward()
   # NOTE: Remove S(White()) for backward compatiblility: )) is not allowed anymore.
+  #loop = (Combine(sense + S("(")) + O(pattern) + asense)
   loop = (Combine(sense + S("(")) + S(White()) + O(pattern) + S(White()) + asense)
   pattern << G(OneOrMore(loop | sbreak | sense))
 

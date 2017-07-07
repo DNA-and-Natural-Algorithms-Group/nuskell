@@ -9,6 +9,14 @@ class TestCRNparser(unittest.TestCase):
   def tearDown(self):
     pass
 
+  def test_new_kernel_format(self):
+    # Names starting with digits are forbidden,
+    # this can easily be changed in the pil_parser.
+    with self.assertRaises(ParseException):
+      parse_pil_string("length 1 = 6 ")
+    with self.assertRaises(ParseException):
+      parse_pil_string("length 1ta = 6 ")
+
   def test_parse_examples(self):
     example1 = """
     length t0 = 6
@@ -66,7 +74,7 @@ class TestCRNparser(unittest.TestCase):
       # Unbalanced brackets
       parse_pil_string("cplx = a( b( c( + ) ) d ")
 
-    #NOTE: This test passes, so sad...
+    #NOTE: This test passes, ...
     #with self.assertRaises(ParseException):
     #  parse_pil_string("cplx = a( b( c( + ) ) )d")
 
