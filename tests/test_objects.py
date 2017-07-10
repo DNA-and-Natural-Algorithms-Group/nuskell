@@ -99,7 +99,6 @@ class ComplexObjectTest(unittest.TestCase):
     objects.Domain.id_counter = 0
     objects.Complex.id_counter = 0
 
-
   def test_ComplexInit(self):
     #NOTE: There is no particular reason for this Error, so it might change!
     with self.assertRaises(objects.NuskellObjectError):
@@ -164,6 +163,57 @@ class ComplexObjectTest(unittest.TestCase):
     self.assertEqual(foo.structure,list('(+)(..+..)'))
     self.assertEqual(foo.nucleotide_sequence, list('YYYYY+RRRRRYYYYYRRRRRNNNNN+YYYYYNNNNNRRRRR'))
  
+class TestTubeTests(unittest.TestCase):
+  def setUp(self):
+    self.d1 = objects.Domain(list('Y'*5))
+    self.d2 = objects.Domain(list('N'*5))
+    self.d3 = objects.Domain(list('R'*5))
+    self.d1c = self.d1.get_ComplementDomain(list('N'*5))
+    self.d2c = self.d2.get_ComplementDomain(list('D'*5))
+    self.d3c = self.d3.get_ComplementDomain(list('H'*5))
+
+    self.cplx1 = objects.Complex(sequence=[self.d1, self.d2, self.d3, '+', self.d1,
+      '+', self.d1c, self.d3c, self.d1c, self.d2], structure=list('..(+(+))..'))
+
+    self.cplx2 = objects.Complex(sequence=[self.d1, self.d2, self.d3, '+', 
+      self.d3c, self.d2c, self.d2], structure=list('.((+)).'))
+
+  def tearDown(self):
+    objects.reset_names()
+
+  def test_TestTubeInit(self):
+    foo = objects.TestTube()
+    foo.add_complex(self.cplx1, (None,None))
+    self.assertTrue(foo.has_complex(self.cplx1))
+
+  def test_TestTubeSum(self):
+    foo = objects.TestTube()
+    bar = objects.TestTube()
+    foo.add_complex(self.cplx1, (None,True))
+    bar.add_complex(self.cplx2, (float('inf'),None))
+
+    # Both versions should work
+    foobar = foo + bar
+    foobar = sum([foo, bar])
+
+    # Check if original TestTubes remain unchanged
+    self.assertTrue(foo.has_complex(self.cplx1))
+    self.assertFalse(foo.has_complex(self.cplx2))
+
+    self.assertTrue(bar.has_complex(self.cplx2))
+    self.assertFalse(bar.has_complex(self.cplx1))
+
+    # Check if new TestTube has everything
+    self.assertTrue(foobar.has_complex(self.cplx1))
+    self.assertTrue(foobar.has_complex(self.cplx2))
+
+    # Check if attributes were copied correctly
+    self.assertEqual(foo.get_complex_concentration(self.cplx1), foobar.get_complex_concentration(self.cplx1))
+    self.assertEqual(bar.get_complex_concentration(self.cplx2), foobar.get_complex_concentration(self.cplx2))
+
+
+
+
 class TestTubeIOTest(unittest.TestCase):
   def setUp(self):
     self.t0 = objects.Domain(list('N'*5), prefix='t')

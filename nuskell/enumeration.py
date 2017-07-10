@@ -38,7 +38,7 @@ class TestTubePeppercornIO(object):
   interruptible = False
 
   def __init__(self, testtube=None, enumerator=None, pargs=None, nargs=None,
-      rename = None):
+      rename = None, prefix='e'):
 
     if not (bool(testtube) != bool(enumerator)) : # NOT XOR
       raise ValueError("Need to specify either TestTube() or Enumerator(), but not both!")
@@ -47,7 +47,7 @@ class TestTubePeppercornIO(object):
     # complex names. Two dictionaries store the mapping of names in TestTube()
     # and Enumerator() objects.
     self._rename = rename
-    self._enum_prefix = 'e'
+    self._enum_prefix = prefix
     self._enum_append = ''
     self._enumN_to_ttubeO = dict()
     self._ttubeN_to_enumO = dict()

@@ -61,7 +61,7 @@ def printCRN(crn, reversible=True, rates=True):
     else :
       print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
 
-def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
+def translate(input_crn, ts_file, modular=False, pilfile=None, dnafile=None, verbose = False):
   """CRN-to-DSD translation wrapper function.
   
   A formal chemical reaction network (CRN) is translated into a domain-level
@@ -103,7 +103,7 @@ def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
   ts = parse_ts_file(ts_file)
   crn, fs, signals, fuels = parse_crn_string(input_crn)
 
-  solution, constant_solution = interpret(ts, crn, fs)
+  solution, modules = interpret(ts, crn, fs, modular=modular)
 
   if pilfile :
     with open(pilfile, 'w') as pil:
@@ -112,5 +112,5 @@ def translate(input_crn, ts_file, pilfile=None, dnafile=None, verbose = False):
     with open(dnafile, 'w') as dna:
       TestTubeIO(solution).write_dnafile(dna, signals=fs, crn=crn, ts=os.path.basename(ts_file))
 
-  return solution, constant_solution
+  return solution, modules
 

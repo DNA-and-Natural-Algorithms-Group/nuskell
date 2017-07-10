@@ -1,2 +1,2 @@
 #Import verification interface
-from verifier import verify, removeSpecies, removeRates
+from verifier import verify, removeSpecies, removeRates, modular_bisimulation

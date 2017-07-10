@@ -12,7 +12,7 @@ from nuskell import translate, verify, printCRN
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.objects import TestTube, TestTubeIO 
 from nuskell.enumeration import TestTubePeppercornIO
-from nuskell.verifier import removeSpecies
+from nuskell.verifier import removeSpecies, modular_bisimulation
 
 def get_peppercorn_args(parser):
   """Selected arguments for the peppercorn interface. """
@@ -81,6 +81,9 @@ def get_nuskell_args(parser) :
   # Options for the translation mode of Nuskell
   parser.add_argument("--ts", action = 'store', metavar='</path/to/file>',
       help="Specify path to the translation scheme")
+
+  parser.add_argument("--modular", action='store_true',
+      help="Verify using CRN modularity.")
 
   parser.add_argument("--readpil", action = 'store',
       help=argparse.SUPPRESS)
@@ -167,7 +170,8 @@ def main() :
   if args.ts : # Translate CRN using a translation scheme
     print "\nTranslating..."
     assert fs == signals
-    solution, constant_solution = translate(input_crn, args.ts, 
+    solution, modules = translate(input_crn, args.ts, 
+        modular = args.modular,
         verbose = (args.verbose > 1)) 
   elif args.readpil : # Parse implementation species from a PIL file
     print "Parsing PIL file..."
@@ -226,10 +230,12 @@ def main() :
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+  #TODO downstream modular modifications ...
+
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
     condensed = not args.enum_detailed
-    solution.enumerate_reactions(args, condensed = condensed)
+    solution.enumerate_reactions(args, condensed = condensed, prefix='e', rename=100)
 
     if args.verbose > 1 : # print the enumerated CRN
       for r in solution.reactions:
@@ -249,11 +255,15 @@ def main() :
       icrn.append(rxn)
 
     print "Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn))
-    print "  - {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()]))
-    print "  - {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)]))
-    print "  - {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
+    print "  - {} signal species".format(
+        len([c for c in solution.complexes if c.name in interpret.keys()]))
+    print "  - {} fuel species".format(
+        len([c for c in solution.complexes if c.name in map(str, fuels)]))
+    print "  - {} intermediate species".format(
+        len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
     print 'Number of distinct strands in the system:', len(solution.strands)
-    print 'Length of all distinct strands in the system:', sum(sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+    print 'Length of all distinct strands in the system:', sum(sum(
+      map(lambda d: d.length, s)) for s in solution.strands.values())
 
     if args.simulate or args.pilfile :
       # If you use translation schemes, or if you didn't specify concentrations in
@@ -282,9 +292,59 @@ def main() :
           TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit,
               crn=fcrn, ts = args.ts if args.ts else None)
 
+    if args.modular :
+      # TODO(SB): cross-check verification: 
+      # - enumeration has to detect crosstalk between modules and append it as
+      #   the last iCRN which has no corresponding fCRN.
+      # - enumeration has to consider all sorts of history species, even though we
+      #   don't know about history species at this point :-(
+      module_crns = []
+      for e, module in enumerate(modules) :
+        #print 'inter', interpret
+        # TODO quite inefficient loops
+        # first, replace history complexes with their interpretation!
+        for cplx in module.complexes:
+          for k, v in interpret.items():
+            if (cplx.name in v) and k != cplx.name :
+              [newc] = solution.selected_complexes([k])
+              module.add_complex(newc, solution.get_complex_concentration(newc))
+              if module.has_complex(cplx):
+                module.rm_complex(cplx)
+
+        # then, enumerate!
+        module.enumerate_reactions(args, condensed = condensed, prefix='tmp')
+
+        # TODO also quite inefficient
+        # after enumeration, rename all tmp species with e species names in solution.
+        for cplx in module.complexes:
+          if cplx.name[:3] == 'tmp':
+            replaced = False
+            debugging = 0
+            while (not replaced):
+              for x in solution.complexes:
+                if (cplx.sequence, cplx.structure) == (x.sequence, x.structure):
+                  cplx.name = x.name
+                  replaced = True
+                  break
+              cplx.rotate_once
+              if debugging > len(cplx.lol_sequence):
+                raise RuntimeError("couldn't find enumerated species")
+              debugging += 1
+
+        # TODO: what do we do with the crosstalk again?
+        mcrn = []
+        for r in module.reactions:
+          if args.verbose :
+            print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+          rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
+          mcrn.append(rxn)
+        module_crns.append(mcrn)
+
+
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
+  mcrn = map(lambda x: split_reversible_reactions([x]), fcrn)
   fcrn = split_reversible_reactions(fcrn)
   if args.verify :
     print "\nVerification using:", args.verify
@@ -301,11 +361,22 @@ def main() :
         print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
 
     for meth in args.verify :
-      v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-          verbose=(args.verbose>1), timeout=args.verify_timeout)
+      if args.modular:
+        icrns = map(lambda x: removeSpecies(x, map(str,fuels)), module_crns)
+        if args.verbose:
+          for e, m in enumerate(icrns, 1):
+            print "Modular verification CRN-{}:".format(e)
+            printCRN(mcrn[e-1], reversible = True, rates=False)
+            print "--"
+            printCRN(m, reversible = True, rates=False)
+        v, i = modular_bisimulation(mcrn, icrns, fs, interpret=interpret, method=meth,
+            verbose=(args.verbose>1), timeout=args.verify_timeout)
+      else :
+        v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+            verbose=(args.verbose>1), timeout=args.verify_timeout)
 
       if i and args.verbose :
-        if not v : i = i[0]
+        if not v : i = i[2 if args.modular else 0]
         print "Returned interpretation ['{}']:".format(meth)
         for impl, formal in sorted(i.items()) :
           print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))

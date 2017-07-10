@@ -770,6 +770,9 @@ class TestTube(object):
     #TODO: This only works with Complex() objects
     return [n for n in self._RG.nodes() if isinstance(n, Complex)]
 
+  def has_complex(self, cplx):
+    return self._RG.has_node(cplx)
+
   @property
   def reactions(self):
     """list: a list of :obj:`Reaction()` objects. """
@@ -1008,6 +1011,7 @@ class TestTube(object):
       # NOTE: This might become inefficient at some point, but it has been
       # introduced to overcome issues with some translation schemes that
       # produce the same fuel strand multiple times.
+      # TODO: not only it is inefficient, it doesn't check for strand ordering!
       if sanitycheck and (cplx.sequence, cplx.structure) in map(
           lambda x: (x.sequence, x.structure), self._RG.nodes()):
         if TestTube.warnings :
@@ -1130,7 +1134,7 @@ class TestTube(object):
             self._domains[d.name] = d
     return self._domains
  
-  def enumerate_reactions(self, args=None, condensed = True):
+  def enumerate_reactions(self, args=None, condensed = True, rename = None, prefix='e'):
     """Enumerate reactions using the *peppercorn* enumerator. 
     Args:
       args(:obj:`argparse.ArgumentParser()`, optional): Arguments for *peppercorn*.
@@ -1139,7 +1143,7 @@ class TestTube(object):
     from nuskell.enumeration import TestTubePeppercornIO
     TestTubePeppercornIO.condensed = condensed
     interface = TestTubePeppercornIO(testtube = self, enumerator = None, 
-            pargs = args, rename = 110)
+            pargs = args, rename = rename, prefix = prefix)
     interface.enumerate()
     self.ReactionGraph = nx.compose(self.ReactionGraph, interface.testtube.ReactionGraph)
 
@@ -1253,12 +1257,14 @@ class TestTube(object):
       combined.ReactionGraph = nx.compose(self.ReactionGraph, other.ReactionGraph)
 
     elif len(other.complexes) > len(self.complexes) :
-      combined.ReactionGraph = other.ReactionGraph
+      combined.ReactionGraph.add_nodes_from(other.ReactionGraph.nodes(data=True))
+      combined.ReactionGraph.add_edges_from(other.ReactionGraph.edges(data=True))
       map(lambda c : combined.add_complex(c, self.get_complex_concentration(c), 
         sanitycheck=True), self.complexes)
       map(lambda r : combined.add_reaction(r, sanitycheck=True), self.reactions)
     else :
-      combined.ReactionGraph = self.ReactionGraph
+      combined.ReactionGraph.add_nodes_from(self.ReactionGraph.nodes(data=True))
+      combined.ReactionGraph.add_edges_from(self.ReactionGraph.edges(data=True))
       map(lambda c : combined.add_complex(c, other.get_complex_concentration(c), 
         sanitycheck=True), other.complexes)
       map(lambda r : combined.add_reaction(r, sanitycheck=True), other.reactions)

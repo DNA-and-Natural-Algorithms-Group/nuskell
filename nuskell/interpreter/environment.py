@@ -715,7 +715,7 @@ class NuskellEnvironment(NuskellExpressions):
 
     return self.formal_species_dict
 
-  def translate_reactions(self, crn_parsed):
+  def translate_reactions(self, crn_parsed, modular = False):
     """Execute the main() function of the translation scheme.
     
     The input CRN is replaced with previously initialized formal species objects.
@@ -741,11 +741,42 @@ class NuskellEnvironment(NuskellExpressions):
         lambda x: Reaction(x[1], x[2], len(x[0]) == 2), crn_remap)
 
     # main(__crn__)
-    self._create_binding("__crn__", crn_object)
-    self._env, self.constant_species_solution = self.interpret_expr( 
-        ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+    modules = []
+    if modular :
+      for module in crn_object :
+        self._create_binding("__crn__", [module])
+        self._env, self.constant_species_solution = self.interpret_expr( 
+            ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+        modules.append(self.constant_species_solution)
 
-    return self.constant_species_solution
+      # NOTE: The modular reaction-by-reaction translation does not *sum* over
+      # the whole CRN, but sums over every reaction. That means, species which
+      # are shared between reactions will not be intersected (i.e. they coexist
+      # as separate molecules with separate identities)
+      unified_solution = sum(modules)
+      for csmod in modules :
+        # Use the naming-scheme from unified_solution.
+        replace = dict()
+        for cplx in csmod.complexes:
+          if not unified_solution.has_complex(cplx) :
+            [cplx2] = filter(lambda (x): 
+                (cplx.sequence == x.sequence and cplx.structure == x.structure), 
+                unified_solution.complexes)
+            replace[cplx] = cplx2
+
+        for v,rv in replace.items():
+          conc = csmod.get_complex_concentration(v)
+          csmod.rm_complex(v)
+          csmod.add_complex(rv, conc, sanitycheck=True)
+      modules.insert(0, unified_solution)
+
+    else :
+      self._create_binding("__crn__", crn_object)
+      self._env, self.constant_species_solution = self.interpret_expr( 
+          ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
+      modules = [self.constant_species_solution]
+
+    return modules
 
   # Private Functions #
   def _init_builtin_functions(self, sdlen, ldlen): 

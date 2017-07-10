@@ -32,6 +32,17 @@ class BisimulationTests(unittest.TestCase):
     crn = split_reversible_reactions(crn)
     return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
+  def _parse_modular_crn_file(self, filename, reversible=False):
+    if not os.path.isfile(filename):
+      raise Exception("File for unittest is missing: {}".format(filename))
+    crn, formal, _, _ = parse_crn_file(filename)
+    if reversible:
+      crn = [split_reversible_reactions([rxn]) for rxn in crn]
+    else:
+      crn = [[rxn] for rxn in split_reversible_reactions (crn)]
+    return ([[[Counter(part) for part in rxn] for rxn in module]
+             for module in crn], formal)
+
   def _parse_crn_string(self, string):
     crn, formal, _, _ = parse_crn_string(string)
     crn = split_reversible_reactions(crn)
@@ -43,6 +54,17 @@ class BisimulationTests(unittest.TestCase):
     (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
 
     v, i = bisimulation.test(fcrn, icrn, fs)
+    self.assertTrue(v)
+
+  def test_roessler_modular_equivalence(self):
+    (fcrns, fs) = self._parse_modular_crn_file('tests/crns/roessler_formal.crn', reversible=True)
+    icrns = [0 for rxn in fcrns]
+    for i in range(len(icrns)):
+      (icrns[i], _) = self._parse_crn_file('tests/crns/roessler_qian2011_module' + str(i+1) + '.crn')
+
+    partial = {sp: Counter({sp:1}) for sp in fs}
+    v, i = bisimulation.testModules(fcrns, icrns, fs, partial,
+                                    ispCommon=set(fs))
     self.assertTrue(v)
 
   @unittest.skipIf(_skip_slow, "skipping slow tests")

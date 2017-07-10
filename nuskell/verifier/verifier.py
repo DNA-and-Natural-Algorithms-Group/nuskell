@@ -144,3 +144,39 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
 
   return v, i
 
+def modular_bisimulation(formal_crn, impl_crn, formals, interpret = None, 
+    method = 'bisimulation', timeout=0, verbose = False):
+  """
+    Wrapper to choose from different notions of modular bisimulation equivalence.
+  """
+  v, i = None, None
+
+  fcrns = [[[Counter(part) for part in rxn] for rxn in mod] for mod in formal_crn]
+  ecrns = [[[Counter(part) for part in rxn] for rxn in mod] for mod in impl_crn]
+
+  signal.signal(signal.SIGALRM, handler)
+  signal.alarm(timeout)
+  try :
+    #TODO: replace second formals!!!
+    if method == 'bisimulation' or method == 'bisim-whole-graph' :
+      v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
+          interpretation = interpret, permissive='whole-graph', verbose=verbose)
+
+    elif method == 'bisim-loop-search':
+      v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
+          interpretation = interpret, permissive='loop-search', verbose=verbose)
+
+    elif method == 'bisim-depth-first':
+      v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
+          interpretation = interpret, permissive='depth-first', verbose=verbose)
+
+    else:
+      raise RuntimeError('Unsupported verification method.')
+  except TimeoutError:
+    v = None
+  finally:
+    signal.alarm(0)
+
+  return v, i
+
+

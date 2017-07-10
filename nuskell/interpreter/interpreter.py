@@ -28,7 +28,7 @@ def ts_code_snippet():
     function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
-def interpret(ts_parsed, crn_parsed, fs_list,
+def interpret(ts_parsed, crn_parsed, fs_list, modular=False,
     sdlen=6, ldlen=15, verbose=False):
   """ Interpretation of a translation scheme.
 
@@ -69,18 +69,26 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   fs_result = ts_env.translate_formal_species(fs_list)
 
   # translate the crn using the main() function 
-  cs_solution = ts_env.translate_reactions(crn_parsed)
+  cs_modules = ts_env.translate_reactions(crn_parsed, modular=modular)
+
+  if not modular :
+    assert len(cs_modules) == 1 
+  cs_solution = cs_modules[0]
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Translation to new Complex and TestTube objects ...
+  #  ... using a new naming scheme
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   solution = TestTube()
-
-  # reset the id_counter to switch to different naming scheme
   Complex.id_counter = 0
+  rename_dict = dict()
   for k,v in fs_result.items():
-    v.flatten_cplx
-    #print type(v), k, map(str, v.sequence), v.structure
+    v.flatten_cplx # NusComplex-specific function.
     new = Complex(name = k, 
         sequence = v.sequence, 
         structure = v.structure)
+    rename_dict[v.name] = new
     solution.add_complex(new, (None, None), sanitycheck=True)
 
   #for v in solution.complexes:
@@ -89,8 +97,40 @@ def interpret(ts_parsed, crn_parsed, fs_list,
   num = 0
   for cplx in sorted(cs_solution.complexes, key=lambda x : x.name):
     new = Complex(sequence = cplx.sequence, structure = cplx.structure, name = 'f'+str(num))
+    rename_dict[cplx.name] = new
     solution.add_complex(new, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
     num+=1
 
-  return solution, cs_solution
+  #print 'SOLUTION'
+  #for v in sorted(solution.complexes, key=lambda x: x.name):
+  #  print v, v.kernel
+
+  rxnmodules = []
+  for e, csm in enumerate(cs_modules[1:]) :
+    rxn = set(crn_parsed[e][0] + crn_parsed[e][1])
+    module = TestTube()
+
+    #TODO select formal species?
+    for k, v in fs_result.items():
+      new = rename_dict[v.name]
+      if module.has_complex(new) :
+        raise ValueError("Overwriting existing module species")
+      if not solution.has_complex(new) :
+        raise ValueError("Cannot find formal module species in solution.")
+      if k in rxn:
+        module.add_complex(new, (None, None))
+
+    for cplx in csm.complexes:
+      new = rename_dict[cplx.name]
+      if not solution.has_complex(new) :
+        raise ValueError("Cannot find constant module species in solution.")
+      module.add_complex(new, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
+    rxnmodules.append(module)
+
+  #for mod in rxnmodules:
+  #  print 'NEW module'
+  #  for v in sorted(mod.complexes, key=lambda x: x.name):
+  #    print v, v.kernel
+
+  return solution, rxnmodules
 
