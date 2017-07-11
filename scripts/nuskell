@@ -82,12 +82,8 @@ def get_nuskell_args(parser) :
   parser.add_argument("--ts", action = 'store', metavar='</path/to/file>',
       help="Specify path to the translation scheme")
 
-  parser.add_argument("--modular", action='store_true',
-      help="Verify using CRN modularity.")
-
   parser.add_argument("--readpil", action = 'store',
-      help=argparse.SUPPRESS)
-      #help="Read compiled CRN from pilfile. (As an alternative to --ts).")
+      help="Read compiled CRN from pilfile. (As an alternative to --ts).")
 
   parser.add_argument("--pilfile", action = 'store_true',
       help="Print results in the *.pil file format.")
@@ -97,9 +93,15 @@ def get_nuskell_args(parser) :
 
   # Choose a verification method.
   parser.add_argument("--verify", nargs='+', default='', action = 'store', 
-      metavar = '<str>', help="Specify verification methods: \
-          (bisimulation, pathway, integrated, bisim-loop-search,\
-          bisim-depth-first, bisim-whole-graph)") 
+      metavar = '<str>', help="""Specify verification methods: 
+      (bisimulation, pathway, integrated, modular-bisimulation, 
+      bisim-loop-search, bisim-depth-first, bisim-whole-graph,
+      modular-bisim-loop-search,
+      modular-bisim-depth-first, 
+      modular-bisim-whole-graph)""") 
+
+  parser.add_argument("--modular", action='store_true',
+      help=argparse.SUPPRESS)
 
   parser.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
       help="Specify time [seconds] to wait for verification to complete.")
@@ -147,6 +149,9 @@ def main() :
   args.UNZIP = not args.no_max_helix
   pilfile = args.output + '_tl.pil' if args.pilfile else None
   dnafile = args.output + '_tl.dna' if args.dnafile else None
+
+  if not args.modular:
+    args.modular = any(map(lambda x: 'modular' in x, args.verify))
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Parse and process input CRN 
@@ -229,9 +234,6 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Prepare enumerated CRN and TestTube
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  #TODO downstream modular modifications ...
-
   if args.verify or args.simulate or args.enumerate :
     print "\nEnumerating reaction pathways..."
     condensed = not args.enum_detailed
@@ -294,16 +296,15 @@ def main() :
 
     if args.modular :
       # TODO(SB): cross-check verification: 
-      # - enumeration has to detect crosstalk between modules and append it as
+      # - enumeration detects crosstalk between modules and append it as
       #   the last iCRN which has no corresponding fCRN.
-      # - enumeration has to consider all sorts of history species, even though we
-      #   don't know about history species at this point :-(
+      seen_intermed = set()
+      intermediates = filter(lambda x: x.name[0] == 'e', solution.complexes)
       module_crns = []
       for e, module in enumerate(modules) :
-        #print 'inter', interpret
-        # TODO quite inefficient loops
         # first, replace history complexes with their interpretation!
         for cplx in module.complexes:
+          # TODO quite inefficient loops
           for k, v in interpret.items():
             if (cplx.name in v) and k != cplx.name :
               [newc] = solution.selected_complexes([k])
@@ -314,16 +315,17 @@ def main() :
         # then, enumerate!
         module.enumerate_reactions(args, condensed = condensed, prefix='tmp')
 
-        # TODO also quite inefficient
         # after enumeration, rename all tmp species with e species names in solution.
         for cplx in module.complexes:
           if cplx.name[:3] == 'tmp':
             replaced = False
             debugging = 0
+            # TODO also quite inefficient
             while (not replaced):
-              for x in solution.complexes:
+              for x in intermediates:
                 if (cplx.sequence, cplx.structure) == (x.sequence, x.structure):
                   cplx.name = x.name
+                  seen_intermed.add(x)
                   replaced = True
                   break
               cplx.rotate_once
@@ -331,7 +333,7 @@ def main() :
                 raise RuntimeError("couldn't find enumerated species")
               debugging += 1
 
-        # TODO: what do we do with the crosstalk again?
+        # append the CRN 
         mcrn = []
         for r in module.reactions:
           if args.verbose :
@@ -340,6 +342,22 @@ def main() :
           mcrn.append(rxn)
         module_crns.append(mcrn)
 
+      # last, identify crosstalk as the last implementation CRN (without formal correspondence)
+      crosstalk = set()
+      for x in intermediates :
+        if x not in seen_intermed :
+          RG = solution.ReactionGraph
+          for react in RG.successors(x) + RG.predecessors(x):
+            crosstalk.add(react)
+
+      # append the CRN 
+      mcrn = []
+      for r in crosstalk :
+        if args.verbose :
+          print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+        rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
+        mcrn.append(rxn)
+      if mcrn: module_crns.append(mcrn)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
@@ -355,21 +373,29 @@ def main() :
       print "Verification CRN:"
       printCRN(vcrn, reversible = True, rates=False)
 
+    if args.modular :
+      icrns = map(lambda x: removeSpecies(x, map(str,fuels)), module_crns)
+      if args.verbose :
+        for e, m in enumerate(icrns):
+          print "CRN Module {}:".format(e+1)
+          if e < len(mcrn):
+            printCRN(mcrn[e], reversible = True, rates=False)
+          else :
+            print "CROSSTALK:"
+          print "--"
+          printCRN(m, reversible = True, rates=False)
+
     if interpret and args.verbose :
       print "Partial interpretation:"
       for impl, formal in sorted(interpret.items()) :
         print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
 
     for meth in args.verify :
-      if args.modular:
-        icrns = map(lambda x: removeSpecies(x, map(str,fuels)), module_crns)
-        if args.verbose:
-          for e, m in enumerate(icrns, 1):
-            print "Modular verification CRN-{}:".format(e)
-            printCRN(mcrn[e-1], reversible = True, rates=False)
-            print "--"
-            printCRN(m, reversible = True, rates=False)
-        v, i = modular_bisimulation(mcrn, icrns, fs, interpret=interpret, method=meth,
+      if 'modular-' in meth:
+        # NOTE: Temporary to fixe a bug in testModules
+        import copy
+        backup = copy.deepcopy(interpret) if interpret else None
+        v, i = modular_bisimulation(mcrn, icrns, fs, interpret=backup, method=meth[8:],
             verbose=(args.verbose>1), timeout=args.verify_timeout)
       else :
         v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,

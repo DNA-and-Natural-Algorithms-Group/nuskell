@@ -63,8 +63,27 @@ class BisimulationTests(unittest.TestCase):
       (icrns[i], _) = self._parse_crn_file('tests/crns/roessler_qian2011_module' + str(i+1) + '.crn')
 
     partial = {sp: Counter({sp:1}) for sp in fs}
+    backup = {sp: Counter({sp:1}) for sp in fs}
     v, i = bisimulation.testModules(fcrns, icrns, fs, partial,
                                     ispCommon=set(fs))
+    self.assertTrue(v)
+    #TODO: A function that does not say so, should not modify its arguments.
+    #self.assertDictEqual(partial, backup)
+
+  def test_roessler_qian_equivalence_with_modinterpretation(self):
+    (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
+    (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
+    (fcrns, _) = self._parse_modular_crn_file('tests/crns/roessler_formal.crn', reversible=True)
+    icrns = [0 for rxn in fcrns]
+    for i in range(len(icrns)):
+      (icrns[i], _) = self._parse_crn_file('tests/crns/roessler_qian2011_module' + str(i+1) + '.crn')
+
+    partial = {sp: Counter({sp:1}) for sp in fs}
+    v, i = bisimulation.testModules(fcrns, icrns, fs, partial,
+                                    ispCommon=set(fs))
+    self.assertTrue(v)
+
+    v, i = bisimulation.test(fcrn, icrn, fs, interpretation=i)
     self.assertTrue(v)
 
   @unittest.skipIf(_skip_slow, "skipping slow tests")
