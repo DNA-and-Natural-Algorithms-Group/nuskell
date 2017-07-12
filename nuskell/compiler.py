@@ -28,7 +28,7 @@ class InvalidSchemeError(Exception):
     if builtin:
       self.message += "You may want to use one of the built-in schemes instead:\n"
       self.message += "Schemes in {}:\n".format(builtin)
-      for s in os.listdir(builtin) :
+      for s in sorted(os.listdir(builtin)) :
         self.message += " * {}\n".format(s) 
  
     super(InvalidSchemeError, self).__init__(self.message) 
