@@ -9,15 +9,16 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from numpy import nan
 
-from nuskell import translate, verify, reset_names, NuskellExit
+from nuskell import translate, verify, reset_names, NuskellExit, __version__
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
-from nuskell.verifier import removeSpecies
+from nuskell.verifier import removeSpecies, modular_bisimulation
 
 def compare_schemes(reactions, schemedir, 
     crn_name = True,
     pc_args = None, 
     vnotions = ['pathway', 'bisimulation'],
+    modular = False,
     vtime = 30, 
     cmp_ecrn_size = True,
     cmp_total_nuc = True,
@@ -38,7 +39,7 @@ def compare_schemes(reactions, schemedir,
 
   plotdata = [] # Scheme, CRN, Cost, Speed
   for (crn,crn_name) in reactions : 
-    for scheme in os.listdir(schemedir) :
+    for scheme in sorted(os.listdir(schemedir)) :
       if scheme[-3:] != '.ts' : 
         print "\n# Ignoring file:", args.ts_dir + scheme
         continue
@@ -49,14 +50,17 @@ def compare_schemes(reactions, schemedir,
         current = [scheme, crn]
 
       fcrn, fs, _, _ = parse_crn_string(crn) 
+      fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) # formal chemical reaction module
       fcrn = split_reversible_reactions(fcrn)
 
       print "\n# -------"
-      print '# Scheme:', scheme, 'CRN:', crn.strip()
+      print '# Scheme:', scheme, 'CRN:', crn
       print "# -------"
       try :
         reset_names()
-        solution, _ = translate(crn, schemedir + scheme)
+        solution, modules = translate(crn, schemedir + scheme, 
+            modular = modular,
+            verbose = (verbose > 1)) 
       except NuskellExit, e:
         print '# ERROR:', e
         current.extend([None, None, None, None, None])
@@ -68,22 +72,22 @@ def compare_schemes(reactions, schemedir,
       # NOTE: Peppercorn can raise a variety of errors, but almost all of them
       # come down to problems with --reject-remote semantics... here are a few
       # examples:
-      notion = ['d'] if args.enum_detailed else ['c']
+      notion = ['d'] if pc_args.enum_detailed else ['c']
       try :
-        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
       except RuntimeError, e:
         pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
         notion.append('rr')
         pc_args.REJECT_REMOTE = False
       except TypeError, e:
         pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
         notion.append('rr')
         pc_args.REJECT_REMOTE = False
       except IndexError, e:
         pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
         notion.append('rr')
         pc_args.REJECT_REMOTE = False
       except Exception, e:
@@ -91,7 +95,7 @@ def compare_schemes(reactions, schemedir,
         # File "../peppercorn/utils.py", line 879, in check_structure
         # Exception: In complex 17029, incoherent structure at (0, 5) -> (1, 0)
         pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not args.enum_detailed)
+        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
         notion.append('rr')
         pc_args.REJECT_REMOTE = False
 
@@ -119,12 +123,86 @@ def compare_schemes(reactions, schemedir,
       print '# Number of distinct strands in the system:', len(solution.strands)
       print '# Length of all distinct strands in the system:', sum(
           sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+      
+      # NOTE: New code.. to do the module enumeration:
+      if modular:
+        seen_intermed = set()
+        intermediates = filter(lambda x: x.name[0] == 'e', solution.complexes)
+        module_crns = []
+        for e, module in enumerate(modules) :
+          # first, replace history complexes with their interpretation!
+          for cplx in module.complexes:
+            # TODO quite inefficient loops
+            for k, v in interpret.items():
+              if (cplx.name in v) and k != cplx.name :
+                [newc] = solution.selected_complexes([k])
+                module.add_complex(newc, solution.get_complex_concentration(newc))
+                if module.has_complex(cplx):
+                  module.rm_complex(cplx)
+
+          # then, enumerate!
+          if 'rr' in notion :
+            pc_args.REJECT_REMOTE = True
+            module.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed, prefix='tmp')
+            pc_args.REJECT_REMOTE = False
+          else:
+            module.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed, prefix='tmp')
+
+          # after enumeration, rename all tmp species with e species names in solution.
+          for cplx in module.complexes:
+            if cplx.name[:3] == 'tmp':
+              replaced = False
+              debugging = 0
+              # TODO also quite inefficient
+              while (not replaced):
+                for x in intermediates:
+                  if (cplx.sequence, cplx.structure) == (x.sequence, x.structure):
+                    cplx.name = x.name
+                    seen_intermed.add(x)
+                    replaced = True
+                    break
+                cplx.rotate_once
+                if debugging > len(cplx.lol_sequence):
+                  raise RuntimeError("couldn't find enumerated species")
+                debugging += 1
+
+          # append the CRN 
+          mcrn = []
+          for r in module.reactions:
+            rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
+            mcrn.append(rxn)
+          module_crns.append(mcrn)
+
+        # last, identify crosstalk as the last implementation CRN (without formal correspondence)
+        crosstalk = set()
+        for x in intermediates :
+          if x not in seen_intermed :
+            RG = solution.ReactionGraph
+            for react in RG.successors(x) + RG.predecessors(x):
+              crosstalk.add(react)
+
+        # append the CRN 
+        mcrn = []
+        for r in crosstalk :
+          rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
+          mcrn.append(rxn)
+        if mcrn: module_crns.append(mcrn)
+
+        icrns = map(lambda x: removeSpecies(x, map(str,fuels)), module_crns)
 
       # VERIFICATION
       vcrn = removeSpecies(icrn, fuels)
       for meth in vnotions :
-        v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-            timeout=vtime, verbose=(verbose>1))
+        if 'modular-' in meth:
+          # NOTE: Temporary to fixe a bug in testModules
+          import copy
+          backup = copy.deepcopy(interpret) if interpret else None
+          v, _ = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:],
+              verbose=(verbose>1), timeout=vtime)
+        else :
+          v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+              verbose=(verbose>1), timeout=vtime)
+
         if v is True:
           print "# {}: CRNs are {} equivalent.".format(v, meth)
           current.append(v)
@@ -201,6 +279,9 @@ def main(args):
     raise SystemExit('Please choose a file format (*.pdf, *png, *eps) for your plot: {}'.format(
       args.pyplot))
 
+  if not args.modular:
+    args.modular = any(map(lambda x: 'modular' in x, args.verify))
+
   # ***************** #
   # Process CSV input #
   # _________________ #
@@ -225,22 +306,24 @@ def main(args):
         reactions.append((react[:-2], crnfile))
     else :
       input_crn = sys.stdin.readlines()
-      input_crn = "".join(input_crn)
+      input_crn = "".join(input_crn).strip()
       reactions = [(input_crn, input_crn)]
       print "Compiling CRN:"
       for (rxn, n) in reactions: 
         print ' *', rxn
+      print
 
     # **************** #
     # Process TS input #
     # ________________ #
+
     if args.ts_dir :
       print "Comparing schemes in:", args.ts_dir
     else :
       print "Comparing default schemes:" 
       args.ts_dir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
 
-    for ts in filter(lambda x: x[-3:] == '.ts', os.listdir(args.ts_dir)):
+    for ts in filter(lambda x: x[-3:] == '.ts', sorted(os.listdir(args.ts_dir))):
       print ' *', ts
 
     # ***************** #
@@ -258,7 +341,8 @@ def main(args):
         pc_args = args,
         cmp_ecrn_size = True,
         cmp_total_nuc = True,
-        vnotions = ['pathway', 'bisimulation'],
+        vnotions = args.verify,
+        modular = args.modular,
         vtime = args.verify_timeout,
         verbose=args.verbose)
 
@@ -266,12 +350,8 @@ def main(args):
     idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
     df = pd.DataFrame(plotdata, index=idx, 
         columns=[
-          'Translation scheme', 'CRN', 
-          'enumerated',
-          'pathway', 
-          'bisimu', 
-          'number of nucleotides', 
-          'reactions in condensed network'])
+          'Translation scheme', 'CRN', 'enumerated'] + args.verify + [
+          'number of nucleotides', 'reactions in condensed network'])
 
   #print 'Rawdata:'
   #print df.to_string(index=False, justify='left')
@@ -288,24 +368,20 @@ def main(args):
     print 'Normalized to {}:'.format(args.reference)
     df = pd.DataFrame(plotdata, 
         columns=[
-          'Translation scheme', 'CRN', 
-          'enumerated',
-          'pathway', 
-          'bisimu', 
-          'number of nucleotides', 
-          'reactions in condensed network'])
+          'Translation scheme', 'CRN', 'enumerated'] + args.verify + [
+          'number of nucleotides', 'reactions in condensed network'])
     print df.to_string(index=False, justify='right')
 
-  def equiv((x,y)):
-    if True in (x,y) :
+  def equiv(x):
+    if True in x :
       return True
-    elif (nan in (x,y)) or (None in (x,y)) :
+    elif (nan in x) or (None in x) :
       return 'timeout'
     else :
       return False
 
   # Add column that combines pathway and bisimulation notion 
-  e = map(equiv, zip(df['pathway'], df['bisimu']))
+  e = map(equiv, zip(*map(lambda x: df[x], args.verify)))
   df['equivalent'] = e
   print df.to_string(index=False, justify='left')
 
@@ -314,95 +390,116 @@ def main(args):
 
 def get_nuskellCMP_args(parser) :
   """ A collection of arguments for Nuskell """
+  parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+  parser.add_argument("-v", "--verbose", action='count', default=0,
+      help="print verbose output. -vv increases verbosity level.")
 
-  parser.add_argument("--ts-dir", action = 'store',
-      help="Specify path to the translation scheme directory. " + \
-        "Only files that have a *.ts ending will be compared.")
+  input = parser.add_argument_group('NuskellCMP Input Arguments')
 
-  parser.add_argument("--crn-dir", action = 'store',
-      help="Specify path to a CRN directory. " + \
-        "Only files that have a *.crn ending will be compared.")
+  input.add_argument("--ts-dir", action = 'store', metavar='<path/to/dir>', 
+      help="""Specify path to the translation scheme directory. Only files that
+      have a *.ts ending will be compared.""")
 
-  parser.add_argument("--reference", action = 'store',
+  input.add_argument("--crn-dir", action = 'store', metavar='<path/to/dir>', 
+      help="""Specify path to a CRN directory. Only files that have a *.crn
+      ending will be compared.""")
+
+  input.add_argument("--reference", action = 'store', metavar='<path/to/file>', 
       help="Specify a translation scheme that serves as a reference.")
 
-  parser.add_argument("--from-csv", action = 'store',
-      help="Plotting only -- read results from csv file.")
+  input.add_argument("--from-csv", action = 'store', metavar='<path/to/file>', 
+      help="Read results from a *.CSV file. All other inputs are ignored.")
 
-  parser.add_argument("--to-csv", action='store', default='',
-      help="Specify name of of a csv file.")
+  default = parser.add_argument_group('NuskellCMP Output Arguments')
 
-  # NOTE: changing the equivalence notions would break normalization and plotting.
-  #parser.add_argument("--verify", nargs='+', default='', action = 'store', 
-  #    metavar = '<str>', help="Specify verification methods: \
-  #        (bisimulation, pathway, integrated, bisim-loop-search,\
-  #        bisim-depth-first, bisim-whole-graph)") 
-
-  parser.add_argument("--verify-timeout", type=int, default=30,
-      help="Specify time [seconds] to wait for verification to complete.")
-
-  parser.add_argument("--pyplot", default='', action = 'store',
+  default.add_argument("--pyplot", default='', action = 'store', metavar='<path/to/file>', 
       help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
 
-  parser.add_argument("-v", "--verbose", action='count', default=0,
-      help="Print more output (-vv for extra debugging information)")
+  default.add_argument("--to-csv", action='store', default='', metavar='<path/to/file>', 
+      help="Print results to a *.CSV file.")
 
-  return
+  # NOTE: changing the equivalence notions would break normalization and plotting.
+  default.add_argument("--verify", nargs='+', default=['bisimulation', 'pathway'], 
+      action = 'store', 
+      choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
+      'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
+      'modular-bisim-loop-search',
+      'modular-bisim-depth-first', 
+      'modular-bisim-whole-graph'), 
+      metavar='<str>', 
+      help="""Specify verification methods. Choose one or more
+      from: bisimulation, pathway, integrated, modular-bisimulation,
+      bisim-loop-search, bisim-depth-first, bisim-whole-graph,
+      modular-bisim-loop-search,
+      modular-bisim-depth-first, 
+      modular-bisim-whole-graph.""") 
+
+  default.add_argument("--modular", action='store_true',
+      help="""After enumeration of the full system, enumerate individual CRN
+      modules separately, to identify crosstalk between reactions. This is
+      turned on automatically when using modular-bisimulation verification.""")
+
+  default.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
+      help="Specify time in seconds to wait for verification to complete.")
+
+  return parser
 
 def get_peppercorn_args(parser):
   """Selected arguments for the peppercorn interface. """
-  parser.add_argument('--max-complex-size', default=100, type=int, dest='MAX_COMPLEX_SIZE', 
-      metavar='<int>',
-      help="Peppercorn: Maximum number of strands allowed in a complex" + \
-          "(used to prevent polymerization)")
-  parser.add_argument('--max-complex-count', default=10000, type=int, dest='MAX_COMPLEX_COUNT',
-      metavar='<int>',
-      help="Peppercorn: Maximum number of complexes that may be enumerated" + \
-          "before the enumerator halts.")
-  parser.add_argument('--max-reaction-count', default=10000, type=int, dest='MAX_REACTION_COUNT',
-      metavar='<int>',
-      help="Peppercorn: Maximum number of reactions that may be enumerated " + \
-          "before the enumerator halts.")
+  peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
+  peppercorn.add_argument('--max-complex-size', default=100, type=int,
+      dest='MAX_COMPLEX_SIZE', metavar='<int>', 
+      help="""Maximum number of strands allowed in a complex (used to prevent
+      polymerization)""")
+  peppercorn.add_argument('--max-complex-count', default=1000, type=int,
+      dest='MAX_COMPLEX_COUNT', metavar='<int>',
+      help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
+  peppercorn.add_argument('--max-reaction-count', default=10000, type=int,
+      dest='MAX_REACTION_COUNT', metavar='<int>',
+      help="""Maximum number of reactions that may be enumerated before the
+      enumerator halts.""")
 
-  parser.add_argument('--reject-remote', action='store_true', dest='REJECT_REMOTE',
-      help="Peppercorn: Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
-  parser.add_argument('--ignore-branch-3way', action='store_true',
-      help="Peppercorn: Ignore 3-way branch migration events during enumeration.")
-  parser.add_argument('--ignore-branch-4way', action='store_true',
-      help="Peppercorn: Ignore 4-way branch migration events during enumeration.")
+  peppercorn.add_argument('--reject-remote', action='store_true', dest='REJECT_REMOTE',
+      help="Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
+  peppercorn.add_argument('--ignore-branch-3way', action='store_true',
+      help="Ignore 3-way branch migration events during enumeration.")
+  peppercorn.add_argument('--ignore-branch-4way', action='store_true',
+      help="Ignore 4-way branch migration events during enumeration.")
 
   # TODO: explain these options in more detail!
-  parser.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
+  peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
+      metavar='<int>', 
+      help="""Maximum number of bases that will be released spontaneously in a
+      1-1 `open` reaction""")
+  peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, dest='RELEASE_CUTOFF_1_N',
       metavar='<int>',
-      help="Peppercorn: Maximum number of bases that will be released spontaneously "+\
-          "in a 1-1 `open` reaction" )
-  parser.add_argument('--release-cutoff-1-n', type=int, default=6, dest='RELEASE_CUTOFF_1_N',
+      help="""Maximum number of bases that will be released spontaneously in a
+      1-n `open` reaction.""")
+  peppercorn.add_argument('--release-cutoff', type=int, default=None, dest='RELEASE_CUTOFF',
       metavar='<int>',
-      help="Peppercorn: Maximum number of bases that will be released spontaneously " + \
-          "in a 1-n `open` reaction.")
-  parser.add_argument('--release-cutoff', type=int, default=None, dest='RELEASE_CUTOFF',
-      metavar='<int>',
-      help="Peppercorn: Maximum number of bases that will be released spontaneously " +\
-          "in an `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting " + \
-          "--release-cutoff-1-1 and --release-cutoff-1-n to the same value)")
+      help="""Maximum number of bases that will be released spontaneously in an
+      `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting
+      --release-cutoff-1-1 and --release-cutoff-1-n to the same value)""")
 
-  parser.add_argument('--no-max-helix', action='store_true',
-      help="Peppercorn: Don't apply 'max helix at a time' semantics to " +\
-          "3-way branch migration reactions.")
-  parser.add_argument('--legacy-unzip', action='store_true', dest='LEGACY_UNZIP',
-      help="Peppercorn: Apply legacy 'UNZIP=True' behavior. Note: --legacy-unzip" + \
-      "mode will have no effect, if max helix semantics are disabled (--no-max-helix)")
+  peppercorn.add_argument('--no-max-helix', action='store_true',
+      help="""Do not apply 'max helix at a time' semantics to 3-way branch
+      migration reactions.""")
 
-  parser.add_argument('--enum-detailed', action='store_true',
-      help="Peppercorn: Return detailed reaction network, rather than condensed reactions.")
+  peppercorn.add_argument('--legacy-unzip', action='store_true', dest='LEGACY_UNZIP',
+      help="""Apply legacy 'UNZIP=True' behavior. Note: --legacy-unzip will
+      have no effect, if max helix semantics are disabled (--no-max-helix)""")
 
-  parser.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
+  # NOTE: Output formatting: this option is not directly passed on to peppercorn
+  peppercorn.add_argument('--enum-detailed', action='store_true',
+      help="Do not condense reactions into only resting complexes")
+
+  peppercorn.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
       help="Unimolecular reactions slower than this rate will be discarded")
 
-  parser.add_argument('--k-fast', default=0.0, type=float, metavar='<flt>',
+  peppercorn.add_argument('--k-fast', default=0.0, type=float, metavar='<flt>',
       help="Unimolecular reactions slower than this rate will be marked as slow")
 
-  return
+  return parser
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
