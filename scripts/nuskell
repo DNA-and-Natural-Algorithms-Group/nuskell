@@ -36,7 +36,7 @@ def get_peppercorn_args(parser):
   peppercorn.add_argument('--ignore-branch-4way', action='store_true',
       help="Ignore 4-way branch migration events during enumeration.")
 
-  # TODO: explain these options in more deatail!
+  # TODO: explain these options in more detail!
   peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
       metavar='<int>', 
       help="""Maximum number of bases that will be released spontaneously in a
@@ -79,10 +79,10 @@ def get_peppercorn_args(parser):
 def get_nuskell_args(parser) :
   """ A collection of arguments for Nuskell """
   #input = parser.add_mutually_exclusive_group(required=True)
-  input = parser.add_argument_group('Nuskell Input (required)')
-  default = parser.add_argument_group('Nuskell Output')
-  verify = parser.add_argument_group('Nuskell Verification')
-  simulate = parser.add_argument_group('Nuskell Simulation')
+  input = parser.add_argument_group('Nuskell Input Arguments (required)')
+  default = parser.add_argument_group('Nuskell Output Arguments')
+  verify = parser.add_argument_group('Nuskell Verification Arguments')
+  simulate = parser.add_argument_group('Nuskell Simulation Arguments')
 
   parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
   parser.add_argument("-v", "--verbose", action='count', default=0,
@@ -211,7 +211,7 @@ def main() :
     print "Please specify a translation scheme, see option --ts. For example:"
     schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
     print 'Schemes in:', schemedir
-    for s in os.listdir(schemedir) :
+    for s in sorted(os.listdir(schemedir)) :
       print " --ts {}".format(s) 
     raise SystemExit
 
@@ -385,7 +385,7 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
   # Verify equivalence of CRNs
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~
-  mcrn = map(lambda x: split_reversible_reactions([x]), fcrn)
+  fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) # formal chemical reaction module
   fcrn = split_reversible_reactions(fcrn)
   if args.verify :
     print "\nVerification using:", args.verify
@@ -401,8 +401,8 @@ def main() :
       if args.verbose :
         for e, m in enumerate(icrns):
           print "CRN Module {}:".format(e+1)
-          if e < len(mcrn):
-            printCRN(mcrn[e], reversible = True, rates=False)
+          if e < len(fcrm):
+            printCRN(fcrm[e], reversible = True, rates=False)
           else :
             print "CROSSTALK:"
           print "--"
@@ -418,14 +418,18 @@ def main() :
         # NOTE: Temporary to fixe a bug in testModules
         import copy
         backup = copy.deepcopy(interpret) if interpret else None
-        v, i = modular_bisimulation(mcrn, icrns, fs, interpret=backup, method=meth[8:],
+        v, i = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:],
             verbose=(args.verbose>1), timeout=args.verify_timeout)
+        # NOTE: you can pass on the interpretation like this:
+        #if not v : interpret = i[2]
       else :
         v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
             verbose=(args.verbose>1), timeout=args.verify_timeout)
+        # NOTE: you can pass on the interpretation like this:
+        #if v and i : interpret = i
 
       if i and args.verbose :
-        if not v : i = i[2 if args.modular else 0]
+        if not v : i = i[2 if 'modular-' in meth else 0]
         print "Returned interpretation ['{}']:".format(meth)
         for impl, formal in sorted(i.items()) :
           print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
