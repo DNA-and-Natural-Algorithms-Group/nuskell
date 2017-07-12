@@ -1165,7 +1165,10 @@ def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
         ispCommon = ispCommon.union(interpretation.keys()) # FIXME: this line is a hack
 
     if not all([k in interpretation for k in ispCommon]):
-        raise NotImplementedError('Modular test not yet implemented when interpretation of common species not provided.')
+        #raise NotImplementedError('Modular test not yet implemented when interpretation of common species not provided.')
+        for k in ispCommon:
+            if k not in interpretation:
+                interpretation[k]=Counter()
 
     outs = [False for fcrn in fcrns]
     i = 0
