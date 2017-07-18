@@ -46,7 +46,7 @@ is used for (inline) comments:
 Conditional statements can be written using ``if``, ``then``, ``else``,
 ``elseif`` keywords.  The operators ``and``, ``or``, ``*``, ``/``, ``+``,
 ``-``, ``==``, ``!=``, ``<``, ``>``, ``>=``, ``<=`` are supported and logically
-equivalent to their inplementation in `Python`:
+equivalent to their implementation in `Python`:
 
 .. code-block:: none
 
@@ -268,11 +268,10 @@ to design fuel complexes specific for a reaction of formal species.
       else 
         bimol_fuels(r.reactants, r.products);
   
+  # Coded by Stefan Badelt (badelt@caltech.edu)
   # Write the module *main* that applies *rxn* to the crn.
   module main(crn) = sum(map(rxn, crn)) 
     where crn = irrev_reactions(crn);
-
-
 
 -----------------------------------
 Tutorial script 2 - Generalization
@@ -286,19 +285,10 @@ Tutorial script 3 - Optimization
 Built-In Functions
 ----------------------
 
-.. **tail(x)**
-.. 
 .. builtin base_level functions:
 .. tail, complement, infty, unique, flip, rev_reactions, irrev_reactions
-.. 
-.. builtin sematics:
-.. if, or, and, dna, where, list, uminus
-.. 
 .. trailer:
 .. apply, index, attribute
-.. 
-.. builtin header functions:
-.. sum, tail, range, reverse, rxn_degree, unirxn, birxn, map, map2
 
 Built-in functions written in the `Nuskell` programming language:
 

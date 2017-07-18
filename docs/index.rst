@@ -21,7 +21,7 @@ basis using the rate-independent stochastic-level theories of **pathway
 decomposition equivalence** and/or **CRN bisimulation**.
 
 Nuskell is a first step to integrate biophysical modelling of nucleic acids
-with rigorous abstraction hirachies of modern compilers to design and
+with rigorous abstraction hierarchies of modern compilers to design and
 characterize DSD systems.  Our independently developed DSD reaction enumeration
 library `peppercornenumerator`_ is used for translation-independent reaction
 enumeration with well-defined semantics and based on empirical
@@ -58,7 +58,7 @@ specification in the ``*.pil`` file format.
   nuskell --ts qian2011_3D.ts --verify bisimulation --pilfile < formal_crn.in 
 
 
-The Nuskell library is ment to help researchers building custom **DSD**
+The Nuskell library is meant to help researchers building custom **DSD**
 compilers.  Nuskell provides (i) a number of different **CRN-to-DSD**
 translation schemes, (ii) functions that test different **CRN** equivalence
 notions, as well as (iii) **DSD** reaction enumeration and **CRN-to-ODE**
@@ -147,7 +147,7 @@ simulate and verify handcrafted or alternatively designed DSD systems.
   nuskell --readpil zhang2007_catalyst.pil --verify bisimulation < formal_crn.in 
 
 The option ``--readpil <file>`` tells Nuskell to load domain-level
-specifications from a textfile, as opposed to automated design via translation
+specifications from a text file, as opposed to automated design via translation
 schemes. The input format is a `variation` of the pepper internal language
 (**PIL**) kernel notation which allows the specification of ``constant`` or
 ``initial`` concentrations in ``M``, ``mM``, ``uM``, ``nM``, ``pM``.
