@@ -454,7 +454,7 @@ class Complex(object):
   names = set()
   id_counter = 0
 
-  def __init__(self, sequence=[], structure=[], name='', prefix='cplx', interpret=None):
+  def __init__(self, sequence=[], structure=[], name='', prefix='cplx'):
     # Assign name
     if name :
       if name in Complex.names :

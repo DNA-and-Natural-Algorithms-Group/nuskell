@@ -96,6 +96,12 @@ def main(args) :
   for i in cplx.rotate :
     print i.name, '=', i.kernel
 
+  if False:
+    from nuskell.objects import TestTube, TestTubeIO
+    tt = TestTube()
+    tt.add_complex(cplx, (None, None))
+    TestTubeIO(tt).write_dnafile(sys.stdout)
+
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()

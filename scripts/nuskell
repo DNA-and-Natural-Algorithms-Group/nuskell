@@ -17,19 +17,16 @@ from nuskell.verifier import removeSpecies, modular_bisimulation
 def get_peppercorn_args(parser):
   """Selected arguments for the peppercorn interface. """
   peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
-  peppercorn.add_argument('--max-complex-size', default=100, type=int,
-      dest='MAX_COMPLEX_SIZE', metavar='<int>', 
+  peppercorn.add_argument('--max-complex-size', default=50, type=int, metavar='<int>', 
       help="""Maximum number of strands allowed in a complex (used to prevent
       polymerization)""")
-  peppercorn.add_argument('--max-complex-count', default=1000, type=int,
-      dest='MAX_COMPLEX_COUNT', metavar='<int>',
+  peppercorn.add_argument('--max-complex-count', default=1000, type=int, metavar='<int>',
       help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
-  peppercorn.add_argument('--max-reaction-count', default=10000, type=int,
-      dest='MAX_REACTION_COUNT', metavar='<int>',
+  peppercorn.add_argument('--max-reaction-count', default=10000, type=int, metavar='<int>',
       help="""Maximum number of reactions that may be enumerated before the
       enumerator halts.""")
 
-  peppercorn.add_argument('--reject-remote', action='store_true', dest='REJECT_REMOTE',
+  peppercorn.add_argument('--reject-remote', action='store_true', 
       help="Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
   peppercorn.add_argument('--ignore-branch-3way', action='store_true',
       help="Ignore 3-way branch migration events during enumeration.")
@@ -37,15 +34,15 @@ def get_peppercorn_args(parser):
       help="Ignore 4-way branch migration events during enumeration.")
 
   # TODO: explain these options in more detail!
-  peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
+  peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6,
       metavar='<int>', 
       help="""Maximum number of bases that will be released spontaneously in a
       1-1 `open` reaction""")
-  peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, dest='RELEASE_CUTOFF_1_N',
+  peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6,
       metavar='<int>',
       help="""Maximum number of bases that will be released spontaneously in a
       1-n `open` reaction.""")
-  peppercorn.add_argument('--release-cutoff', type=int, default=None, dest='RELEASE_CUTOFF',
+  peppercorn.add_argument('--release-cutoff', type=int, default=None,
       metavar='<int>',
       help="""Maximum number of bases that will be released spontaneously in an
       `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting
@@ -54,10 +51,6 @@ def get_peppercorn_args(parser):
   peppercorn.add_argument('--no-max-helix', action='store_true',
       help="""Do not apply 'max helix at a time' semantics to 3-way branch
       migration reactions.""")
-
-  peppercorn.add_argument('--legacy-unzip', action='store_true', dest='LEGACY_UNZIP',
-      help="""Apply legacy 'UNZIP=True' behavior. Note: --legacy-unzip will
-      have no effect, if max helix semantics are disabled (--no-max-helix)""")
 
   # NOTE: Output formatting: this option is not directly passed on to peppercorn
   peppercorn.add_argument('--enum-detailed', action='store_true',
@@ -169,7 +162,6 @@ def main() :
   # ~~~~~~~~~~~~~~~~~~~
   # Argument processing
   # ~~~~~~~~~~~~~~~~~~~
-  args.UNZIP = not args.no_max_helix
   pilfile = args.output + '_tl.pil' if args.pilfile else None
   dnafile = args.output + '_tl.dna' if args.dnafile else None
 
@@ -261,6 +253,8 @@ def main() :
     print "\nEnumerating reaction pathways..."
     condensed = not args.enum_detailed
     solution.enumerate_reactions(args, condensed = condensed, prefix='e', rename=100)
+    if not solution.reactions:
+      raise SystemExit('No DSD reactions have been enumerated.')
 
     if args.verbose > 1 : # print the enumerated CRN
       for r in solution.reactions:
@@ -316,6 +310,9 @@ def main() :
         with open(pilfile, 'w') as pil:
           TestTubeIO(solution).write_pil_kernel(pil, unit=args.concentration_unit,
               crn=fcrn, ts = args.ts if args.ts else None)
+
+        print "Wrote file: {}".format(pilfile)
+
 
     if args.modular :
       # TODO(SB): cross-check verification: 

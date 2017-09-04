@@ -13,6 +13,7 @@ from nuskell import translate, verify, reset_names, NuskellExit, __version__
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies, modular_bisimulation
+from peppercornenumerator import PolymerizationError
 
 def compare_schemes(reactions, schemedir, 
     crn_name = True,
@@ -52,10 +53,13 @@ def compare_schemes(reactions, schemedir,
       fcrn, fs, _, _ = parse_crn_string(crn) 
       fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) # formal chemical reaction module
       fcrn = split_reversible_reactions(fcrn)
-
-      print "\n# -------"
+      
+      if verbose :
+        print "\n# -------"
       print '# Scheme:', scheme, 'CRN:', crn
-      print "# -------"
+      if verbose :
+        print "# -------"
+
       try :
         reset_names()
         solution, modules = translate(crn, schemedir + scheme, 
@@ -69,60 +73,50 @@ def compare_schemes(reactions, schemedir,
 
       fuels = map(str, solution.present_complexes(exclude=fs))
 
-      # NOTE: Peppercorn can raise a variety of errors, but almost all of them
-      # come down to problems with --reject-remote semantics... here are a few
-      # examples:
-      notion = ['d'] if pc_args.enum_detailed else ['c']
+      semantics = ['d'] if pc_args.enum_detailed else ['c']
       try :
+        reset_names()
         solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
-      except RuntimeError, e:
-        pc_args.REJECT_REMOTE = True
+      except PolymerizationError, e:
+        # NOTE: Many PolymerizationErrors are easiest to fix with
+        # --reject-remote enumeration semantics.
+        print e
+        pc_args.reject_remote = True
         solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
-        notion.append('rr')
-        pc_args.REJECT_REMOTE = False
-      except TypeError, e:
-        pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
-        notion.append('rr')
-        pc_args.REJECT_REMOTE = False
-      except IndexError, e:
-        pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
-        notion.append('rr')
-        pc_args.REJECT_REMOTE = False
-      except Exception, e:
-        # Scheme: lakin2016_3D.ts CRN: A + A -> B + A
-        # File "../peppercorn/utils.py", line 879, in check_structure
-        # Exception: In complex 17029, incoherent structure at (0, 5) -> (1, 0)
-        pc_args.REJECT_REMOTE = True
-        solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
-        notion.append('rr')
-        pc_args.REJECT_REMOTE = False
+        semantics.append('rr')
+        pc_args.reject_remote = False
 
-      current.append(notion)
+      if not solution.reactions:
+        print Warning('No DSD reactions have been enumerated.')
+        current.extend([None, None, None, None, None])
+        plotdata.append(current)
+        continue
+
+      current.append(semantics)
 
       interpret = solution.interpret_species(fs, prune=True)
 
       icrn = []
       # Implementation CRN is an enumerated CRN after regex-complexes have been removed.
       for r in solution.reactions:
-        if args.verbose:
+        if args.verbose > 1:
           print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
         rxn = [map(str,r.reactants),map(str,r.products), [r.rate]]
         icrn.append(rxn)
 
       # IMPLEMENTATION DETAILS
-      print "# Enumerated system: {} species, {} reactions".format(
-          len(solution.complexes), len(icrn))
-      print "#  - {} signal species".format(
-          len([c for c in solution.complexes if c.name in interpret.keys()]))
-      print "#  - {} fuel species".format(
-          len([c for c in solution.complexes if c.name in map(str, fuels)]))
-      print "#  - {} intermediate species".format(
-          len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
-      print '# Number of distinct strands in the system:', len(solution.strands)
-      print '# Length of all distinct strands in the system:', sum(
-          sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+      if verbose :
+        print "# Enumerated system: {} species, {} reactions".format(
+            len(solution.complexes), len(icrn))
+        print "#  - {} signal species".format(
+            len([c for c in solution.complexes if c.name in interpret.keys()]))
+        print "#  - {} fuel species".format(
+            len([c for c in solution.complexes if c.name in map(str, fuels)]))
+        print "#  - {} intermediate species".format(
+            len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str,fuels))]))
+        print '# Number of distinct strands in the system:', len(solution.strands)
+        print '# Length of all distinct strands in the system:', sum(
+            sum(map(lambda d: d.length, s)) for s in solution.strands.values())
       
       # NOTE: New code.. to do the module enumeration:
       if modular:
@@ -141,10 +135,10 @@ def compare_schemes(reactions, schemedir,
                   module.rm_complex(cplx)
 
           # then, enumerate!
-          if 'rr' in notion :
-            pc_args.REJECT_REMOTE = True
+          if 'rr' in semantics :
+            pc_args.reject_remote = True
             module.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed, prefix='tmp')
-            pc_args.REJECT_REMOTE = False
+            pc_args.reject_remote = False
           else:
             module.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed, prefix='tmp')
 
@@ -204,13 +198,16 @@ def compare_schemes(reactions, schemedir,
               verbose=(verbose>1), timeout=vtime)
 
         if v is True:
-          print "# {}: CRNs are {} equivalent.".format(v, meth)
+          if verbose :
+            print "# {}: CRNs are {} equivalent.".format(v, meth)
           current.append(v)
         elif v is False:
-          print "# {}: CRNs are not {} equivalent.".format(v, meth)
+          if verbose :
+            print "# {}: CRNs are not {} equivalent.".format(v, meth)
           current.append(v)
         elif v is None:
-          print "# {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
+          if verbose :
+            print "# {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
           current.append(v)
           #current.append('- [{} s]'.format(vtime))
 
@@ -253,7 +250,9 @@ def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
 
   marks = marks[:len(ts_order)]
 
-  g = sns.lmplot(data=df, x="reactions in condensed network", y="number of nucleotides", 
+  seman = 'detailed' if args.enum_detailed else 'condensed'
+
+  g = sns.lmplot(data=df, x="reactions in "+seman+" network", y="number of nucleotides", 
       hue="Translation scheme", hue_order = ts_order,
       #col="equivalent", col_wrap=2, col_order=[True, False, 'timeout'],
       #col="CRN", col_wrap=2, col_order=crn_order,
@@ -270,6 +269,7 @@ def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
 
 def main(args):
   """Compare multiple tranlation schemes for a given CRN. """
+  TestTubePeppercornIO.interruptable = True
 
   # *************** #
   # Check arguments #
@@ -380,7 +380,7 @@ def main(args):
     else :
       return False
 
-  # Add column that combines pathway and bisimulation notion 
+  # Add column that combines equivalence notions.
   e = map(equiv, zip(*map(lambda x: df[x], args.verify)))
   df['equivalent'] = e
   print df.to_string(index=False, justify='left')
@@ -447,19 +447,16 @@ def get_nuskellCMP_args(parser) :
 def get_peppercorn_args(parser):
   """Selected arguments for the peppercorn interface. """
   peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
-  peppercorn.add_argument('--max-complex-size', default=100, type=int,
-      dest='MAX_COMPLEX_SIZE', metavar='<int>', 
+  peppercorn.add_argument('--max-complex-size', default=50, type=int, metavar='<int>', 
       help="""Maximum number of strands allowed in a complex (used to prevent
       polymerization)""")
-  peppercorn.add_argument('--max-complex-count', default=1000, type=int,
-      dest='MAX_COMPLEX_COUNT', metavar='<int>',
+  peppercorn.add_argument('--max-complex-count', default=1000, type=int, metavar='<int>',
       help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
-  peppercorn.add_argument('--max-reaction-count', default=10000, type=int,
-      dest='MAX_REACTION_COUNT', metavar='<int>',
+  peppercorn.add_argument('--max-reaction-count', default=10000, type=int, metavar='<int>',
       help="""Maximum number of reactions that may be enumerated before the
       enumerator halts.""")
 
-  peppercorn.add_argument('--reject-remote', action='store_true', dest='REJECT_REMOTE',
+  peppercorn.add_argument('--reject-remote', action='store_true',
       help="Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
   peppercorn.add_argument('--ignore-branch-3way', action='store_true',
       help="Ignore 3-way branch migration events during enumeration.")
@@ -467,16 +464,13 @@ def get_peppercorn_args(parser):
       help="Ignore 4-way branch migration events during enumeration.")
 
   # TODO: explain these options in more detail!
-  peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, dest='RELEASE_CUTOFF_1_1',
-      metavar='<int>', 
+  peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, metavar='<int>', 
       help="""Maximum number of bases that will be released spontaneously in a
       1-1 `open` reaction""")
-  peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, dest='RELEASE_CUTOFF_1_N',
-      metavar='<int>',
+  peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, metavar='<int>',
       help="""Maximum number of bases that will be released spontaneously in a
       1-n `open` reaction.""")
-  peppercorn.add_argument('--release-cutoff', type=int, default=None, dest='RELEASE_CUTOFF',
-      metavar='<int>',
+  peppercorn.add_argument('--release-cutoff', type=int, default=None, metavar='<int>',
       help="""Maximum number of bases that will be released spontaneously in an
       `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting
       --release-cutoff-1-1 and --release-cutoff-1-n to the same value)""")
@@ -484,10 +478,6 @@ def get_peppercorn_args(parser):
   peppercorn.add_argument('--no-max-helix', action='store_true',
       help="""Do not apply 'max helix at a time' semantics to 3-way branch
       migration reactions.""")
-
-  peppercorn.add_argument('--legacy-unzip', action='store_true', dest='LEGACY_UNZIP',
-      help="""Apply legacy 'UNZIP=True' behavior. Note: --legacy-unzip will
-      have no effect, if max helix semantics are disabled (--no-max-helix)""")
 
   # NOTE: Output formatting: this option is not directly passed on to peppercorn
   peppercorn.add_argument('--enum-detailed', action='store_true',

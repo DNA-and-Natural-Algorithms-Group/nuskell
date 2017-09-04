@@ -29,6 +29,10 @@ Detailed information about translation schemes can be found in the ``/schemes`` 
   $ python setup.py install
 ```
 
+## Documentation
+A preview of the documentation for the first official release v1.0 can be found
+at: [documentation].
+
 ## Version
 0.2.0
 
@@ -46,4 +50,5 @@ MIT
 [Grun et al. (2014)]: <https://arxiv.org/abs/1505.03738>
 [Shin et al. (2014)]: <http://dna.caltech.edu/DNAresearch_publications.html#PathwayDecomposition>
 [Johnson et al. (2016)]: <http://dna.caltech.edu/DNAresearch_publications.html#CRN-Bisimulation>
+[documentation]: <http://dna.caltech.edu/~badelt/nuskell/index.html>
 

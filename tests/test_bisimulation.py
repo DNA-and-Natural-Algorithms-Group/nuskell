@@ -70,6 +70,10 @@ class BisimulationTests(unittest.TestCase):
     #TODO: A function that does not say so, should not modify its arguments.
     #self.assertDictEqual(partial, backup)
 
+  def todo_test_cardelliNM_modularity(self):
+    #echo "->A; B->" | nuskell --ts cardelli2011_NM.ts --verify-timeout 5 --verify pathway bisimulation modular-bisimulation bisimulation
+    pass
+
   def test_roessler_qian_equivalence_with_modinterpretation(self):
     (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
     (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')

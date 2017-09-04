@@ -56,7 +56,8 @@ def pil_document_setup():
   pattern = Forward()
   # NOTE: Remove S(White()) for backward compatiblility: )) is not allowed anymore.
   #loop = (Combine(sense + S("(")) + O(pattern) + asense)
-  loop = (Combine(sense + S("(")) + S(White()) + O(pattern) + S(White()) + asense)
+  innerloop = S(White()) + pattern + S(White()) | G(S(White()))
+  loop = (Combine(sense + S("(")) + innerloop + asense)
   pattern << G(OneOrMore(loop | sbreak | sense))
 
   unit = L('M') | L('mM') | L('uM') | L('nM') | L('pM')

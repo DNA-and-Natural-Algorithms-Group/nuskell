@@ -17,6 +17,15 @@ class TestCRNparser(unittest.TestCase):
     with self.assertRaises(ParseException):
       parse_pil_string("length 1ta = 6 ")
 
+  def test_self_loops(self):
+    self.assertEqual(parse_pil_string("cplx = a( b( c ) )"),    
+            [['complex', 'cplx', ['a', ['b', ['c'    ]]]]])
+    self.assertEqual(parse_pil_string("cplx = a( b( c( ) ) )"), 
+            [['complex', 'cplx', ['a', ['b', ['c', []]]]]])
+
+    with self.assertRaises(ParseException):
+      parse_pil_string("cplx = a( b( c() ) )")
+
   def test_parse_examples(self):
     example1 = """
     length t0 = 6

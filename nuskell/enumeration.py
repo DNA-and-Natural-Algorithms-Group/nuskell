@@ -7,10 +7,11 @@
 # Preprocessing and interface to peppercorn enumerator
 #
 
-from nuskell.objects import TestTube, Complex, Reaction
+from nuskell.objects import TestTube, Complex, Reaction, reset_names
+
+from peppercornenumerator.objects import PepperDomain, PepperComplex
 
 from peppercornenumerator import Enumerator
-import peppercornenumerator.utils as peputils
 import peppercornenumerator.reactions as reactions
 from peppercornenumerator.condense import condense_resting_states
 
@@ -85,6 +86,7 @@ class TestTubePeppercornIO(object):
     self._testtube += self.enumerator_to_testtube(self._enumerator)
     self._processed = True
 
+
   def testtube_to_enumerator(self, testtube): # Does not add reactions!
     """Initialize the peppercorn enumerator object.
 
@@ -99,46 +101,27 @@ class TestTubePeppercornIO(object):
     # Translate to peppercorn domains
     domains = {}
     for n, d in testtube.domains.items() :
-      if n[-1] == '*' :
-        new_dom = peputils.Domain(n[:-1], d.length, 
-            sequence=''.join(d.sequence), is_complement=True)
-      else :
-        new_dom = peputils.Domain(n, d.length, sequence=''.join(d.sequence))
-      domains[n] = new_dom
-    #print domains.values()
-
-    # Translate to peppercorn strands
-    strands = {}
-    dom_to_strand = {}
-    for n, s in testtube.strands.items() :
-      dom_to_strand[tuple(map(str,s))] = n
-      doms = []
-      for d in map(str, s) :
-        doms.append(domains[d])
-      strands[n] = peputils.Strand(n, doms)
-    #print strands.values()
+      domains[n] = PepperDomain(name=n, length=d.length)
 
     # Translate to peppercorn complexes
     complexes = {}
     for cplx in testtube.complexes:
-      cplx_strands = []
-      for s in cplx.lol_sequence :
-        ns = dom_to_strand[tuple(map(str,s))]
-        cplx_strands.append(strands[ns])
-      complex_structure = peputils.parse_dot_paren(''.join(cplx.structure))
-      complex = peputils.Complex(cplx.name, cplx_strands, complex_structure)
-      complex.check_structure()
-      complexes[cplx.name] = complex		
+      pepperseq = []
+      for d in cplx.sequence :
+          if d == '+' : 
+              pepperseq.append('+')
+          else :
+            pepperseq.append(domains[d.name])
+
+      complex = PepperComplex(pepperseq, cplx.structure[:], name=cplx.name)
+      complexes[cplx.name] = complex
 
       self._enumN_to_ttubeO[cplx.name] = cplx
       self._ttubeN_to_enumO[cplx.name] = complex
-    #print complexes.values()
 
-    domains = domains.values()
-    strands = strands.values()
     complexes = complexes.values()
 
-    return Enumerator(domains, strands, complexes)
+    return Enumerator(complexes) #domains, strands, complexes)
 
   def _ecplx_rename(self, x):
     """ A function to rename enumerator species names to a format 
@@ -164,6 +147,7 @@ class TestTubePeppercornIO(object):
     only finds new complexes. This function adds all complexes that are
     present in resting states in the system. Transient states are ignored.
     """
+    reset_names()
     condensed = TestTubePeppercornIO.condensed
     ttcomplexes = dict()
 
@@ -192,16 +176,14 @@ class TestTubePeppercornIO(object):
         ttcomplexes[cx.name] = (ttcplx, None, None)
         continue
       domseq = []
-      for sd in cx.strands:
-        domseq.append('+')
-        for do in sd.domains:
-          assert (do.name in domains)
-          dom = domains[do.name]
-          domseq.append(dom)
-      # remove the first '+' again
-      if len(domseq)>0: domseq = domseq[1:]
-      domstr = list(cx.dot_paren_string())
-      cplxname = self._ecplx_rename(cx.name)
+      for d in cx.sequence:
+          if d == '+' : 
+              domseq.append('+')
+          else :
+              assert (d.name in domains)
+              domseq.append(domains[d.name])
+      domstr = cx.structure
+      cplxname = cx.name
       if cplxname in ttcomplexes:
         raise ValueError("Complex found in muliple resting states?")
       ttcplx = Complex(sequence=domseq, structure=domstr, name=cplxname)
@@ -223,7 +205,7 @@ class TestTubePeppercornIO(object):
         prod = []
         for rs in r.products:
           prod.append(self._enumN_to_ttubeO[rs.complexes[0].name])
-        rxn = Reaction(react, prod, rate=r.rate(), rtype = r.name)
+        rxn = Reaction(react, prod, rate=r.rate, rtype = r.rtype)
         crn[rxn.name] = rxn
     else :
       for r in enumerator.reactions:
@@ -233,7 +215,7 @@ class TestTubePeppercornIO(object):
         prod = []
         for pr in r.products :
           prod.append(self._enumN_to_ttubeO[pr.name])
-        rxn = Reaction(react, prod, rate=r.rate(), rtype = r.name)
+        rxn = Reaction(react, prod, rate=r.rate, rtype = r.rtype)
         crn[rxn.name] = rxn
 
     return TestTube(complexes=ttcomplexes, reactions=crn)
@@ -257,25 +239,25 @@ def set_peppercorn_args(enum, args):
     elif args.verbose >= 3:
       logger.setLevel(logging.NOTSET)
 
-  if hasattr(args, 'MAX_COMPLEX_SIZE'):
-    enum.MAX_COMPLEX_SIZE = args.MAX_COMPLEX_SIZE
+  if hasattr(args, 'max_complex_size'):
+    enum.max_complex_size = args.max_complex_size
   else :
-    enum.MAX_COMPLEX_SIZE = 100
+    enum.max_complex_size = 100
 
-  if hasattr(args, 'MAX_COMPLEX_COUNT'):
-    enum.MAX_COMPLEX_COUNT = args.MAX_COMPLEX_COUNT
+  if hasattr(args, 'max_complex_count'):
+    enum.max_complex_count = args.max_complex_count
   else :
-    enum.MAX_COMPLEX_COUNT = 1000
+    enum.max_complex_count = 1000
 
-  if hasattr(args, 'MAX_REACTION_COUNT'):
-    enum.MAX_REACTION_COUNT = args.MAX_REACTION_COUNT
+  if hasattr(args, 'max_reaction_count'):
+    enum.max_reaction_count = args.max_reaction_count
   else :
-    enum.MAX_REACTION_COUNT = 5000
+    enum.max_reaction_count = 5000
 
-  if hasattr(args, 'REJECT_REMOTE'):
-    enum.REJECT_REMOTE = args.REJECT_REMOTE
+  if hasattr(args, 'reject_remote'):
+    enum.remote_migration = not args.reject_remote
   else :
-    enum.REJECT_REMOTE = False
+    enum.remote_migration = True
 
   if hasattr(args, 'ignore_branch_3way') and args.ignore_branch_3way:
     if reactions.branch_3way in enum.FAST_REACTIONS:
@@ -285,33 +267,34 @@ def set_peppercorn_args(enum, args):
     if reactions.branch_4way in enum.FAST_REACTIONS:
       enum.FAST_REACTIONS.remove(reactions.branch_4way)
 
-  if hasattr(args, 'RELEASE_CUTOFF_1_1'):
-    enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF_1_1
+  if hasattr(args, 'release_cutoff_1_1'):
+    enum.release_cutoff_1_1 = args.release_cutoff_1_1
   else :
-    enum.RELEASE_CUTOFF_1_1 = 6
+    enum.release_cutoff_1_1 = 6
 
-  if hasattr(args, 'RELEASE_CUTOFF_1_N'):
-    enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF_1_N
+  if hasattr(args, 'release_cutoff_1_N'):
+    enum.release_cutoff_1_N = args.release_cutoff_1_N
   else :
-    enum.RELEASE_CUTOFF_1_N = 6
+    enum.release_cutoff_1_N = 6
 
-  if hasattr(args, 'RELEASE_CUTOFF'):
-    if args.RELEASE_CUTOFF is not None :
-      enum.RELEASE_CUTOFF_1_1 = args.RELEASE_CUTOFF 
-      enum.RELEASE_CUTOFF_1_N = args.RELEASE_CUTOFF
-      enum.RELEASE_CUTOFF = args.RELEASE_CUTOFF
+  if hasattr(args, 'release_cutoff'):
+    if args.release_cutoff is not None :
+      enum.release_cutoff_1_1 = args.release_cutoff
+      enum.release_cutoff_1_N = args.release_cutoff
+      enum.release_cutoff = args.release_cutoff
   else :
-    enum.RELEASE_CUTOFF = None
+    enum.release_cutoff = None
 
-  if hasattr(args, 'UNZIP'):
-    enum.UNZIP = args.UNZIP
+  if hasattr(args, 'no_max_helix'):
+    enum.max_helix_migration = not args.no_max_helix
   else :
-    enum.UNZIP = True
+    enum.max_helix_migration = True
 
   if hasattr(args, 'LEGACY_UNZIP'):
-    enum.LEGACY_UNZIP = args.LEGACY_UNZIP
-  else :
-    enum.LEGACY_UNZIP = False
+    raise DeprecationWarning
+
+  if hasattr(args, 'MAX_COMPLEX_SIZE'):
+    raise DeprecationWarning
 
   if hasattr(args, 'k_slow'):
     enum.k_slow = args.k_slow
