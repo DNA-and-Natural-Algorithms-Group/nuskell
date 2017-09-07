@@ -197,11 +197,11 @@ class BisimulationTests(unittest.TestCase):
         icrn = "x1 -> x2 ; x3 + x4 <=> x5 ; x2 -> x6 + x8 ; x5 -> x7 ; " + \
                "x3 <=> x6 ; x9 <=> x10 ; x10 + x4 <=> x1 ; x7 -> x9 + x8"
 
-        (fcrn, fs, _) = parse_crn_string(fcrn)
+        (fcrn, fs) = self._parse_crn_string(fcrn)
         fcrn = split_reversible_reactions(fcrn)
         fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
 
-        (icrn, _, _) = parse_crn_string(icrn)
+        (icrn, _) = self._parse_crn_string(icrn)
         icrn = split_reversible_reactions(icrn)
         icrn = [[Counter(part) for part in rxn] for rxn in icrn]
 
@@ -258,11 +258,11 @@ class BisimulationTests(unittest.TestCase):
         pinter2 = {'x7': Counter({'C': 1, 'D': 1})}
 
         # CRN preprocessing
-        (fcrn, fs, _) = parse_crn_string(fcrn)
+        (fcrn, fs) = self._parse_crn_string(fcrn)
         fcrn = split_reversible_reactions(fcrn)
         fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
 
-        (icrn, _, _) = parse_crn_string(icrn)
+        (icrn, _) = self._parse_crn_string(icrn)
         icrn = split_reversible_reactions(icrn)
         icrn = [[Counter(part) for part in rxn] for rxn in icrn]
 

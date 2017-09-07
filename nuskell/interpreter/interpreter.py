@@ -11,7 +11,7 @@ import sys
 from copy import copy
 
 from nuskell.parser import parse_ts_string
-from nuskell.objects import TestTube, Complex
+from nuskell.objects import TestTube, NuskellComplex, clear_memory
 from nuskell.interpreter.environment import NuskellEnvironment
 
 
@@ -81,15 +81,13 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False,
     # Translation to new Complex and TestTube objects ...
     #  ... using a new naming scheme
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    NuskellComplex.clear_memory() # Allow renaming of complexes
 
     solution = TestTube()
-    Complex.id_counter = 0
     rename_dict = dict()
     for k, v in fs_result.items():
         v.flatten_cplx  # NusComplex-specific function.
-        new = Complex(name=k,
-                      sequence=v.sequence,
-                      structure=v.structure)
+        new = NuskellComplex(v.sequence, v.structure, name=k)
         rename_dict[v.name] = new
         solution.add_complex(new, (None, None), sanitycheck=True)
 
@@ -98,14 +96,9 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False,
 
     num = 0
     for cplx in sorted(cs_solution.complexes, key=lambda x: x.name):
-        new = Complex(
-            sequence=cplx.sequence,
-            structure=cplx.structure,
-            name='f' + str(num))
+        new = NuskellComplex(cplx.sequence, cplx.structure, name='f' + str(num))
         rename_dict[cplx.name] = new
-        solution.add_complex(
-            new,
-            cs_solution.get_complex_concentration(cplx),
+        solution.add_complex(new, cs_solution.get_complex_concentration(cplx),
             sanitycheck=True)
         num += 1
 

@@ -10,9 +10,6 @@ with open('README.md') as f:
 with open('LICENSE') as f:
   license = f.read()
 
-# Dynamically figure out the version
-version = __import__('nuskell').__version__
-
 # Literature: These schemes are implemented as described in a publication
 literature = ['schemes/literature/soloveichik2010.ts',
               'schemes/literature/qian2011_3D.ts',
@@ -57,7 +54,7 @@ else :
 
 setup(
     name='nuskell',
-    version=version,
+    version='0.5',
     description='Nucleic acid strand displacement compiler',
     long_description=readme,
     author='Seung Woo Shin, Qing Dong, Robert Johnson, Stefan Badelt, Erik Winfree',
@@ -73,9 +70,11 @@ setup(
         'numpy>=1.11.0',  # nuskellCMP
         'sympy>=0.7.6.1', 
         'peppercornenumerator>=0.5.0',
+        'dsdobjects>=0.2',
         'crnsimulator>=0.2'],
     dependency_links=[
-        'http://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/development#egg=peppercornenumerator-0.5.0',
+        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/development#egg=peppercornenumerator-0.5.0',
+        'https://github.com/DNA-and-Natural-Algorithms-Group/dsdobjects/tarball/master#egg=dsdobjects-0.2',
         'https://github.com/bad-ants-fleet/crnsimulator/tarball/master#egg=crnsimulator-0.2'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],

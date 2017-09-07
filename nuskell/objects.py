@@ -4,13 +4,16 @@
 #
 # nuskell.objects: shared between different components of nuskell
 #
-# nuskell.objects are to some extent identical to "DNAObjects" coded by
-# Joseph Schaeffer and Joseph Berleant.
-#
+#from __future__ import absolute_import, division, print_function, unicode_literals
 
+import logging
 import networkx as nx
 from collections import Counter
 from sympy import Symbol, sympify, Matrix
+
+from dsdobjects import clear_memory
+from dsdobjects import DL_Domain, DSD_Complex, DSD_Reaction
+from dsdobjects import DSDObjectsError, DSDDuplicationError
 
 #'http://www.github.com/bad-ants-fleet/crnsimulator'
 from crnsimulator import writeODElib
@@ -25,16 +28,136 @@ class NuskellObjectError(Exception):
         self.message = msg
         super(NuskellObjectError, self).__init__(self.message)
 
+class NuskellDomain(DL_Domain):
+    """Nucleic acid domain sequence.
 
-def reset_names():
+    A domain is a sequence of consecutive nucleotides (or domains). Domains can
+    form different secondary structures, however, they always fold as one entity,
+    just like single nucleotides.
+
+    Implementation:
+      - Domains with the same name have the same nucleotide sequence.
+      - Domains with the same nucleotide sequence have the same name.
+      - Every Domain() has exactly one ComplementaryDomain().
+
+    Not implemented:
+      - A domain cannot be complementary to multiple domains, e.g. due to
+        suboptimal hybridizations or wobble-base-pairs.
+
+    Globals:
+      id_counter (int): An automatically assigned unique descriptor that allows
+        for accessing/modifying every occurrence in the System.
+
+    Args:
+      sequence (list): A list of nucleotides or Domain() objects.
+      name (str, optional): Name of this domain. If not specified, an automatic
+        name is generated, defaults to ''
+      prefix (str, optional): A prefix for automated naming of Domains. Has to be
+        set if no name is provided. Defaults to 'd' for 'domain'. Usually, the
+        prefix 't' is used for 'toehold domains', and 'h' for 'histoy domains'.
+
+    Raises:
+      NuskellObjectError: Domain name must not end with '*'!
+      NuskellObjectError: Domain name must not end with a digit!
+      NuskellObjectError: Domain prefix must not be empty!
+      NuskellObjectError: Domain prefix must not end with a digit!
+      NuskellObjectError: Must pass a sequence of constraints or domain objects.
+
+    Note:
+      The Domain function does not allow names or prefixes ending with digits or
+      '*'. Proximal digits are reseved to name domains automatically using their
+      unique domain-IDs. A mixture of both naming modes is forbidden.  Beware,
+      that it is still possible to initialize two different domains with the same
+      name, but that the information that these domain are different is lost when
+      writing them to a file.
     """
-    Reset all names, counters of nukell.objects.
+
+
     """
-    Complex.id_counter = 0
-    Complex.names = set()
-    Domain.id_counter = 0
-    Domain.names = set()
-    Reaction.id_counter = 0
+    Represents a single domain. We allow several options for specifying domain
+    properties. Domains might have an explicit integer (bp) length, or may be
+    designated as short or long. If the latter method is used, the code will use
+    the relevant constant as the integer domain length.
+    """
+
+    ID = 0          # ID is used to assign names automatically
+
+    def __init__(self, name='', prefix='d', dtype=None, length=None):
+        # Assign name
+        if name == '':
+            if prefix == '':
+                raise DSDObjectsError('DSD_Complex prefix must not be empty!')
+            name = prefix + str(NuskellDomain.ID)
+            NuskellDomain.ID += 1
+        super(NuskellDomain, self).__init__(name, dtype, length)
+
+    @property
+    def complement(self):
+        if self._complement is None:
+            cname = self._name[:-1] if self.is_complement else self._name + '*'
+            if cname in DL_Domain.MEMORY:
+                self._complement = DL_Domain.MEMORY[cname]
+            else :
+                self._complement = NuskellDomain(name=cname, dtype=self.dtype, length=self.length)
+        return self._complement
+
+    @property
+    def is_complement(self):
+        """
+        Returns true if this domain is a complement (e.g. A* rather than A),
+        false otherwise.
+        """
+        return self._name[-1:] == '*'
+
+class NuskellComplex(DSD_Complex):
+    """
+    Nuskell complex object. 
+
+    Overwrites some functions with new names, adds some convenient stuff..
+    """
+
+    def __init__(self, sequence, structure, name='', prefix='cplx', memorycheck=True):
+        super(NuskellComplex, self).__init__(sequence, structure, name, prefix, memorycheck)
+
+    @staticmethod
+    def clear_memory(memory=True, names=True, ids=True):
+        if memory :
+            DSD_Complex.MEMORY = dict()
+        if names :
+            DSD_Complex.NAMES = dict()
+        if ids: 
+            DSD_Complex.ID = dict()
+
+class NuskellReaction(DSD_Reaction):
+    """ A reaction pathway.
+
+    Args:
+      reactants (list): A list of reactants. Reactants can be strings or :obj:`Complex()` objects.
+      products (list): A list of products. Products can be strings or :obj:`Complex()` objects.
+      rtype (str, optional): Reaction type, e.g. bind21, condensed, ..
+      rate (flt, optional): Reaction rate.
+      name (str, optional): Name of the reaction.
+      prefix (str, optional): Prefix for atomatic naming scheme.
+
+    """
+    RTYPES = set(['formal', 'condensed', 'open', 'bind11', 'bind21', 'branch-3way', 'branch-4way'])
+
+    def __init__(self, reactants, products, rtype=None, rate=None, memorycheck=True):
+        super(NuskellReaction, self).__init__(reactants, products, 
+                rtype=rtype, rate=rate, memorycheck=memorycheck)
+        if self._rtype not in NuskellReaction.RTYPES:
+            try:
+                del DSD_Reaction.MEMORY[self.canonical_form]
+            except KeyError:
+                pass
+            raise DSDObjectsError('Reaction type {} not supported! '.format(self.rtype) + 
+                'Set supported reaction types using NuskellReaction.RTYPES')
+
+    @staticmethod
+    def clear_memory():
+        DSD_Reaction.MEMORY = dict()
+
+
 
 
 def pair_table(ss, chars=['.']):
@@ -82,589 +205,11 @@ def pair_table(ss, chars=['.']):
             "Too many opening brackets in secondary structure")
     return pt
 
-
 def find(l, key):
     for i in range(len(l)):
         if l[i] == key:
             return i
     return None
-
-
-def flatten(l):
-    if l == []:
-        return l
-    if isinstance(l[0], list):
-        return flatten(l[0]) + flatten(l[1:])
-    return l[:1] + flatten(l[1:])
-
-
-class IUPAC_translator(object):
-    # A class to handle constraints in IUPAC notation.
-    T = 'T'
-
-    def __init__(self, molecule='DNA'):
-        assert molecule == 'DNA' or molecule == 'RNA'
-        self.T = 'T' if self.molecule == 'DNA' else 'U'
-
-    def iupac(self, nuc):
-        T = self.T if self.T else IUPAC_translator.T
-        iupac_dict = {
-            'A': 'A',
-            'C': 'C',
-            'G': 'G',
-            T: T,
-            'R': 'AG',   # purine
-            'Y': 'C' + T,  # pyrimidine
-            'S': 'CG',   # strong
-            'M': 'AC',
-            'W': 'A' + T,  # weak
-            'K': 'G' + T,
-            'V': 'ACG',  # not T
-            'H': 'AC' + T,  # not G
-            'D': 'AG' + T,  # not C
-            'B': 'CG' + T,  # not A
-            'N': 'ACG' + T}
-        return iupac_dict[nuc]
-
-    def iupac_union(self, nucs):
-        # Return the maximal common constraint
-        u = 'N'
-        for n in nucs:
-            u = self.bin_iupac(self.iupac_bin(u) & self.iupac_bin(n))
-        return u
-
-    def iupac_neighbor(self, nuc):
-        T = self.T if self.T else IUPAC_translator.T
-        neighbor_dict = {  # ACGT => ACGT
-            'A': T,        # 1000 => 0001
-            'C': 'G',       # 0100 => 0010
-            'G': 'Y',       # 0010 => 0101
-            T: 'R',       # 0001 => 1010
-            'T': 'R',       # 0001 => 1010
-            'R': 'Y',       # 1010 => 0101
-            'Y': 'R',       # 0101 => 1010
-            'S': 'B',       # 0110 => 0111
-            'M': 'K',       # 1100 => 0011
-            'W': 'D',       # 1001 => 1011
-            'K': 'N',       # 0011 => 1111
-            'V': 'B',       # 1110 => 0111
-            'H': 'D',       # 1101 => 1011
-            'D': 'N',       # 1011 => 1111
-            'B': 'N',       # 0111 => 1111
-            'N': 'N'}       # 1111 => 1111
-        return neighbor_dict[nuc]
-
-    def iupac_bin(self, nuc):
-        T = self.T if self.T else IUPAC_translator.T
-        iupac_bin_dict = {  # ACGT
-            'A': 8,      # 1000,
-            'C': 4,      # 0100,
-            'G': 2,      # 0010,
-            T: 1,      # 0001,
-            'R': 10,     # 1010,  # purine
-            'Y': 5,      # 0101,  # pyrimidine
-            'S': 6,      # 0110,
-            'M': 12,     # 1100,
-            'W': 9,      # 1001,
-            'K': 3,      # 0011,
-            'V': 14,     # 1110,  # not T
-            'H': 13,     # 1101,  # not G
-            'D': 11,     # 1011,  # not C
-            'B': 7,      # 0111,  # not A
-            'N': 15}     # 1111,
-        return iupac_bin_dict[nuc]
-
-    def bin_iupac(self, nuc):
-        T = self.T if self.T else IUPAC_translator.T
-        bin_iupac_dict = [  # ACGT
-            '',           # 0000  0
-            T,           # 0001  1
-            'G',          # 0010  2
-            'K',          # 0011  3
-            'C',          # 0100  4
-            'Y',          # 0101  5
-            'S',          # 0110  6
-            'B',          # 0111  7
-            'A',          # 1000  8
-            'W',          # 1001  9
-            'R',          # 1010 10
-            'D',          # 1011 11
-            'M',          # 1100 12
-            'H',          # 1101 13
-            'V',          # 1110 14
-            'N']          # 1111 15
-        return bin_iupac_dict[nuc]
-
-
-class Domain(IUPAC_translator):
-    """Nucleic acid domain sequence.
-
-    A domain is a sequence of consecutive nucleotides (or domains). Domains can
-    form different secondary structures, however, they always fold as one entity,
-    just like single nucleotides.
-
-    Implementation:
-      - Domains with the same name have the same nucleotide sequence.
-      - Domains with the same nucleotide sequence have the same name.
-      - Every Domain() has exactly one ComplementaryDomain().
-
-    Not implemented:
-      - A domain cannot be complementary to multiple domains, e.g. due to
-        suboptimal hybridizations or wobble-base-pairs.
-
-    Globals:
-      id_counter (int): An automatically assigned unique descriptor that allows
-        for accessing/modifying every occurrence in the System.
-
-    Args:
-      sequence (list): A list of nucleotides or Domain() objects.
-      name (str, optional): Name of this domain. If not specified, an automatic
-        name is generated, defaults to ''
-      prefix (str, optional): A prefix for automated naming of Domains. Has to be
-        set if no name is provided. Defaults to 'd' for 'domain'. Usually, the
-        prefix 't' is used for 'toehold domains', and 'h' for 'histoy domains'.
-
-    Raises:
-      NuskellObjectError: Domain name must not end with '*'!
-      NuskellObjectError: Domain name must not end with a digit!
-      NuskellObjectError: Domain prefix must not be empty!
-      NuskellObjectError: Domain prefix must not end with a digit!
-      NuskellObjectError: Must pass a sequence of constraints or domain objects.
-
-    Note:
-      The Domain function does not allow names or prefixes ending with digits or
-      '*'. Proximal digits are reseved to name domains automatically using their
-      unique domain-IDs. A mixture of both naming modes is forbidden.  Beware,
-      that it is still possible to initialize two different domains with the same
-      name, but that the information that these domain are different is lost when
-      writing them to a file.
-    """
-
-    names = set()
-    id_counter = 0
-
-    def __init__(self, sequence=[], name='', prefix='d'):
-        # Assign name #
-        if name:
-            if name[-1] == '*':
-                raise NuskellObjectError(
-                    "Domain name \"{}\" must not end with '*'!".format(name))
-            if name in Domain.names:
-                raise NuskellObjectError('Duplicate domain name!')
-            self._name = name
-            Domain.names.add(name)
-        else:
-            if prefix == '':
-                raise NuskellObjectError('Domain prefix must not be empty!')
-            if prefix[-1].isdigit():
-                raise NuskellObjectError(
-                    'Domain prefix must not end with a digit!')
-            self._name = prefix + str(Domain.id_counter)
-            Domain.id_counter += 1
-
-        if Domain.names and Domain.id_counter:
-            raise NuskellObjectError(
-                'Mixed naming schemes! Reset Domain.id_counter or Domain.names.')
-
-        # Assign domain sequence
-        if not sequence or not isinstance(sequence, list):
-            raise NuskellObjectError(
-                "Must pass a sequence of constraints or domain objects.")
-        else:
-            assert all(isinstance(s, (str, Domain)) for s in sequence)
-            self._sequence = sequence
-
-        self._ComplementDomain = None
-
-    @property
-    def name(self):
-        """str: name of the domain."""
-        return self._name
-
-    @property
-    def length(self):
-        """int: length of the domain sequence. """
-        return len(self.sequence)
-
-    @property
-    def sequence(self):
-        """list: Domain sequence."""
-        return self._sequence
-
-    @property
-    def base_length(self):
-        """int: length of the nucleotide sequence."""
-        return len(self.base_sequence)
-
-    @property
-    def base_sequence(self):
-        """Breaks the domain into non-composite domains.
-
-        Raises:
-          NotImplementedError: Mixed composite and non-composite domain sequence.
-
-        Returns:
-          [list]: non-composite domain sequence.
-        """
-        if all(isinstance(s, str) for s in self._sequence):
-            return self._sequence
-        else:
-            if all(isinstance(s, Domain) for s in self._sequence):
-                return list(''.join(
-                    map(lambda x: ''.join(x.base_sequence), self._sequence)))
-            else:
-                raise NotImplementedError('''Mixed composite and non-composite domain
-            sequence.''')
-
-    def _merge_constraints(self, con, con2):
-        #"""Return a new list of unified constraints. """
-        return map(self.iupac_union, zip(con, con2))
-
-    def update_constraints(self, con):
-        """Apply nucleotide sequence constraint and check if it is compatible.
-
-        Args:
-          con (list): A new sequence constraint.
-
-        Raises:
-          NuskellObjectError: Must pass constraints as list.
-          NuskellObjectError: Constraints have different length.
-          NuskellObjectError: Constraints cannot be satisfied.
-          NotImplementedError: Cannot update constraints on composite domains.
-
-        """
-        if not con or not isinstance(con, list):
-            raise NuskellObjectError("Must pass a constraints as a list.")
-
-        # Implement this when needed!
-        if not all(isinstance(s, str) for s in self.sequence + con):
-            raise NotImplementedError(
-                'Cannot update constraints on composite domains.')
-
-        if len(self._sequence) != len(con):
-            raise NuskellObjectError("Constraints differ in length.")
-
-        new = self._merge_constraints(self.sequence, con)
-
-        if '' in new:
-            raise NuskellObjectError("Constraints cannot be satisfied")
-        else:
-            self._sequence = new
-
-    def get_ComplementDomain(self, compseq):
-        """This function initializes or updates a ComplementDomain.
-
-        Args:
-          compseq (list): list of IUPAC nucleic acid sequence constraints.
-
-        Note:
-          To simply return the complement, use the '~' operator.
-
-        Returns:
-          [nuskell.objects.ComplementDomain()]
-        """
-        # Implement when needed!!!
-        if not all(isinstance(s, str) for s in self.sequence + compseq):
-            raise NotImplementedError(
-                'Cannot initialize composite ComplementDomain.')
-
-        if self._ComplementDomain:
-            self._ComplementDomain.update_constraints(compseq)
-        else:
-            if len(compseq) != len(self._sequence):
-                raise NuskellObjectError(
-                    "Length of constraint != complementary constraint")
-            complement = map(self.iupac_neighbor, self._sequence)
-            new = self._merge_constraints(complement, compseq)
-            if '' in new:
-                raise NuskellObjectError("Constraints cannot be satisfied")
-            self._ComplementDomain = ComplementDomain(self, new)
-        return self._ComplementDomain
-
-    @property
-    def is_ComplementDomain(self):
-        """ Checks if this domain is a ComplementDomain.
-
-        Returns:
-          [bool]: True if the domain is a complement domain, False othwerwise. """
-        return self._name[-1:] == '*'
-
-    def __eq__(self, other):
-        """
-        Domains are equal if they have the same name.
-        """
-        if isinstance(self, Domain) and isinstance(other, Domain):
-            return self.name == other.name
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __str__(self):
-        """Return the name of this domain. """
-        return self._name
-
-    def __invert__(self):
-        """ Return a complement of this Domain.
-
-        Note:
-          This function will not automatically make a ComplementDomain, as it is
-          unclear how constraints should be handled in this case. Use
-          get_ComplementDomain() first to initialize the complementary domain.
-
-        Returns:
-          [nuskell.objects.ComplementDomain()]
-        """
-        return self._ComplementDomain
-
-
-class ComplementDomain(Domain):
-    """A domain complementary to an existing Domain() object.
-
-     Every Domain has exactly one ComplementDomain. This object is always
-     initialized via an original domain using the get_ComplementDomain()
-     function.
-
-    """
-
-    def __init__(self, CompDomain, sequence=[]):
-        self._name = CompDomain._name + '*'
-        self._ComplementDomain = CompDomain
-
-        if not sequence or not isinstance(sequence, list):
-            raise NuskellObjectError(
-                "Must pass a sequence of constraints or domain objects.")
-        else:
-            assert all(isinstance(s, (str, Domain)) for s in sequence)
-            self._sequence = sequence
-
-    def __invert__(self):
-        return self._ComplementDomain
-
-    def __eq__(self, other):
-        #""" Returns True iff their complements are equal."""
-        if isinstance(other, ComplementDomain):
-            return self._ComplementDomain.__eq__(other._ComplementDomain)
-        else:
-            return False
-
-    def __ne__(self, other):
-        #""" Returns True iff they are not equal."""
-        return not self.__eq__(other)
-
-
-class Complex(object):
-    """A sequence and structure pair.
-
-    Sequence and structure can be specified on the domain or on the nucleotide
-    level, but they have to be of the same length. Although not yet implemented,
-    one may define special characters for secondary structures that are more
-    diverse than a regual dot-parens string, e.g. 'h' = '(', '.', ')'
-
-    Global Variables:
-      id_counter: the next automatically assigned complex-ID in a system.
-
-    Args:
-      sequence (list): A list of sequence constraints on this domain.
-      structure (list): A list of dot-parens characters corresponding to the
-        sequence.
-      name (str, optional): Name of this domain. If not specified, an automatic
-        name is generated.
-      prefix (str): A prefix for automatic naming of Domains. Defaults to 'cplx'.
-
-    """
-
-    names = set()
-    id_counter = 0
-
-    def __init__(self, sequence=[], structure=[], name='', prefix='cplx'):
-        # Assign name
-        if name:
-            if name in Complex.names:
-                raise NuskellObjectError('Duplicate complex name!')
-            self._name = name
-            Complex.names.add(name)
-        else:
-            if prefix == '':
-                raise NuskellObjectError('Complex prefix must not be empty!')
-            if prefix[-1].isdigit():
-                raise NuskellObjectError(
-                    'Complex prefix must not end with a digit!')
-            self._name = prefix + str(Complex.id_counter)
-            Complex.id_counter += 1
-
-        if Complex.names and Complex.id_counter:
-            raise NuskellObjectError(
-                'Mixed naming schemes! Reset Complex.id_counter or Complex.names.')
-
-        if sequence == []:
-            raise NuskellObjectError(
-                'Complex() requires Sequence and Structure Argument')
-
-        if len(sequence) != len(structure):
-            raise NuskellObjectError(
-                "Complex() sequence and structure must have same length")
-        self._sequence = sequence
-        self._structure = structure
-
-    @property
-    def name(self):
-        """str: name of the complex object. """
-        return self._name
-
-    @name.setter
-    def name(self, name):
-        if Complex.id_counter:
-            raise NuskellObjectError(
-                'Mixed naming schemes! Reset Complex.id_counter.')
-        if self._name in Complex.names:
-            Complex.names.remove(self._name)
-        self._name = name
-        Complex.names.add(name)
-
-    @property
-    def sequence(self):
-        """list: sequence the complex object. """
-        return self._sequence
-
-    @property
-    def lol_sequence(self):
-        #""" Returns sequence as a list of lists, rather than one flat list with the
-        #'+' separator.
-        #
-        # Example:
-        #  ['d1', 'd2', '+', 'd3'] ==> [['d1', 'd2'], ['d3']]
-        #"""
-        indices = [-1] + [i for i, x in enumerate(self._sequence) if x == "+"]
-        indices.append(len(self._sequence))
-        return [self._sequence[indices[i - 1] + 1: indices[i]]
-                for i in range(1, len(indices))]
-
-    @property
-    def nucleotide_sequence(self):
-        """list: the complex sequence in form of a flat list of nucleotides. """
-        lol = self.lol_sequence
-
-        def my_base_sequence(seq):
-            if all(isinstance(d, Domain) for d in seq):
-                return map(lambda x: x.base_sequence, seq)
-            elif not all(isinstance(d, str) for d in seq):
-                raise NotImplementedError("mixed sequences are not supported")
-            else:
-                return seq
-        return flatten(map(lambda x: my_base_sequence(x) + ['+'], lol))[:-1]
-
-    @property
-    def structure(self):
-        """list: the complex structure. """
-        return self._structure
-
-    @property
-    def lol_structure(self):
-        indices = [-1] + [i for i, x in enumerate(self._structure) if x == "+"]
-        indices.append(len(self._structure))
-        return [self._structure[indices[i - 1] + 1: indices[i]]
-                for i in range(1, len(indices))]
-
-    @property
-    def nucleotide_structure(self):
-        """list: the complex structure on nucleotide-level. """
-        lol = zip(self.lol_sequence, self.lol_structure)
-
-        def my_base_sequence(seq, sst):
-            if all(isinstance(d, Domain) for d in seq):
-                tups = zip(seq, sst)
-                return map(lambda x_y: x_y[1] * x_y[0].base_length, tups)
-            elif not all(isinstance(d, str) for d in seq):
-                raise NotImplementedError("mixed sequences are not supported")
-            else:
-                return sst
-        return flatten(map(lambda x_y1: my_base_sequence(
-            x_y1[0], x_y1[1]) + ['+'], lol))[:-1]
-
-    @property
-    def kernel(self):
-        """str: print sequence and structure in `kernel` notation. """
-        seq = self.sequence
-        sst = self.structure
-        knl = ''
-        for i in range(len(seq)):
-            if sst[i] == '+':
-                knl += str(sst[i]) + ' '
-            elif sst[i] == ')':
-                knl += str(sst[i]) + ' '
-            elif sst[i] == '(':
-                knl += str(seq[i]) + str(sst[i]) + ' '
-            else:
-                knl += str(seq[i]) + ' '
-        return knl
-
-    @property
-    def rotate_once(self):
-        """Rotate the strands within the complex and return the updated object. """
-        if "+" in self._sequence:
-            p = find(self._sequence, "+")
-            self._sequence = self._sequence[p +
-                                            1:] + ["+"] + self._sequence[:p]
-
-            stack = []
-            for i in range(p):
-                if self._structure[i] == "(":
-                    stack.append(i)
-                elif self._structure[i] == ")":
-                    stack.pop()
-            for i in stack:
-                self._structure[i] = ")"
-
-            stack = []
-            for i in reversed(range(p + 1, len(self._structure))):
-                if self._structure[i] == ")":
-                    stack.append(i)
-                elif self._structure[i] == "(":
-                    stack.pop()
-            for i in stack:
-                self._structure[i] = "("
-            self._structure = self._structure[p +
-                                              1:] + ["+"] + self._structure[:p]
-        return self
-
-    @property
-    def rotate(self):
-        """Generator function yields every rotation of the complex. """
-        for i in range(len(self.lol_sequence)):
-            yield self.rotate_once
-
-    def __str__(self):
-        """str: the name of the complex. """
-        return self._name
-
-    def __eq__(self, other):
-        """ Test if two complexes are equal.
-
-        They are equal if they have the same coarse-graining in terms of domains
-        and the same secondary structure.
-
-        Note:
-          This function might change the strand-ordering of the complex!
-        """
-        if not isinstance(self, Complex) or not isinstance(other, Complex):
-            return False
-        if len(self.sequence) != len(other.sequence):
-            return False
-        if len(self.nucleotide_sequence) != len(other.nucleotide_sequence):
-            return False
-        if self._sequence == other.sequence and self.structure == other.structure:
-            return True
-        else:
-            for r in self.rotate:
-                if r.sequence == other.sequence and r.structure == other.structure:
-                    return True
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
 
 class TestTube(object):
     """A reaction network of nucleic acid complexes.
@@ -748,48 +293,39 @@ class TestTube(object):
     def __init__(self, complexes=None, reactions=None):
         self._RG = nx.MultiDiGraph()
 
-        if complexes:
+        if complexes and isinstance(complexes, dict):
             for name, data in complexes.items():
-                if len(data) == 2 or len(data) == 3:
-                    assert isinstance(data[0], Complex) or data[0] is None
-                    assert isinstance(data[1], float) or data[1] is None
-                    if len(data) == 3:
-                        assert isinstance(data[2], bool) or data[2] is None
-                else:
-                    raise NuskellObjectError(
-                        'Wrong initialization of arguments for TestTube()')
+                assert isinstance(data, list) and len(data) == 3, 'wrong format for complexes'
+                if data[1] is not None :
+                    assert isinstance(data[1], float), 'concentration must be of type float.'
+                if data[2] is not None :
+                    assert isinstance(data[2], bool), '"constant" must be of type bool.'
 
                 cplx = data[0]
                 conc = data[1]
-                const = data[2] if len(data) == 3 else None
-                if cplx:
+                const = data[2]
+                if isinstance(cplx, NuskellComplex):
                     self._RG.add_node(cplx, concentration=conc, constant=const)
                 else:
-                    self._RG.add_node(name, concentration=conc, constant=const)
+                    raise NotImplementedError('please specify NuskellComplex objects.')
+                    #self._RG.add_node(name, concentration=conc, constant=const)
+        elif complexes and isinstance(complexes, list):
+            for c in complexes:
+                assert isinstance(c, NuskellComplex)
+                self._RG.add_node(c, concentration=None, constant=None)
 
         if reactions:
-            # Also reactions have to be uniquely adressable
-            for name, react in reactions.items():
-                if isinstance(react, Reaction):
-                    self._RG.add_node(react, rate=react.rate)
-                    for r in react.reactants:
-                        assert self._RG.has_node(r)
-                        self._RG.add_edge(r, react)
-                    for p in react.products:
-                        assert self._RG.has_node(p)
-                        self._RG.add_edge(react, p)
-                elif isinstance(react, list):
-                    assert len(react) == 3
-                    self._RG.add_node(name, rate=react[2])
-                    for r in react[0]:
-                        assert self._RG.has_node(r)
-                        self._RG.add_edge(r, name)
-                    for p in react[1]:
-                        assert self._RG.has_node(p)
-                        self._RG.add_edge(name, p)
-                else:
-                    raise NuskellObjectError('Invalid Reaction format')
+            for react in reactions:
+                assert isinstance(react, NuskellReaction)
+                self._RG.add_node(react, rate=react.rate)
+                for r in react.reactants:
+                    assert self._RG.has_node(r)
+                    self._RG.add_edge(r, react)
+                for p in react.products:
+                    assert self._RG.has_node(p)
+                    self._RG.add_edge(react, p)
 
+        #self._complexes = None
         self._domains = None
         self._strands = None
 
@@ -807,8 +343,7 @@ class TestTube(object):
     @property
     def complexes(self):
         """list: a list of :obj:`Complex()` objects. """
-        # TODO: This only works with Complex() objects
-        return [n for n in self._RG.nodes() if isinstance(n, Complex)]
+        return [n for n in self._RG.nodes() if isinstance(n, NuskellComplex)]
 
     def has_complex(self, cplx):
         return self._RG.has_node(cplx)
@@ -816,8 +351,7 @@ class TestTube(object):
     @property
     def reactions(self):
         """list: a list of :obj:`Reaction()` objects. """
-        # TODO: This only works with Reaction() objects
-        return [n for n in self._RG.nodes() if isinstance(n, Reaction)]
+        return [n for n in self._RG.nodes() if isinstance(n, NuskellReaction)]
 
     def set_complex_concentration(self, cplx, concentration, constant):
         """
@@ -837,10 +371,10 @@ class TestTube(object):
 
     def selected_complexes(self, names):
         """list: a list of :obj:`Complex()` objects that correspond to specified names. """
-        # TODO: This only works with Complex() objects
-        return [n for n in self._RG.nodes() if isinstance(n, Complex)
+        return [n for n in self._RG.nodes() if isinstance(n, NuskellComplex)
                 and n.name in names]
 
+    # TODO: exclude? or filter outside?
     def present_complexes(self, exclude=[], th=0):
         """Returns a list of :obj:`Complex()` objects with occupancy greater than a threshold.
 
@@ -849,8 +383,9 @@ class TestTube(object):
           th (flt, optional): Specify the threshold to consider complexes as
             *present* in solution. Defaults to 0.
         """
-        return [n for n, att in self._RG.node.items() if
-                isinstance(n, Complex) and att['concentration'] > th and n.name not in exclude]
+        return [n for n, att in self._RG.node.items() 
+                if isinstance(n, NuskellComplex) and 
+                    att['concentration'] > th and n.name not in exclude]
 
     def interpret_species(self, species, prune=True):
         """Get an interpretation dictionary.
@@ -858,7 +393,7 @@ class TestTube(object):
         If a :obj:`Complex()` sequence contains a wildcard, then this function will find
         all matching complexes, and return those as interpretation.  Regex-nodes
         may have at most *one wildcard* per complex, a wildcard corresponds to
-        exactly *one unpaired domain*.
+        exactly *one unpaired long domain*.
 
         Args:
           species (list[str], optional): A list of complex names that are potential
@@ -916,8 +451,6 @@ class TestTube(object):
                 if (pMx[0][0] != ignore and pMy[0][0] != ignore) and \
                         (pMx[0][0] != pMy[0][0] or pMx[1][0] != pMy[1][0]):
                     return False
-                # elif toponly and pMy[0][0] == ignore :
-                #  return False
                 return pM_check([pMx[0][1:], pMx[1][1:]],
                                 [pMy[0][1:], pMy[1][1:]])
 
@@ -925,49 +458,38 @@ class TestTube(object):
             pMy = [map(str, y.sequence), map(str, y.structure)]
             if pM_check(pMx, pMy):
                 return True
-            elif '+' in map(str, x.sequence) and '+' in map(str, y.sequence):
-                for yr in y.rotate:
-                    pMy = [map(str, yr.sequence), map(str, yr.structure)]
-                    if pM_check(pMx, pMy):
-                        return True
-            return False
 
-        def get_matching_complexes(regex):
+        def get_matching_complexes(regex, hist):
             """Find all matching complexes. """
             regseq = regex.sequence
             regstr = regex.structure
-            hist = filter(lambda x: x[0] == 'h', map(str, regseq))
-            if len(hist) > 1:
-                raise NuskellObjectError("multiple history domains!")
-            else:
-                hist = hist[0]
 
             matching = []
-            for cplx in self.complexes:
-                if regex.name == cplx.name:  # found the regex complex again
+            for cplx in self.complexes :
+                if regex.name == cplx.name :
                     continue
-                else:
-                    if patternMatch(regex, cplx, ignore=hist):
-                        matching.append(cplx)
+                elif patternMatch(regex, cplx, ignore=hist):
+                    matching.append(cplx)
             return matching
 
         need_to_prune = False
         interpretation = dict()
         for fs in species:
-            cplxs = [n for n in self._RG.nodes() if n.name == fs]
+            cplxs = self.selected_complexes([fs])
             if len(cplxs) == 0:
                 print '====='
                 print 'WARNING: No complex found with name of formal species:', fs
                 print '====='
                 continue
             else:
-                assert len(cplxs) == 1, Warning('Duplicate complex names?')
+                assert len(cplxs) == 1, 'Duplicate complex names?'
 
             cplx = cplxs[0]
-            # if '?' in map(str, cplx.sequence) :
-            if 'h' in map(lambda d: d.name[0], [
-                          d for d in cplx.sequence if d != '+']):
-                matches = get_matching_complexes(cplx)
+            hist = filter(lambda x: x[0] == 'h', map(str, cplx.sequence))
+            if hist :
+                assert len(hist) == 1, 'no support for multiple history domains'
+                hist = hist[0]
+                matches = get_matching_complexes(cplx, hist)
                 if matches:
                     need_to_prune = True
                     for e, m in enumerate(matches, 1):
@@ -979,13 +501,6 @@ class TestTube(object):
                     # enumerate the network again and remove the domain everywhere! So
                     # unless we enumerate up-front with a history-pruned species, this
                     # gets us into trouble.
-                    #
-                    # # Remove Domain
-                    # hidx = map(lambda d:d.name[0], cplx.sequence).index('h')
-                    # del cplx.sequence[hidx]
-                    # del cplx.structure[hidx]
-                    # #print cplx.name, map(str, cplx.sequence), map(str, cplx.structure)
-                    # cplx.name = fs+'_0_'
                     interpretation[cplx.name] = Counter([fs])
             else:
                 interpretation[cplx.name] = Counter([fs])
@@ -996,20 +511,17 @@ class TestTube(object):
             # consuming these molecules.
             # Alternative: enumerate again using history-replaced species.
             rxns = self.reactions
-            [prev, total] = [set(), set(interpretation.keys() + map(str,
-                                                                    self.present_complexes(exclude=map(str, species))))]
+            [prev, total] = [set(), set(interpretation.keys() + map(str, self.present_complexes()))]
             while prev != total:
-                prev = set(list(total))
+                prev = set(list(total)) # force a copy?
                 for rxn in rxns:
                     self.rm_reaction(rxn)
                     r = map(str, rxn.reactants)
                     p = map(str, rxn.products)
                     if set(r).intersection(total) == set(r):
                         total = total.union(set(p))
-            map(self.add_reaction, filter(
-                lambda x: set(map(str, x.reactants)).intersection(
-                    total) == set(map(str, x.reactants)),
-                rxns))
+            map(self.add_reaction, filter(lambda x: set(map(str, x.reactants)).intersection(
+                    total) == set(map(str, x.reactants)), rxns))
 
             # Now remove all the left-over complexes from the graph.
             all_nodes = set(self.complexes)
@@ -1020,7 +532,7 @@ class TestTube(object):
 
         return interpretation
 
-    def add_complex(self, cplx, xxx_todo_changeme, sanitycheck=True):
+    def add_complex(self, cplx, conctup = (None, None), sanitycheck=True):
         """Add a complex to the TestTube.
 
         Args:
@@ -1034,10 +546,8 @@ class TestTube(object):
           A new complex resets TestTube.domains and TestTube.strands
 
         """
-        (conc, const) = xxx_todo_changeme
-        if not isinstance(cplx, Complex):
-            # TODO: do the formal stuff later
-            raise NotImplementedError
+        (conc, const) = conctup
+        assert isinstance(cplx, NuskellComplex), 'must be a NuskellComplex format'
 
         if self._RG.has_node(cplx):
             if conc is not None:
@@ -1045,24 +555,21 @@ class TestTube(object):
                     self._RG.node[cplx]['concentration'] = conc
                 else:
                     assert self._RG.node[cplx]['concentration'] == conc, \
-                        Warning("Conflicting complex concentrations")
+                            "Conflicting complex concentrations"
             if const is not None:
                 if self._RG.node[cplx]['constant'] is None:
                     self._RG.node[cplx]['constant'] = const
                 else:
                     assert self._RG.node[cplx]['constant'] == const, \
-                        Warning("Conflicting complex concentrations")
+                            "Conflicting complex concentrations"
         else:
             # NOTE: This might become inefficient at some point, but it has been
             # introduced to overcome issues with some translation schemes that
             # produce the same fuel strand multiple times.
-            # TODO: not only it is inefficient, it doesn't check for strand
-            # ordering!
-            if sanitycheck and (cplx.sequence, cplx.structure) in map(
-                    lambda x: (x.sequence, x.structure), self._RG.nodes()):
-                if TestTube.warnings:
-                    print 'WARNING: One complex, one name! Skipping complex:', cplx.name, \
-                        map(str, cplx.sequence), cplx.structure
+            if sanitycheck and cplx.canonical_form in map(
+                    lambda x: x.canonical_form, self.complexes):
+                raise NuskellObjectError('trying to add duplicate complex: {} = {}'.format(
+                    cplx.name, cplx.kernel_string))
             else:
                 self._RG.add_node(cplx, concentration=conc, constant=const)
                 self._domains = None
@@ -1085,10 +592,10 @@ class TestTube(object):
         if self._RG.has_node(cplx):
             if force:
                 for (r, c) in self._RG.in_edges(cplx):
-                    assert isinstance(r, Reaction)
+                    assert isinstance(r, NuskellReaction)
                     self.rm_reaction(r)
                 for (c, r) in self._RG.out_edges(cplx):
-                    assert isinstance(r, Reaction)
+                    assert isinstance(r, NuskellReaction)
                     self.rm_reaction(r)
             elif (self._RG.in_edges(cplx) or self._RG.out_edges(cplx)):
                 raise NuskellObjectError(
@@ -1106,9 +613,7 @@ class TestTube(object):
             This can be time consuming. Defaults to True.
         """
 
-        if not isinstance(react, Reaction):
-            # TODO: do the formal stuff once we need it...
-            raise NotImplementedError
+        assert isinstance(react, NuskellReaction) 
 
         if self._RG.has_node(react):
             assert self._RG.node[react]['rate'] == react.rate
@@ -1116,11 +621,9 @@ class TestTube(object):
             # NOTE: This might become inefficient at some point, but there might be
             # cases where reactions are duplicated, so we check if the very same
             # reaction exists as a different node:
-            if sanitycheck and filter(lambda x:
-                                      (set(x.reactants) == set(react.reactants) and
-                                       set(x.products) == set(react.products) and x.name == react.name),
-                                      self.reactions):
-                print 'WARNING: One reaction, one name! Skipping reaction:', react.kernel
+            if sanitycheck and react.canonical_form in map(
+                    lambda x: x.canonical_form, self.reactions):
+                raise NuskellObjectError('trying to add duplicate reaction:', react.kernel_string)
             else:
                 self._RG.add_node(react, rate=react.rate)
                 for r in react.reactants:
@@ -1141,7 +644,7 @@ class TestTube(object):
 
     @property
     def strands(self):
-        """Return a dictionary of strands present in the TestTube.
+        """Return a list of strands present in the TestTube.
 
         A strand is a nucleic-acid molecule connected by a single covalent
         backbone. Strands are named automatically, and their names may change
@@ -1172,43 +675,63 @@ class TestTube(object):
           [:obj:`dict()`]: domains[Domain.name] = Domain
         """
         if not self._domains:
-            self._domains = dict()
+            self._domains = set()
             for cplx in self.complexes:
-                for d in cplx.sequence:
-                    if d == '+':
-                        continue
-                    if d.name in self._domains:
-                        assert self._domains[d.name] is d
-                    else:
-                        self._domains[d.name] = d
-        return self._domains
+                for d in cplx.domains:
+                    self._domains.add(d)
+        return list(self._domains)
 
-    def enumerate_reactions(
-            self, args=None, condensed=True, rename=None, prefix='e'):
+    def enumerate_reactions(self, args=None, condensed=True, rename=None, 
+            prefix='e', init_memory=None):
         """Enumerate reactions using the *peppercorn* enumerator.
         Args:
           args(:obj:`argparse.ArgumentParser()`, optional): Arguments for *peppercorn*.
           condensed (bool, optional): Udate the reaction graph using *condensed* format.
         """
+
+        # Version 1:
+        # (PepperDomains, PepperComplexes) = enum_input(NuskellDomain, NuskellComplexes)
+        # enum = Enumerator(PepperComplexes, args)
+        # enum.enumerate(args)
+        # (NuskellDomain, NuskellComplexes) = enum_output(enum.domains, enum.complexes)
+        # NuskellReactions = enum_reactions(enum.reactions, condensed=True)
+
+        # Version 2:
+        # enum = Enumerator(args)
+        # enum.load_kernel(map(lambda x:x.kernel_string, NuskellComplexes))
+        # enum.enumerate(args)
+        # (NuskellDomain, NuskellComplexes) = enum.output(enum.domains, enum.complexes)
+        # NuskellReactions = enum_reactions(enum.reactions, condensed=True)
+
+        # Version 3:
+        # def enumerate_testtube() 
+        #   kernel = TestTube.return_kernel
+        #   Enumerator.load_kernel(kernel)
+        #   kernel = Enumerator.return_kernel
+        #   TestTube.load_kernel(kernel)
+        # solution = enumerate_testtube(solution)
+        # or 
+        # solution2 = enumerate_testtube(solution)
+
         from nuskell.enumeration import TestTubePeppercornIO
+        logger = logging.getLogger()
+        logger.disabled = True
+
         TestTubePeppercornIO.condensed = condensed
         interface = TestTubePeppercornIO(testtube=self, enumerator=None,
-                                         pargs=args, rename=rename, prefix=prefix)
+                                         pargs=args, rename=rename, prefix=prefix,
+                                         init_memory = init_memory)
         interface.enumerate()
-        self.ReactionGraph = nx.compose(
-            self.ReactionGraph,
-            interface.testtube.ReactionGraph)
+        self.ReactionGraph = nx.compose(self.ReactionGraph, interface.testtube.ReactionGraph)
 
-        # TODO: do we really need to reset domains and strands??
-        self._domains = None
-        self._strands = None
+        logger.disabled = False
 
     def simulate_crn(self, odename, sorted_vars=None, unit='M'):
         oR = dict()
         conc = dict()
         ode = dict()
         for r in self._RG.nodes_iter():
-            if isinstance(r, Complex):
+            if isinstance(r, NuskellComplex):
                 concentration = self._RG.node[r]['concentration']
                 const = self._RG.node[r]['constant']
                 if concentration == float('inf'):
@@ -1320,8 +843,7 @@ class TestTube(object):
                 other.ReactionGraph.edges(data=True))
             map(lambda c: combined.add_complex(c, self.get_complex_concentration(c),
                                                sanitycheck=True), self.complexes)
-            map(lambda r: combined.add_reaction(
-                r, sanitycheck=True), self.reactions)
+            map(lambda r: combined.add_reaction(r, sanitycheck=True), self.reactions)
         else:
             combined.ReactionGraph.add_nodes_from(
                 self.ReactionGraph.nodes(data=True))
@@ -1329,8 +851,7 @@ class TestTube(object):
                 self.ReactionGraph.edges(data=True))
             map(lambda c: combined.add_complex(c, other.get_complex_concentration(c),
                                                sanitycheck=True), other.complexes)
-            map(lambda r: combined.add_reaction(
-                r, sanitycheck=True), other.reactions)
+            map(lambda r: combined.add_reaction(r, sanitycheck=True), other.reactions)
         return combined
 
     def __radd__(self, other):
@@ -1339,7 +860,6 @@ class TestTube(object):
             return self
         else:
             return self.__add__(other)
-
 
 class TestTubeIO(object):
     """A wrapper class to handle I/O of TestTube objects.
@@ -1401,11 +921,15 @@ class TestTubeIO(object):
 
         # Print Domains
         pil.write("# Domain Specifications\n")
-        for k, v in sorted(domains.items(), key=lambda x: x[1].name):
-            if v.name[-1] == '*':
-                continue
-            pil.write("length {:s} = {:d}\n".format(v.name, v.length))
-            #pil.write("sequence {:s} = {:s}\n".format(v.name, ''.join(v.sequence)))
+        seen = set()
+        for d in sorted(domains, key=lambda x: x.name):
+            if d.is_complement:
+                dom = ~d
+            else :
+                dom = d
+            if dom not in seen:
+                pil.write("length {:s} = {:d}\n".format(dom.name, dom.length))
+                seen.add(dom)
 
         pil.write("\n# Complex Specifications\n")
 
@@ -1459,63 +983,10 @@ class TestTubeIO(object):
         domains = []
         for line in ppil:
             if line[0] == 'domain':
-                domains.append(
-                    Domain(name=line[1], sequence=list('N' * int(line[2]))))
+                pass
+                #domains.append(Domain(name=line[1], sequence=list('N' * int(line[2]))))
             elif line[0] == 'complex':
-                name = line[1]
-                sequence, structure = resolve_loops(line[2])
-                constant, concentration = None, float('inf')
-                if len(line) > 3:
-                    i, c, u = line[3]
-                    constant = (i == 'constant')
-                    if u == 'M':
-                        concentration = float(c)
-                    elif u == 'mM':
-                        concentration = float(c) * 1e-3
-                    elif u == 'uM':
-                        concentration = float(c) * 1e-6
-                    elif u == 'nM':
-                        concentration = float(c) * 1e-9
-                    elif u == 'pM':
-                        concentration = float(c) * 1e-12
-                    else:
-                        raise NuskellObjectError(
-                            'unknown unit for concentrations specified.')
-
-                for e in range(len(sequence)):
-                    d = sequence[e]
-                    if d == '+':
-                        continue
-                    if d[-1] == '*':
-                        dname = d[:-1]
-                        dom = filter(lambda x: x.name == dname, domains)
-                        if len(dom) < 1:
-                            raise NuskellObjectError(
-                                'Missing domain specification', d)
-                        elif len(dom) > 1:
-                            raise NuskellObjectError(
-                                'Conflicting matches for domain specification', d)
-                        sequence[e] = dom[0].get_ComplementDomain(
-                            list('R' * dom[0].length))
-
-                    else:
-                        dname = d
-                        dom = filter(lambda x: x.name == dname, domains)
-                        if len(dom) < 1:
-                            raise NuskellObjectError(
-                                'Missing domain specification', d)
-                        elif len(dom) > 1:
-                            raise NuskellObjectError(
-                                'Conflicting matches for domain specification', d)
-                        sequence[e] = dom[0]
-
-                self._testtube.add_complex(
-                    Complex(
-                        sequence=sequence,
-                        structure=structure,
-                        name=name),
-                    (concentration,
-                     constant))
+                pass
             else:
                 raise NotImplementedError(
                     'Weird expression returned from pil_parser!')
@@ -1674,91 +1145,3 @@ class TestTubeIO(object):
 
         fh.write(")\n")
 
-
-class Reaction(object):
-    """ A reaction pathway.
-
-    Args:
-      reactants (list): A list of reactants. Reactants can be strings or :obj:`Complex()` objects.
-      products (list): A list of products. Products can be strings or :obj:`Complex()` objects.
-      rtype (str, optional): Reaction type, e.g. bind21, condensed, ..
-      rate (flt, optional): Reaction rate.
-      name (str, optional): Name of the reaction.
-      prefix (str, optional): Prefix for atomatic naming scheme.
-
-    """
-    id_counter = 0
-
-    def __init__(self, reactants, products, rtype=None,
-                 rate=None, name='', prefix='REACT'):
-        # Assign name
-        if name:
-            if name[-1].isdigit():
-                raise NuskellObjectError(
-                    'Reaction name must not end with a digit!', name)
-            self._name = name
-        else:
-            if prefix == '':
-                raise NuskellObjectError('Reaction prefix must not be empty!')
-            if prefix[-1].isdigit():
-                raise NuskellObjectError(
-                    'Reaction prefix must not end with a digit!')
-            self._name = prefix + str(Reaction.id_counter)
-            Reaction.id_counter += 1
-
-        self._reactants = sorted(reactants)
-        self._products = sorted(products)
-        self._rtype = rtype
-        self._rate = rate
-
-    @property
-    def name(self):
-        """str: name of the reaction. """
-        return self._name
-
-    @property
-    def rate(self):
-        """flt: reaction rate. """
-        return self._rate
-
-    @property
-    def rateunits(self):
-        """str: reaction rate units. """
-        return "/M" * (self.arity[0] - 1) + "/s"
-
-    @property
-    def rtype(self):
-        """str: *peppercorn* reaction type (bind21, condensed, ...) """
-        return self._rtype
-
-    @property
-    def reactants(self):
-        """list: list of reactants. """
-        return self._reactants
-
-    @property
-    def products(self):
-        """list: list of products. """
-        return self._products
-
-    @property
-    def arity(self):
-        """(int, int): number of reactants, number of products."""
-        return (len(self._reactants), len(self._products))
-
-    def __str__(self):
-        """prints the formal chemical reaction."""
-        return "{} -> {}".format(
-            " + ".join(map(str, self.reactants)), " + ".join(map(str, self.products)))
-
-    def __eq__(self, other):
-        """bool: Checks if two Reaction() objects have the same rtype, reactants, and products. """
-        if not self.rtype or not other.rtype:
-            raise NuskellObjectError(
-                'Cannot compare reactions without knowing the reaction-type.')
-        return (self.rtype == other.rtype) and \
-            (self.reactants == other.reactants) and \
-            (self.products == other.products)
-
-    def __ne__(self, other):
-        return not (self == other)

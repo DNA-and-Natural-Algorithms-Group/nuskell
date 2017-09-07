@@ -10,6 +10,7 @@
 """ Wrapper functions used by the nuskell compiler script. """
 
 import os
+import logging
 import pkg_resources
 
 from nuskell.parser import parse_crn_string, parse_ts_file
@@ -17,7 +18,7 @@ from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
 
 from nuskell.interpreter import interpret
-from nuskell.objects import TestTube, TestTubeIO
+from nuskell.objects import TestTube, TestTubeIO, clear_memory
 
 
 class InvalidSchemeError(Exception):
@@ -35,7 +36,7 @@ class InvalidSchemeError(Exception):
         super(InvalidSchemeError, self).__init__(self.message)
 
 
-def printCRN(crn, reversible=True, rates=True):
+def genCRN(crn, reversible=True, rates=True):
     """Pretty printing of CRNs.
 
     Args:
@@ -59,9 +60,9 @@ def printCRN(crn, reversible=True, rates=True):
     for rxn in pcrn:
         assert len(rxn) == 3
         if len(rxn[2]) == 2:
-            print ' + '.join(rxn[0]), '<=>', ' + '.join(rxn[1])
+            yield '{} <=> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
         else:
-            print ' + '.join(rxn[0]), '->', ' + '.join(rxn[1])
+            yield '{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
 
 
 def translate(input_crn, ts_file, modular=False,
@@ -98,7 +99,7 @@ def translate(input_crn, ts_file, modular=False,
 
         try:
             ts_file = pkg_resources.resource_filename('nuskell', builtin)
-            print "Using scheme:", ts_file
+            logging.info("Using scheme: {}".format(ts_file))
         except KeyError:
             schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
             raise InvalidSchemeError(ts_file, schemedir)

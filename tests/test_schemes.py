@@ -1,7 +1,7 @@
 import unittest
 import argparse
 
-from nuskell import translate, verify, printCRN
+from nuskell import translate, verify
 from nuskell.verifier import removeSpecies, removeRates
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 

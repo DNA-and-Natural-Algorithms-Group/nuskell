@@ -22,8 +22,7 @@ in the respective namespace.
 import sys
 from copy import copy
 
-from nuskell.objects import Domain, Complex, TestTube, flatten
-
+from nuskell.objects import NuskellDomain, NuskellComplex, TestTube, DSDDuplicationError
 
 class NuskellEnvError(Exception):
     """Nuskell Environment Error.
@@ -89,8 +88,14 @@ class NusFunction(object):
         self.args = args
         self.body = body
 
+def flatten(l):
+    if l == []:
+        return l
+    if isinstance(l[0], list):
+        return flatten(l[0]) + flatten(l[1:])
+    return l[:1] + flatten(l[1:])
 
-class NusComplex(Complex):
+class NusComplex(NuskellComplex):
     """Nucleic Acid Complex (Sequence, Structure) pair.
 
     This is an extension of nuskell.objects.Complex(), which stores an additional
@@ -104,9 +109,20 @@ class NusComplex(Complex):
       structure (List[str]): A list of dot-parens characters ".(.+)."
     """
 
+
+    def __new__(cls, attr=dict(), **kwargs):
+        # The new method returns the present instance of an object, if it exists
+        self = NuskellComplex.__new__(cls)
+        try:
+            super(NusComplex, self).__init__(**kwargs)
+            self.attributes = attr
+        except DSDDuplicationError, e :
+            return e.existing
+        return self
+
     def __init__(self, attr=dict(), **kwargs):
-        super(NusComplex, self).__init__(**kwargs)
-        self.attributes = attr
+        # Remove default initialziation to get __new__ to work
+        pass
 
     @property
     def flatten_cplx(self):
@@ -119,12 +135,12 @@ class NusComplex(Complex):
             # This is a function with is very specific to nuskell. Sometimes,
             # A complex can contain a complex structure in the sequence, and
             # a wildcard in the structure.
-            if isinstance(s, Domain):
+            if isinstance(s, NuskellDomain):
                 assert (c in ['(', '.', ')'])
                 return s, c
             elif s == '+' and c == '+':
                 return s, c
-            elif isinstance(s, Complex):
+            elif isinstance(s, NuskellComplex):
                 assert (c == '~')
                 return s.sequence, s.structure
             elif isinstance(s, list):
@@ -136,7 +152,7 @@ class NusComplex(Complex):
                                                   range(len(s))))]
             elif s == '?':
                 assert (c in ['(', '.', ')'])
-                return Domain(list('N' * 15), prefix='h'), c
+                return NuskellDomain(prefix='h', dtype='long'), c
                 # return s, c
             else:
                 raise NotImplementedError
@@ -413,62 +429,25 @@ class NuskellFunctions(object):
 
     def long(self, args):
         """A function that returns branch-migration domains.
-
-        Contains some experimental features to pass the length of a domain as well
-        as sequence constraints for sense and antisense strands,
         """
         if args:
-            kwargs = args[0]
-        else:
-            kwargs = {'len': self._long_domain_length}
+            raise args
 
-        if 'len' not in kwargs and 'sense' not in kwargs:
-            kwargs['len'] = self._long_domain_length
-
-        # Nuskell Defaults:
-        tag = kwargs['tag'] if 'tag' in kwargs else 'd'
-        uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * \
-            kwargs['len']
-        lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * \
-            kwargs['len']
-
-        upper = Domain(list(uppercon), prefix=tag)
-        lower = upper.get_ComplementDomain(list(lowercon))
-        return upper
+        dom = NuskellDomain(dtype='long', prefix='d')
+        cdm = ~dom
+        return dom
 
     def short(self, args):
         """A function that returns toehold domains.
-
-        Contains some experimental features to pass the length of a domain as well
-        as sequence constraints for sense and antisense strands, tags, etc.
-          * len is short for standard 'sense & antisense'
-          * tag supports toehold and branch-migration which is
-            currently equal to short() and long()
-
         """
-        if args:
-            kwargs = args[0]
-        else:
-            kwargs = {'len': self._short_domain_length}
-
-        if 'len' not in kwargs and 'sense' not in kwargs:
-            kwargs['len'] = self._short_domain_length
-
-        # Nuskell Defaults:
-        tag = kwargs['tag'] if 'tag' in kwargs else 't'
-        uppercon = kwargs['sense'] if 'sense' in kwargs else 'H' * \
-            kwargs['len']
-        lowercon = kwargs['antis'] if 'antis' in kwargs else 'D' * \
-            kwargs['len']
-
-        upper = Domain(list(uppercon), prefix=tag)
-        lower = upper.get_ComplementDomain(list(lowercon))
-        return upper
+        dom = NuskellDomain(dtype='short', prefix='t')
+        cdm = ~dom
+        return dom
 
     def _print(self, args):
         """Print statment, primarily to debug nuskell scripts"""
         for a in args:
-            if isinstance(a, Complex):
+            if isinstance(a, NuskellComplex):
                 print map(str, a.sequence)
             else:
                 print str(a),
@@ -525,15 +504,14 @@ class NuskellFunctions(object):
         that the species is supposed to have "infinite" concentration. The
         resulting object will be a TestTube instance
         """
-        if not isinstance(args[0], Complex):
+        if not isinstance(args[0], NuskellComplex):
             raise NuskellEnvError(
                 "The argument of `infty' should be a Complex")
         args[0].flatten_cplx
         if args[0].sequence == [] and args[0].structure == []:
             return TestTube()
         else:
-            return TestTube(
-                complexes={args[0].name: (args[0], float("inf"), None)})
+            return TestTube(complexes={args[0].name: [args[0], float("inf"), None]})
             # return TestTube(complexes={args[0].name: (args[0],
             # float("inf"))})
 
@@ -544,7 +522,7 @@ class NuskellFunctions(object):
 
     @staticmethod
     def const_nM(args):
-        if not isinstance(args[0], Complex):
+        if not isinstance(args[0], NuskellComplex):
             raise NuskellEnvError(
                 "The first argument of `const_nM' should be a Complex")
         if not isinstance(args[1], float):
@@ -581,9 +559,9 @@ class NuskellFunctions(object):
         elif isinstance(x, Domain):
             print 'Untested:', ~x
             return ~x
-        elif isinstance(x, Complex):
+        elif isinstance(x, NuskellComplex):
             raise NotImplementedError
-            return Complex(
+            return NuskellComplex(
                 self._complement([x.sequence]),
                 self._complement([x.structure]),
                 dict(x.attributes))
@@ -864,7 +842,7 @@ class NuskellEnvironment(NuskellExpressions):
           An updated environment inclding the function binding in the top-level.
         """
 
-        bindings = (NusFunction, TestTube, Species, Domain, Reaction, NusComplex,
+        bindings = (NusFunction, TestTube, Species, NuskellDomain, Reaction, NusComplex,
                     void, int, list)
         if isinstance(value, list):
             assert all(isinstance(s, bindings) for s in value)
