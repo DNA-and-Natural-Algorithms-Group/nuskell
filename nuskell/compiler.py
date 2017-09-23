@@ -18,7 +18,7 @@ from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
 
 from nuskell.interpreter import interpret
-from nuskell.objects import TestTube, TestTubeIO, clear_memory
+from nuskell.objects import TestTube, TestTubeIO
 
 
 class InvalidSchemeError(Exception):
@@ -107,7 +107,7 @@ def translate(input_crn, ts_file, modular=False,
     ts = parse_ts_file(ts_file)
     crn, fs, signals, fuels = parse_crn_string(input_crn)
 
-    solution, modules = interpret(ts, crn, fs, modular=modular)
+    solution, modules = interpret(ts, crn, fs, modular=modular, verbose=verbose)
 
     if pilfile:
         with open(pilfile, 'w') as pil:

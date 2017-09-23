@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2010 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+#   edits by Stefan Badelt (badelt@caltech.edu)
 #
 #
 # Parser module for translation scheme description files (*.ts).
@@ -11,34 +12,6 @@ from pyparsing import (Word, Literal, Group, Suppress, Optional, Forward,
                        OneOrMore, ZeroOrMore, nums, alphas, alphanums, delimitedList,
                        operatorPrecedence, ParserElement, opAssoc, StringStart, StringEnd,
                        pythonStyleComment, quotedString, ParseElementEnhance)
-
-"""
-grammar:
-
-  document ::= statements | statement
-
-  statement ::= class | function | module | macro | global
-  class     ::= 'class'    + identifier + '(' + identifiers + ')' + '=' + expr
-  function  ::= 'function' + identifier + '(' + identifiers + ')' + '=' + expr
-  module    ::= 'module'   + identifier + '(' + identifiers + ')' + '=' + expr
-  macro     ::= 'macro'    + identifier + '(' + identifiers + ')' + '=' + expr
-  global    ::= 'global'   + id_list + '=' + expr
-
-  id_list ::= '[' + id_list + ']' | identifier
-
-  expr ::= if_expr | where_expr | quote_expr
-
-  if_expr ::= 'if' + expr + 'then' + expr +
-              'elsif' + expr + 'then' + expr + 'else' + expr
-
-  where_expr ::= test + where_clause | test
-  test ::=
-  where_clause ::= 'where' + '{' + asigns + '}' | 'where' + asgn
-
-  args ::=
-
-"""
-
 
 def ts_document_setup():
     """The gramar to parse a translation scheme."""

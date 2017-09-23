@@ -8,10 +8,10 @@
 #
 
 import sys
-from copy import copy
+import logging
 
 from nuskell.parser import parse_ts_string
-from nuskell.objects import TestTube, NuskellComplex, clear_memory
+from nuskell.objects import TestTube, NuskellComplex
 from nuskell.interpreter.environment import NuskellEnvironment
 
 
@@ -30,8 +30,7 @@ def ts_code_snippet():
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
 
-def interpret(ts_parsed, crn_parsed, fs_list, modular=False,
-              sdlen=6, ldlen=15, verbose=False):
+def interpret(ts_parsed, crn_parsed, fs_list, modular=False, verbose=False):
     """ Interpretation of a translation scheme.
 
     Initializes the compiler environment, interprets the instructions of the
@@ -56,7 +55,7 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False,
     """
 
     # Initialize the environment
-    ts_env = NuskellEnvironment(sdlen=sdlen, ldlen=ldlen)
+    ts_env = NuskellEnvironment()
 
     # Parse a piece of sample code with common utilitiy functions
     header = parse_ts_string(ts_code_snippet())
@@ -81,61 +80,46 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False,
     # Translation to new Complex and TestTube objects ...
     #  ... using a new naming scheme
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    NuskellComplex.clear_memory() # Allow renaming of complexes
-
     solution = TestTube()
-    rename_dict = dict()
     for k, v in fs_result.items():
         v.flatten_cplx  # NusComplex-specific function.
-        new = NuskellComplex(v.sequence, v.structure, name=k)
-        rename_dict[v.name] = new
-        solution.add_complex(new, (None, None), sanitycheck=True)
-
-    # for v in solution.complexes:
-    #  print type(v), v, map(str, v.sequence), v.structure
+        v = NuskellComplex(v.sequence, v.structure, name=k)
+        solution.add_complex(v, (None, None), sanitycheck=True)
+        fs_result[k] = v
+        logging.debug("{} - {} {}".format(type(v), v, v.kernel_string))
 
     num = 0
+    logging.debug("SOLUTION")
     for cplx in sorted(cs_solution.complexes, key=lambda x: x.name):
-        new = NuskellComplex(cplx.sequence, cplx.structure, name='f' + str(num))
-        rename_dict[cplx.name] = new
-        solution.add_complex(new, cs_solution.get_complex_concentration(cplx),
-            sanitycheck=True)
+        cplx.name = name='f' + str(num)
+        solution.add_complex(cplx, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
+        logging.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
         num += 1
-
-    # print 'SOLUTION'
-    # for v in sorted(solution.complexes, key=lambda x: x.name):
-    #  print v, v.kernel
 
     rxnmodules = []
     for e, csm in enumerate(cs_modules[1:]):
+        logging.debug("MODULE {}".format(e))
         rxn = set(crn_parsed[e][0] + crn_parsed[e][1])
         module = TestTube()
 
         # TODO select formal species?
         for k, v in fs_result.items():
-            new = rename_dict[v.name]
-            if module.has_complex(new):
+            assert k == v.name
+            if module.has_complex(v):
                 raise ValueError("Overwriting existing module species")
-            if not solution.has_complex(new):
+            if not solution.has_complex(v):
                 raise ValueError(
                     "Cannot find formal module species in solution.")
             if k in rxn:
-                module.add_complex(new, (None, None))
+                module.add_complex(v, (None, None))
+            logging.debug("{} - {} {}".format(type(v), v, v.kernel_string))
 
         for cplx in csm.complexes:
-            new = rename_dict[cplx.name]
-            if not solution.has_complex(new):
-                raise ValueError(
-                    "Cannot find constant module species in solution.")
-            module.add_complex(
-                new,
-                cs_solution.get_complex_concentration(cplx),
+            if not solution.has_complex(cplx):
+                raise ValueError("Cannot find constant module species in solution.")
+            module.add_complex(cplx, cs_solution.get_complex_concentration(cplx),
                 sanitycheck=True)
+            logging.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
         rxnmodules.append(module)
-
-    # for mod in rxnmodules:
-    #  print 'NEW module'
-    #  for v in sorted(mod.complexes, key=lambda x: x.name):
-    #    print v, v.kernel
 
     return solution, rxnmodules

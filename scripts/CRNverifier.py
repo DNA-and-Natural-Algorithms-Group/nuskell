@@ -8,7 +8,7 @@ import sys
 import argparse
 from collections import Counter
 
-from nuskell import printCRN
+from nuskell import genCRN
 from nuskell.parser import parse_crn_string, parse_crn_file
 from nuskell.parser import split_reversible_reactions
 from nuskell.parser import combine_reversible_reactions
@@ -83,14 +83,16 @@ def main():
 
     if args.verbose:
         print "Formal CRN:"
-        printCRN(crn1, reversible=True, rates=False)
+        for r in genCRN(crn1, reversible=True, rates=False):
+            print r
 
     crn2, crn2s, _, _ = parse_crn_file(args.compare)
     crn2 = split_reversible_reactions(crn2)
 
     if args.verbose:
         print "Implementation CRN:"
-        printCRN(crn2, reversible=True, rates=False)
+        for r in genCRN(crn2, reversible=True, rates=False):
+            print r
 
     interpret = dict()
     if not args.independent:

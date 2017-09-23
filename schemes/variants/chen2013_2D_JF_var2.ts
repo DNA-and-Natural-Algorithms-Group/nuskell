@@ -16,7 +16,7 @@ global ON = 1;
 global OFF = 0;
 global do_opti = OFF;
 
-global void = if do_opti then print("Optimization: ON") else print ("Optimization: OFF");
+# global void = if do_opti then print("Optimization: ON") else print ("Optimization: OFF");
 
 class formal(s) = "t x" | ". ."
     where { t = short(); x = long() };

@@ -5,8 +5,8 @@ import sys
 import argparse
 
 import nuskell
-from nuskell.objects import Domain, Complex
-from nuskell.parser import parse_pil_string
+from nuskell.objects import NuskellDomain, NuskellComplex
+from dsdobjects.parser import parse_kernel_string
 
 
 def get_args(parser):
@@ -24,7 +24,7 @@ def main(args):
     input_cplx = "".join(input_cplx)
     print input_cplx
 
-    ppil = parse_pil_string(input_cplx)
+    ppil = parse_kernel_string(input_cplx)
 
     def resolve_loops(loop):
         """ Return a sequence, structure pair from kernel format with parenthesis. """
@@ -47,61 +47,50 @@ def main(args):
                 struct.append(')')
         return sequen, struct
 
-    domains = []
+    domains = {'+' : '+'} # saves some code
+    complexes = dict()
     for line in ppil:
-        if line[0] == 'domain':
-            raise Exception
-        elif line[0] == 'complex':
-            name = line[1]
+        name = line[1]
+        if line[0] == 'complex':
             sequence, structure = resolve_loops(line[2])
-            constant, concentration = None, float('inf')
+
+            # Replace names with domain objects.
+            try :
+                sequence = map(lambda d : domains[d], sequence)
+            except KeyError:
+                for e, d in enumerate(sequence):
+                    if d not in domains :
+                        #logging.warning("Assuming {} is a long domain.".format(d))
+                        domains[d] = NuskellDomain(d, dtype='long')
+                        cdom = ~domains[d]
+                        domains[cdom.name] = cdom
+                    sequence[e] = domains[d]
+
+            constant, concentration = False, 0
             if len(line) > 3:
                 i, c, u = line[3]
                 constant = (i == 'constant')
                 if u == 'M':
                     concentration = float(c)
                 elif u == 'mM':
-                    concentration = float(c) * 1e-3
+                    concentration = float(c)*1e-3
                 elif u == 'uM':
-                    concentration = float(c) * 1e-6
+                    concentration = float(c)*1e-6
                 elif u == 'nM':
-                    concentration = float(c) * 1e-9
+                    concentration = float(c)*1e-9
                 elif u == 'pM':
-                    concentration = float(c) * 1e-12
-                else:
-                    raise ValueError(
-                        'unknown unit for concentrations specified.')
+                    concentration = float(c)*1e-12
+                else :
+                    raise ValueError('unknown unit for concentrations specified.')
 
-            for e in range(len(sequence)):
-                d = sequence[e]
-                if d == '+':
-                    continue
-                if d[-1] == '*':
-                    dname = d[:-1]
-                    dom = filter(lambda x: x.name == dname, domains)
-                    if len(dom) < 1:
-                        dom.append(Domain(name=dname, sequence=['N']))
-                        domains.append(dom[0])
-                    elif len(dom) > 1:
-                        raise RuntimeError(
-                            'Conflicting matches for domain specification', d)
-                    sequence[e] = dom[0].get_ComplementDomain(
-                        list('R' * dom[0].length))
-                else:
-                    dname = d
-                    dom = filter(lambda x: x.name == dname, domains)
-                    if len(dom) < 1:
-                        dom.append(Domain(name=dname, sequence=['N']))
-                        domains.append(dom[0])
-                    elif len(dom) > 1:
-                        raise RuntimeError(
-                            'Conflicting matches for domain specification', d)
-                    sequence[e] = dom[0]
+            complexes[name] = NuskellComplex(sequence, structure, name=name)
 
-    cplx = Complex(sequence=sequence, structure=structure, name=name)
+        else :
+            raise NotImplementedError('cannot interpret keyword:', line[0])
 
-    for i in cplx.rotate:
-        print i.name, '=', i.kernel
+    for cplx in complexes.values():
+        for i in cplx.rotate():
+            print i.name, '=', i.kernel_string
 
     if False:
         from nuskell.objects import TestTube, TestTubeIO

@@ -1,1582 +1,449 @@
+
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import filecmp
 import unittest
-import argparse
+import subprocess as sub
 
-from nuskell import translate, verify
-from nuskell.verifier import removeSpecies, removeRates
-from nuskell.parser import parse_crn_string, split_reversible_reactions
-
-
-def get_verification_data(input_crn, scheme, pargs=None):
-    fcrn, fs, _, _ = parse_crn_string(input_crn)
-    solution, _ = translate(input_crn, scheme)
-    fuels = map(str, solution.present_complexes(exclude=fs))
-    solution.enumerate_reactions(pargs)
-    interpretation = solution.interpret_species(fs, prune=True)
-    icrn = []
-    for r in solution.reactions:
-        rxn = [map(str, r.reactants), map(str, r.products)]
-        icrn.append(rxn)
-    vcrn = removeSpecies(icrn, fuels)
-    fcrn = split_reversible_reactions(fcrn)
-    fcrn = removeRates(fcrn)
-    return fcrn, vcrn, fs, interpretation
-
-# class SchemeSetup(unittest.TestCase):
-#  def setUp(self):
-#    # Schemes
-#    self.solo2010_lit  = 'schemes/literature/soloveichik2010.ts'
-#    self.qian2011_lit  = 'schemes/literature/qian2011.ts'
-#    self.srini2015_lit = 'schemes/literature/srinivas2015.ts'
-#    self.qian2011_v1  = 'schemes/canonical/qian2011_v1.ts'
 #
-#    # assert self.solo2010
+# nuskellCMP is a script used to compare schemes that are distributed with
+# nuskell. These tests generate snapshots, comparing enumeration and
+# verification of *all* schemes in "schemes/literature/" and
+# "schemes/variants/" for some selected CRNs in "tests/crns/". Outputs
+# are written and compared to "tests/snapshots/".
+#
+# This is not a regular unittest, run overnight to check consistency of results
+# before every release.
+#
+SKIP = True
 
-
-@unittest.skip("need to update interface")
-class SpontaneousReactions(unittest.TestCase):
+@unittest.skipIf(SKIP, "slow tests are disabled by default")
+class SinlgeSnapshotCMP(unittest.TestCase):
     def setUp(self):
-        # Enumerator-args
-        parser = argparse.ArgumentParser()
-        self.args = parser.parse_args([])
+        self.exe = 'scripts/nuskellCMP'
+        self.lit = 'schemes/literature'
+        self.var = 'schemes/variants'
 
-        # Schemes
-        self.solo2010_lit = 'schemes/literature/soloveichik2010.ts'
-        self.qian2011_lit = 'schemes/literature/qian2011_3D.ts'
-        self.srini2015_lit = 'schemes/literature/srinivas2015.ts'
-        self.qian2011_v1 = 'schemes/canonical/qian2011_3D_v1.ts'
+        self.call = [self.exe]
+        self.call.extend(['--verbose'])
+        self.call.extend(['--verify', 'pathway', 'bisimulation', 'modular-bisimulation'])
+        self.call.extend(['--verify-timeout',  str(30)])
 
-    def test_A_f_irrev(self):
-        input_crn = "A -> "
+    def test_oscillator_01_lit(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/oscillator_01_lit.cmp'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Generated Data
+        new_file = 'tests/snapshots/oscillator_01_lit.new'
+        err_file = 'tests/snapshots/oscillator_01_lit.err'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Input Schemes
+        ts_dir = self.lit
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Input CRNs
+        crn_file = 'tests/crns/oscillator_01.crn'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srini2015_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
 
-    def test_f_A_irrev(self):
-        input_crn = "-> A"
+        print(crn_file)
+        print(call)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srini2015_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+    def test_oscillator_01_var(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/oscillator_01_var.cmp'
 
-    def test_A_f_rev(self):
-        input_crn = "A <=> "
+        # Generated Data
+        new_file = 'tests/snapshots/oscillator_01_var.new'
+        err_file = 'tests/snapshots/oscillator_01_var.err'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Input Schemes
+        ts_dir = self.var
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Input CRNs
+        crn_file = 'tests/crns/oscillator_01.crn'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srini2015_lit)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        print(crn_file)
+        print(call)
 
-    def test_ApB_f_irrev(self):
-        input_crn = "A + B -> "
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+    def test_oscillator_02_lit(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/oscillator_02_lit.cmp'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Generated Data
+        new_file = 'tests/snapshots/oscillator_02_lit.new'
+        err_file = 'tests/snapshots/oscillator_02_lit.err'
 
-        #fcrn, vcrn, fs, interpret = get_verification_data(input_crn, self.cFJ_original)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-        #self.assertEqual(v, True)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-        #self.assertEqual(v, True)
+        # Input Schemes
+        ts_dir = self.lit
 
-        #fcrn, vcrn, fs, interpret = get_verification_data(input_crn, self.cNM_original)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-        #self.assertEqual(v, True)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-        #self.assertEqual(v, None)
+        # Input CRNs
+        crn_file = 'tests/crns/oscillator_02.crn'
 
-        #fcrn, vcrn, fs, interpret = get_verification_data(input_crn, self.c2D_original)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-        #self.assertEqual(v, True)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-        #self.assertEqual(v, False)
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
 
-        #fcrn, vcrn, fs, interpret = get_verification_data(input_crn, self.cFJ_noGC)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-        #self.assertEqual(v, True)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-        #self.assertEqual(v, True)
+        print(crn_file)
+        print(call)
 
-        #fcrn, vcrn, fs, interpret = get_verification_data(input_crn, self.cNM_noGC)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='bisimulation', timeout=60)
-        #self.assertEqual(v, True)
-        #v, i = verify(fcrn, vcrn, fs, interpret=interpret, method='pathway', timeout=60)
-        #self.assertEqual(v, True)
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
 
-    @unittest.skip("todo")
-    def test_f_ApB_irrev(self):
-        input_crn = " -> A + B"
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+    def test_oscillator_02_var(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/oscillator_02_var.cmp'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        # Generated Data
+        new_file = 'tests/snapshots/oscillator_02_var.new'
+        err_file = 'tests/snapshots/oscillator_02_var.err'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        # Input Schemes
+        ts_dir = self.var
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Input CRNs
+        crn_file = 'tests/crns/oscillator_02.crn'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        print(crn_file)
+        print(call)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
 
-    @unittest.skip("todo")
-    def test_ApB_f_rev(self):
-        input_crn = "A + B <=> "
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        # TODO: Verification sometimes doesn't terminate
-        self.assertTrue(v in (True, None))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+    def test_roessler_01_lit(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/roessler_01_lit.cmp'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        # TODO: Verification sometimes doesn't terminate
-        self.assertTrue(v in (True, None))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
+        # Generated Data
+        new_file = 'tests/snapshots/roessler_01_lit.new'
+        err_file = 'tests/snapshots/roessler_01_lit.err'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        # Input Schemes
+        ts_dir = self.lit
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        # Input CRNs
+        crn_file = 'tests/crns/roessler_01.crn'
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        print(crn_file)
+        print(call)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
 
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
 
+    def test_roessler_01_var(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/roessler_01_var.cmp'
 
-@unittest.skip("need to update interface")
-class OldSpontaneousReactions(unittest.TestCase):
+        # Generated Data
+        new_file = 'tests/snapshots/roessler_01_var.new'
+        err_file = 'tests/snapshots/roessler_01_var.err'
+
+        # Input Schemes
+        ts_dir = self.var
+
+        # Input CRNs
+        crn_file = 'tests/crns/roessler_01.crn'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(crn_file)
+        print(call)
+
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+
+    def test_bin_counter_01_lit(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/bin_counter_01_lit.cmp'
+
+        # Generated Data
+        new_file = 'tests/snapshots/bin_counter_01_lit.new'
+        err_file = 'tests/snapshots/bin_counter_01_lit.err'
+
+        # Input Schemes
+        ts_dir = self.lit
+
+        # Input CRNs
+        crn_file = 'tests/crns/bin_counter_01.crn'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(crn_file)
+        print(call)
+
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+
+    def test_bin_counter_01_var(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/bin_counter_01_var.cmp'
+
+        # Generated Data
+        new_file = 'tests/snapshots/bin_counter_01_var.new'
+        err_file = 'tests/snapshots/bin_counter_01_var.err'
+
+        # Input Schemes
+        ts_dir = self.var
+
+        # Input CRNs
+        crn_file = 'tests/crns/bin_counter_01.crn'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(crn_file)
+        print(call)
+
+        with open(crn_file) as crn, \
+                open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=crn, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+
+@unittest.skipIf(SKIP, "slow tests are disabled by default")
+class MultiSnapshotCMP(unittest.TestCase):
     def setUp(self):
-        # Enumerator-args
-        parser = argparse.ArgumentParser()
-        self.args = parser.parse_args([])
-
-        # Schemes
-        self.cFJ_original = 'schemes/original/cardelli2011_FJ.ts'
-        self.cNM_original = 'schemes/original/cardelli2011_NM.ts'
-        self.c2D_original = 'schemes/original/cardelli2013_2D.ts'
-        self.cFJ_noGC = 'schemes/original/cardelli2011_FJ_noGC.ts'
-        self.cNM_noGC = 'schemes/original/cardelli2011_NM_noGC.ts'
-
-        self.qian2011_gen = 'schemes/generalized/qian2011_gen.ts'
-        self.srin2017_phd = 'schemes/generalized/srinivas2017_phd.ts'
-        self.solo2010_v1 = 'schemes/generalized/soloveichik2010_v1.ts'
-
-        self.qian2011 = 'schemes/incorrect/qian2011.ts'
-
-    def test_A_f_irrev(self):
-        input_crn = "A -> "
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_f_A_irrev(self):
-        input_crn = "-> A"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_A_f_rev(self):
-        input_crn = "A <=> "
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_ApB_f_irrev(self):
-        input_crn = "A + B -> "
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_f_ApB_irrev(self):
-        input_crn = " -> A + B"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_ApB_f_rev(self):
-        input_crn = "A + B <=> "
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        # TODO: Verification sometimes doesn't terminate
-        self.assertTrue(v in (True, None))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        # TODO: Verification sometimes doesn't terminate
-        self.assertTrue(v in (True, None))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-
-@unittest.skip("need to update interface")
-class UnimolecularReactions(unittest.TestCase):
-    def setUp(self):
-        # Enumerator-args
-        parser = argparse.ArgumentParser()
-        self.args = parser.parse_args([])
-
-        # Schemes
-        self.cFJ_original = 'schemes/original/cardelli2011_FJ.ts'
-        self.cNM_original = 'schemes/original/cardelli2011_NM.ts'
-        self.c2D_original = 'schemes/original/cardelli2013_2D.ts'
-        self.cFJ_noGC = 'schemes/original/cardelli2011_FJ_noGC.ts'
-        self.cNM_noGC = 'schemes/original/cardelli2011_NM_noGC.ts'
-
-        self.qian2011_gen = 'schemes/generalized/qian2011_gen.ts'
-        self.srin2017_phd = 'schemes/generalized/srinivas2017_phd.ts'
-        self.solo2010_v1 = 'schemes/generalized/soloveichik2010_v1.ts'
-
-        self.qian2011 = 'schemes/incorrect/qian2011.ts'
-
-    def test_A_B_irrev(self):
-        input_crn = "A -> B"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_A_B_rev(self):
-        input_crn = "A <=> B"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-
-@unittest.skip("need to update interface")
-class BimolecularReactions(unittest.TestCase):
-    def setUp(self):
-        # Enumerator-args
-        parser = argparse.ArgumentParser()
-        self.args = parser.parse_args([])
-
-        self.cFJ_original = 'schemes/original/cardelli2011_FJ.ts'
-        self.cNM_original = 'schemes/original/cardelli2011_NM.ts'
-        self.c2D_original = 'schemes/original/cardelli2013_2D.ts'
-        self.cFJ_noGC = 'schemes/original/cardelli2011_FJ_noGC.ts'
-        self.cNM_noGC = 'schemes/original/cardelli2011_NM_noGC.ts'
-
-        self.qian2011_gen = 'schemes/generalized/qian2011_gen.ts'
-        self.srin2017_phd = 'schemes/generalized/srinivas2017_phd.ts'
-        self.solo2010_v1 = 'schemes/generalized/soloveichik2010_v1.ts'
-
-        self.qian2011 = 'schemes/incorrect/qian2011.ts'
-
-    def tearDown(self):
-        self.args = None
-
-    def test_ApB_XpY_irrev(self):
-        input_crn = "A + B -> X + Y"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_ApB_XpY_rev(self):
-        input_crn = "A + B <=> X + Y"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        # TODO: Verification sometimes doesn't terminate)
-        self.assertTrue(v in (True, None))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        # TODO: Verification sometimes doesn't terminate)
-        self.assertTrue(v in (True, None))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_ApB_ApA_irrev(self):
-        input_crn = "A + B -> A + A"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_ApA_ApB_irrev(self):
-        input_crn = "A + A -> A + B"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        with self.assertRaises(RuntimeError):
-            fcrn, vcrn, fs, interpret = get_verification_data(
-                input_crn, self.solo2010_v1)
-
-        self.args.REJECT_REMOTE = True
-        fcrn, vcrn, fs, interpret = get_verification_data(input_crn,
-                                                          self.solo2010_v1, pargs=self.args)
-        self.args.REJECT_REMOTE = False
-
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, False)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-    def test_ApA_ApB_rev(self):
-        input_crn = "A + A <=> A + B"
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, None)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.c2D_original)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cFJ_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.cNM_noGC)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, None)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, False)
-
-        with self.assertRaises(RuntimeError):
-            fcrn, vcrn, fs, interpret = get_verification_data(
-                input_crn, self.solo2010_v1)
-        self.args.REJECT_REMOTE = True
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.solo2010_v1, pargs=self.args)
-        self.args.REJECT_REMOTE = False
-
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.qian2011_gen)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertEqual(v, True)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
-
-        fcrn, vcrn, fs, interpret = get_verification_data(
-            input_crn, self.srin2017_phd)
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='bisimulation', timeout=60)
-        self.assertTrue(v in (None, True))
-        v, i = verify(fcrn, vcrn, fs, interpret=interpret,
-                      method='pathway', timeout=60)
-        self.assertEqual(v, True)
+        self.exe = 'scripts/nuskellCMP'
+        self.lit = 'schemes/literature'
+        self.var = 'schemes/variants'
 
+        self.call = [self.exe]
+        self.call.extend(['--verbose'])
+        self.call.extend(['--verify', 'pathway', 'bisimulation', 'modular-bisimulation'])
+        self.call.extend(['--verify-timeout',  str(30)])
+
+    def test_directory_bimolecular_lit(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/bimolecular_lit.cmp'
+
+        # Generated Data
+        new_file = 'tests/snapshots/bimolecular_lit.new'
+        err_file = 'tests/snapshots/bimolecular_lit.err'
+
+        # Input Schemes
+        ts_dir = self.lit
+
+        # Input CRNs
+        crn_dir = 'tests/crns/bimol/'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--crn-dir', crn_dir])
+        call.extend(['--max-complex-size',      str(50)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(call)
+
+        with open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=None, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+
+    def test_directory_bimolecular_var(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/bimolecular_var.cmp'
+
+        # Generated Data
+        new_file = 'tests/snapshots/bimolecular_var.new'
+        err_file = 'tests/snapshots/bimolecular_var.err'
+
+        # Input Schemes
+        ts_dir = self.var
+
+        # Input CRNs
+        crn_dir = 'tests/crns/bimol/'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--crn-dir', crn_dir])
+        call.extend(['--max-complex-size',      str(50)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(call)
+
+        with open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=None, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+
+    def test_directory_basic_lit(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/basic_lit.cmp'
+
+        # Generated Data
+        new_file = 'tests/snapshots/basic_lit.new'
+        err_file = 'tests/snapshots/basic_lit.err'
+
+        # Input Schemes
+        ts_dir = self.lit
+
+        # Input CRNs
+        crn_dir = 'tests/crns/basic/'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--crn-dir', crn_dir])
+        call.extend(['--max-complex-size',      str(50)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(call)
+
+        with open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=None, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+
+    def test_directory_basic_var(self):
+        # Exisiting Data
+        cmp_file = 'tests/snapshots/basic_var.cmp'
+
+        # Generated Data
+        new_file = 'tests/snapshots/basic_var.new'
+        err_file = 'tests/snapshots/basic_var.err'
+
+        # Input Schemes
+        ts_dir = self.var
+
+        # Input CRNs
+        crn_dir = 'tests/crns/basic/'
+
+        # Options
+        call = self.call
+        call.extend(['--ts-dir', ts_dir])
+        call.extend(['--crn-dir', crn_dir])
+        call.extend(['--max-complex-size',      str(50)])
+        call.extend(['--max-complex-count',   str(5000)])
+        call.extend(['--max-reaction-count', str(10000)])
+
+        print(call)
+
+        with open(new_file, 'w') as out, \
+                open(err_file, 'w') as err :
+
+            proc = sub.Popen(call, stdin=None, stdout=out, stderr=err)
+            proc.communicate(None)
+            self.assertEqual(proc.returncode, 0)
+
+        self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
 
 if __name__ == '__main__':
     unittest.main()

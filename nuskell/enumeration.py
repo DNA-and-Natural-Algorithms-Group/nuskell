@@ -13,7 +13,8 @@ from peppercornenumerator.objects import PepperDomain, PepperComplex
 
 from peppercornenumerator import Enumerator
 import peppercornenumerator.reactions as reactions
-from peppercornenumerator.condense import condense_resting_states
+
+from peppercornenumerator.condense import ReactionGraph
 
 
 class TestTubePeppercornIO(object):
@@ -71,7 +72,7 @@ class TestTubePeppercornIO(object):
 
     @property
     def testtube(self):
-        if not self._processed and self._enumerator._resting_states is not None:
+        if not self._processed and self._enumerator._resting_sets is not None:
             raise ValueError(
                 'Enumerator has to be called within the IO object.')
         return self._testtube
@@ -148,15 +149,14 @@ class TestTubePeppercornIO(object):
 
         Note that the enumerator cannot generate new domains or new strands, it
         only finds new complexes. This function adds all complexes that are
-        present in resting states in the system. Transient states are ignored.
+        present in resting sets in the system. Transient states are ignored.
         """
         condensed = TestTubePeppercornIO.condensed
 
         if condensed:
-            condensed = condense_resting_states(enumerator,
-                                                compute_rates=True, 
-                                                k_fast=enumerator.k_fast)
-            reactions = condensed['reactions']
+            enumCG = ReactionGraph(enumerator)
+            enumCG.condense()
+            reactions = enumCG.condensed_reactions
         else:
             reactions = enumerator.reactions
 
@@ -168,7 +168,7 @@ class TestTubePeppercornIO(object):
             domains[d.name] = NuskellDomain(name=d.name, length=d.length)
 
         if condensed:
-            enum_complexes = enumerator.resting_complexes
+            enum_complexes = enumCG.resting_set_representatives
         else:
             # resting_complexes + transient_complexes
             enum_complexes = enumerator.complexes
@@ -219,7 +219,7 @@ def set_peppercorn_args(enum, args):
     if hasattr(args, 'max_complex_size'):
         enum.max_complex_size = args.max_complex_size
     else:
-        enum.max_complex_size = 100
+        enum.max_complex_size = 20
 
     if hasattr(args, 'max_complex_count'):
         enum.max_complex_count = args.max_complex_count
@@ -259,8 +259,6 @@ def set_peppercorn_args(enum, args):
             enum.release_cutoff_1_1 = args.release_cutoff
             enum.release_cutoff_1_N = args.release_cutoff
             enum.release_cutoff = args.release_cutoff
-    else:
-        enum.release_cutoff = None
 
     if hasattr(args, 'no_max_helix'):
         enum.max_helix_migration = not args.no_max_helix

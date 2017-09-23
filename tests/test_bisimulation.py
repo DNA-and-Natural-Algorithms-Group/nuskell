@@ -6,9 +6,9 @@ from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.parser import parse_crn_file
 import nuskell.verifier.crn_bisimulation_equivalence as bisimulation
 
+SKIP_SLOW = True
 
 class BisimulationTests(unittest.TestCase):
-    _skip_slow = True
     """Bisimulation Testing Class:
 
   Compares *formal* CRNs with *enumerated* CRNs.
@@ -52,21 +52,21 @@ class BisimulationTests(unittest.TestCase):
         crn = split_reversible_reactions(crn)
         return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
-    @unittest.skipIf(_skip_slow, "skipping slow tests")
+    @unittest.skipIf(SKIP_SLOW, "skipping slow tests")
     def test_roessler_qian_equivalence(self):
-        (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
-        (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
+        (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_01.crn')
+        (icrn, _) = self._parse_crn_file('tests/crns/icrns/roessler_qian2011_gen.crn')
 
         v, i = bisimulation.test(fcrn, icrn, fs)
         self.assertTrue(v)
 
     def test_roessler_modular_equivalence(self):
         (fcrns, fs) = self._parse_modular_crn_file(
-            'tests/crns/roessler_formal.crn', reversible=True)
+            'tests/crns/roessler_01.crn', reversible=True)
         icrns = [0 for rxn in fcrns]
         for i in range(len(icrns)):
             (icrns[i], _) = self._parse_crn_file(
-                'tests/crns/roessler_qian2011_module' + str(i + 1) + '.crn')
+                'tests/crns/icrns/roessler_qian2011_module' + str(i + 1) + '.crn')
 
         partial = {sp: Counter({sp: 1}) for sp in fs}
         backup = {sp: Counter({sp: 1}) for sp in fs}
@@ -82,14 +82,14 @@ class BisimulationTests(unittest.TestCase):
         pass
 
     def test_roessler_qian_equivalence_with_modinterpretation(self):
-        (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_formal.crn')
-        (icrn, _) = self._parse_crn_file('tests/crns/roessler_qian2011_gen.crn')
+        (fcrn, fs) = self._parse_crn_file('tests/crns/roessler_01.crn')
+        (icrn, _) = self._parse_crn_file('tests/crns/icrns/roessler_qian2011_gen.crn')
         (fcrns, _) = self._parse_modular_crn_file(
-            'tests/crns/roessler_formal.crn', reversible=True)
+            'tests/crns/roessler_01.crn', reversible=True)
         icrns = [0 for rxn in fcrns]
         for i in range(len(icrns)):
             (icrns[i], _) = self._parse_crn_file(
-                'tests/crns/roessler_qian2011_module' + str(i + 1) + '.crn')
+                'tests/crns/icrns/roessler_qian2011_module' + str(i + 1) + '.crn')
 
         partial = {sp: Counter({sp: 1}) for sp in fs}
         v, i = bisimulation.testModules(fcrns, icrns, fs, partial,
@@ -99,11 +99,11 @@ class BisimulationTests(unittest.TestCase):
         v, i = bisimulation.test(fcrn, icrn, fs, interpretation=i)
         self.assertTrue(v)
 
-    @unittest.skipIf(_skip_slow, "skipping slow tests")
+    @unittest.skipIf(SKIP_SLOW, "skipping slow tests")
     def test_qingdongthesis_solo(self):
         # An example where the choice of the permchecker matters ...
         (fcrn, fs) = self._parse_crn_file('tests/crns/crn6.crn')
-        (icrn, _) = self._parse_crn_file('tests/crns/crn6_qingdong_thesis.crn')
+        (icrn, _) = self._parse_crn_file('tests/crns/icrns/crn6_qingdong_thesis.crn')
 
         inter_01 = {'i778': Counter(['Y']),
                     'i575': Counter(['X']),
@@ -189,7 +189,7 @@ class BisimulationTests(unittest.TestCase):
         argcheck['B'] = Counter(B=1)
         self.assertDictEqual(partial, argcheck)
 
-    @unittest.skipIf(_skip_slow, "skipping slow tests")
+    @unittest.skipIf(SKIP_SLOW, "skipping slow tests")
     def test_example_02(self):
         # """A simple example of finding a bisimulation from group meeting."""
 
@@ -223,7 +223,7 @@ class BisimulationTests(unittest.TestCase):
                                  interpretation=partial, verbose=False)
         self.assertTrue(v)
 
-    @unittest.skipIf(_skip_slow, "skipping slow tests")
+    @unittest.skipIf(SKIP_SLOW, "skipping slow tests")
     def test_example_03(self):
         #""" a follow-up on testing the groupmeeting example """
 

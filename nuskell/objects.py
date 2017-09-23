@@ -18,7 +18,7 @@ from dsdobjects import DSDObjectsError, DSDDuplicationError
 #'http://www.github.com/bad-ants-fleet/crnsimulator'
 from crnsimulator import writeODElib
 
-from nuskell.parser import parse_pil_file
+from dsdobjects.parser import parse_kernel_file
 
 
 class NuskellObjectError(Exception):
@@ -156,60 +156,6 @@ class NuskellReaction(DSD_Reaction):
     @staticmethod
     def clear_memory():
         DSD_Reaction.MEMORY = dict()
-
-
-
-
-def pair_table(ss, chars=['.']):
-    """Return a secondary struture in form of pair table:
-
-    Args:
-      ss (str): secondary structure in dot-bracket format
-      chars (list, optional): a list of characters that are ignored. Defaults to
-        ['.']
-
-    Example:
-       ((..)). => [5,4,-1,-1,1,0,-1]
-
-    Raises:
-       NuskellObjectError: Too many closing brackets in secondary structure.
-       NuskellObjectError: Too many opening brackets in secondary structure.
-       NuskellObjectError: Unexpected character in sequence: "{}"
-
-    Returns:
-      [list]: A pair-table
-    """
-    stack = []
-
-    pt = [-1] * len(ss)
-
-    for i, char in enumerate(ss):
-        if (char == '('):
-            stack.append(i)
-        elif (char == ')'):
-            try:
-                j = stack.pop()
-            except IndexError as e:
-                raise NuskellObjectError(
-                    "Too many closing brackets in secondary structure")
-            pt[i] = j
-            pt[j] = i
-        elif (char == '+'):
-            pt[i] = '+'
-        elif (char not in set(chars)):
-            raise NuskellObjectError(
-                "Unexpected character in sequence: '" + char + "'")
-
-    if stack != []:
-        raise NuskellObjectError(
-            "Too many opening brackets in secondary structure")
-    return pt
-
-def find(l, key):
-    for i in range(len(l)):
-        if l[i] == key:
-            return i
-    return None
 
 class TestTube(object):
     """A reaction network of nucleic acid complexes.
@@ -549,7 +495,7 @@ class TestTube(object):
         (conc, const) = conctup
         assert isinstance(cplx, NuskellComplex), 'must be a NuskellComplex format'
 
-        if self._RG.has_node(cplx):
+        if self._RG.has_node(cplx): # Does not check for the name
             if conc is not None:
                 if self._RG.node[cplx]['concentration'] is None:
                     self._RG.node[cplx]['concentration'] = conc
@@ -689,33 +635,7 @@ class TestTube(object):
           condensed (bool, optional): Udate the reaction graph using *condensed* format.
         """
 
-        # Version 1:
-        # (PepperDomains, PepperComplexes) = enum_input(NuskellDomain, NuskellComplexes)
-        # enum = Enumerator(PepperComplexes, args)
-        # enum.enumerate(args)
-        # (NuskellDomain, NuskellComplexes) = enum_output(enum.domains, enum.complexes)
-        # NuskellReactions = enum_reactions(enum.reactions, condensed=True)
-
-        # Version 2:
-        # enum = Enumerator(args)
-        # enum.load_kernel(map(lambda x:x.kernel_string, NuskellComplexes))
-        # enum.enumerate(args)
-        # (NuskellDomain, NuskellComplexes) = enum.output(enum.domains, enum.complexes)
-        # NuskellReactions = enum_reactions(enum.reactions, condensed=True)
-
-        # Version 3:
-        # def enumerate_testtube() 
-        #   kernel = TestTube.return_kernel
-        #   Enumerator.load_kernel(kernel)
-        #   kernel = Enumerator.return_kernel
-        #   TestTube.load_kernel(kernel)
-        # solution = enumerate_testtube(solution)
-        # or 
-        # solution2 = enumerate_testtube(solution)
-
         from nuskell.enumeration import TestTubePeppercornIO
-        logger = logging.getLogger()
-        logger.disabled = True
 
         TestTubePeppercornIO.condensed = condensed
         interface = TestTubePeppercornIO(testtube=self, enumerator=None,
@@ -723,8 +643,6 @@ class TestTube(object):
                                          init_memory = init_memory)
         interface.enumerate()
         self.ReactionGraph = nx.compose(self.ReactionGraph, interface.testtube.ReactionGraph)
-
-        logger.disabled = False
 
     def simulate_crn(self, odename, sorted_vars=None, unit='M'):
         oR = dict()
@@ -957,7 +875,7 @@ class TestTubeIO(object):
 
     def load_pil_kernel(self, pilfile):
         """Parses a file written in PIL - KERNEL notation! """
-        ppil = parse_pil_file(pilfile)
+        ppil = parse_kernel_file(pilfile)
 
         def resolve_loops(loop):
             """ Return a sequence, structure pair from kernel format with parenthesis. """
@@ -980,16 +898,92 @@ class TestTubeIO(object):
                     struct.append(')')
             return sequen, struct
 
-        domains = []
-        for line in ppil:
-            if line[0] == 'domain':
+        # Do domains first, just in case...
+        domains = {'+' : '+'} # saves some code
+        for line in ppil :
+            name = line[1]
+            if line[0] == 'dl-domain':
+                if line[2] == 'short':
+                    (dtype, dlen) = ('short', None)
+                elif line[2] == 'long':
+                    (dtype, dlen) = ('long', None)
+                else :
+                    (dtype, dlen) = (None, int(line[2]))
+                if name not in domains:
+                    domains[name] = NuskellDomain(name, dtype = dtype, length = dlen)
+                logging.info('Domain {} with length {}'.format(domains[name], len(domains[name])))
+                cname = name[:-1] if domains[name].is_complement else name + '*'
+                if cname in domains:
+                    assert domains[cname] == ~domains[name]
+                else :
+                    domains[cname] = ~domains[name]
+
+        complexes = {}
+        for line in ppil :
+            name = line[1]
+            if line[0] == 'dl-domain':
                 pass
-                #domains.append(Domain(name=line[1], sequence=list('N' * int(line[2]))))
             elif line[0] == 'complex':
-                pass
-            else:
-                raise NotImplementedError(
-                    'Weird expression returned from pil_parser!')
+                sequence, structure = resolve_loops(line[2])
+
+                # Replace names with domain objects.
+                try :
+                    sequence = map(lambda d : domains[d], sequence)
+                except KeyError:
+                    for e, d in enumerate(sequence):
+                        if d not in domains :
+                            logging.warning("Assuming {} is a long domain.".format(d))
+                            domains[d] = PepperDomain(d, 'long')
+                            cdom = ~domains[d]
+                            domains[cdom.name] = cdom
+                        sequence[e] = domains[d]
+
+                constant, concentration = False, 0
+                if len(line) > 3:
+                    i, c, u = line[3]
+                    constant = (i == 'constant')
+                    if u == 'M':
+                        concentration = float(c)
+                    elif u == 'mM':
+                        concentration = float(c)*1e-3
+                    elif u == 'uM':
+                        concentration = float(c)*1e-6
+                    elif u == 'nM':
+                        concentration = float(c)*1e-9
+                    elif u == 'pM':
+                        concentration = float(c)*1e-12
+                    else :
+                        raise ValueError('unknown unit for concentrations specified.')
+
+                complexes[name] = NuskellComplex(sequence, structure, name=name)
+                self._testtube.add_complex(complexes[name], (concentration, constant))
+
+            elif line[0] == 'reaction':
+                rtype = line[1][0][0] if line[1] != [] and line[1][0] != [] else None
+                rate = float(line[1][1][0]) if line[1] != [] and line[1][1] != [] else None
+                if rate is None or rtype is None or rtype == 'condensed' :
+                    r = "{} -> {}".format(' + '.join(line[2]), ' + '.join(line[3]))
+                    logging.warning("Ignoring input reaction without a rate: {}".format(r))
+                    continue
+                else :
+                    r = "[{} = {:12g}] {} -> {}".format(
+                            rtype, rate, ' + '.join(line[2]), ' + '.join(line[3]))
+                    logging.warning("Ignoring input reaction: {}".format(r))
+                    continue
+                #try :
+                #    reactants = map(lambda c : complexes[c], line[2])
+                #    products  = map(lambda c : complexes[c], line[3])
+                #except KeyError:
+                #    logging.warning("Ignoring input reaction with undefined complex: {}".format(r))
+                #    continue
+
+                #reaction = PepperReaction(reactants, products, rtype=rtype, rate=rate)
+                #reactions.append(reaction)
+
+            elif line[0] == 'resting-state':
+                logging.warning("Ignoring resting-state specification: {}".format(name))
+            else :
+                raise NotImplementedError('cannot interpret keyword:', line[0])
 
         return self._testtube
 
@@ -1006,6 +1000,52 @@ class TestTubeIO(object):
           crn (list[list], optional): a nuskell-style CRN expression
           ts (str, optional): name of the translation scheme
         """
+
+        def pair_table(ss, chars=['.']):
+            """Return a secondary struture in form of pair table:
+        
+            Args:
+              ss (str): secondary structure in dot-bracket format
+              chars (list, optional): a list of characters that are ignored. Defaults to
+                ['.']
+        
+            Example:
+               ((..)). => [5,4,-1,-1,1,0,-1]
+        
+            Raises:
+               NuskellObjectError: Too many closing brackets in secondary structure.
+               NuskellObjectError: Too many opening brackets in secondary structure.
+               NuskellObjectError: Unexpected character in sequence: "{}"
+        
+            Returns:
+              [list]: A pair-table
+            """
+            stack = []
+        
+            pt = [-1] * len(ss)
+        
+            for i, char in enumerate(ss):
+                if (char == '('):
+                    stack.append(i)
+                elif (char == ')'):
+                    try:
+                        j = stack.pop()
+                    except IndexError as e:
+                        raise NuskellObjectError(
+                            "Too many closing brackets in secondary structure")
+                    pt[i] = j
+                    pt[j] = i
+                elif (char == '+'):
+                    pt[i] = '+'
+                elif (char not in set(chars)):
+                    raise NuskellObjectError(
+                        "Unexpected character in sequence: '" + char + "'")
+        
+            if stack != []:
+                raise NuskellObjectError(
+                    "Too many opening brackets in secondary structure")
+            return pt
+
         fh.write("(* File autogenerated by nuskell. ")
 
         if ts:

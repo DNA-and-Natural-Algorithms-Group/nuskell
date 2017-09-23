@@ -1,0 +1,12 @@
+Translation scheme       CRN                                                enumerated pathway bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
+     cardelli2011_FJ.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 3500.0                 224.0                           timeout  
+     cardelli2011_NM.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 2580.0                 152.0                           timeout  
+     cardelli2013_2D.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 2400.0                  96.0                           timeout  
+cardelli2013_2D_2TGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 2130.0                 100.0                           timeout  
+  cardelli2013_2D_3I.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 2790.0                  90.0                           timeout  
+      chen2013_2D_JF.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 1920.0                  78.0                           timeout  
+        lakin2012_3D.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...     None     None   None         None                    NaN                   NaN                           timeout  
+     lakin2016_2D_3I.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...     None     None   None         None                    NaN                   NaN                           timeout  
+         qian2011_3D.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   True         True                  665.0                  24.0                              True  
+     soloveichik2010.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         True                 1560.0                  56.0                              True  
+        srinivas2015.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         True                 1660.0                  80.0                              True

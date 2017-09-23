@@ -2,6 +2,7 @@
 
 import os
 import sys
+import logging
 import argparse
 import pkg_resources
 import pandas as pd
@@ -9,11 +10,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from numpy import nan
 
-from nuskell import translate, verify, reset_names, NuskellExit, __version__
+from nuskell import translate, verify, NuskellExit, __version__
+from nuskell.objects import clear_memory
 from nuskell.parser import parse_crn_string, split_reversible_reactions
 from nuskell.enumeration import TestTubePeppercornIO
 from nuskell.verifier import removeSpecies, modular_bisimulation
 from peppercornenumerator import PolymerizationError
+from peppercornenumerator import CondensationError
 
 
 def compare_schemes(reactions, schemedir,
@@ -40,11 +43,11 @@ def compare_schemes(reactions, schemedir,
     """
 
     plotdata = []  # Scheme, CRN, Cost, Speed
-    for (crn, crn_name) in reactions:
-        for scheme in sorted(os.listdir(schemedir)):
-            if scheme[-3:] != '.ts':
-                print "\n# Ignoring file:", args.ts_dir + scheme
-                continue
+    for scheme in sorted(os.listdir(schemedir)):
+        if scheme[-3:] != '.ts':
+            logging.warning("Ignoring file:", args.ts_dir + scheme)
+            continue
+        for (crn, crn_name) in reactions:
 
             if crn_name:
                 current = [scheme, str(crn_name)]
@@ -52,23 +55,29 @@ def compare_schemes(reactions, schemedir,
                 current = [scheme, crn]
 
             fcrn, fs, _, _ = parse_crn_string(crn)
-            fcrm = map(lambda x: split_reversible_reactions(
-                [x]), fcrn)  # formal chemical reaction module
+
+            # formal chemical reaction module
+            fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) 
             fcrn = split_reversible_reactions(fcrn)
 
-            if verbose:
-                print "\n# -------"
-            print '# Scheme:', scheme, 'CRN:', crn
-            if verbose:
-                print "# -------"
+            logging.info("")
+            logging.info("Translating using {}".format(scheme))
+            logging.info("Formal CRN:")
+            for r in crn.split('\n'):
+                logging.info(" {}".format(r))
 
+
+            clear_memory()
             try:
-                reset_names()
                 solution, modules = translate(crn, schemedir + scheme,
                                               modular=modular,
-                                              verbose=(verbose > 1))
+                                              verbose=(verbose > 2))
             except NuskellExit as e:
-                print '# ERROR:', e
+                logging.error(e)
+                logging.error("Exiting translation. [{}]".format(scheme))
+                logging.error("Formal CRN:")
+                for r in crn.split('\n'):
+                    logging.error(" {}".format(r))
                 current.extend([None, None, None, None, None])
                 plotdata.append(current)
                 continue
@@ -77,21 +86,46 @@ def compare_schemes(reactions, schemedir,
 
             semantics = ['d'] if pc_args.enum_detailed else ['c']
             try:
-                reset_names()
                 solution.enumerate_reactions(
                     pc_args, condensed=not pc_args.enum_detailed)
             except PolymerizationError as e:
                 # NOTE: Many PolymerizationErrors are easiest to fix with
-                # --reject-remote enumeration semantics.
-                print e
-                pc_args.reject_remote = True
-                solution.enumerate_reactions(
-                    pc_args, condensed=not pc_args.enum_detailed)
-                semantics.append('rr')
-                pc_args.reject_remote = False
+                # --reject-remote enumeration semantics, but that is not a
+                # guarantee it that it will work.
+                logging.warning("Changing enumeration parameters to reject-remote [{}]".format(
+                    scheme))
+                logging.warning("Formal CRN:")
+                for r in crn.split('\n'):
+                    logging.warning(" {}".format(r))
+                try:
+                    pc_args.reject_remote = True
+                    solution.enumerate_reactions(pc_args, condensed=not pc_args.enum_detailed)
+                    semantics.append('rr')
+                    pc_args.reject_remote = False
+                except PolymerizationError as e:
+                    logging.error(e)
+                    logging.error("Insufficient enumeration parameters. [{}]".format(scheme))
+                    logging.error("Formal CRN:")
+                    for r in crn.split('\n'):
+                        logging.error(" {}".format(r))
+                    current.extend([None, None, None, None, None])
+                    plotdata.append(current)
+                    continue
+            except CondensationError as e:
+                logging.error(e)
+                logging.error("Condensation error. [{}]".format(scheme))
+                logging.error("Formal CRN:")
+                for r in crn.split('\n'):
+                    logging.error(" {}".format(r))
+                current.extend([None, None, None, None, None])
+                plotdata.append(current)
+                continue
 
             if not solution.reactions:
-                print Warning('No DSD reactions have been enumerated.')
+                logging.error("No reactions have been enumerated. [{}]".format(scheme))
+                logging.error("Formal CRN:")
+                for r in crn.split('\n'):
+                    logging.error(" {}".format(r))
                 current.extend([None, None, None, None, None])
                 plotdata.append(current)
                 continue
@@ -104,132 +138,108 @@ def compare_schemes(reactions, schemedir,
             # Implementation CRN is an enumerated CRN after regex-complexes have
             # been removed.
             for r in solution.reactions:
-                if args.verbose > 1:
-                    print r, "[{} {} - {}]".format(r.rate, r.rateunits, r.rtype)
+                logging.debug("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
                 rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
                 icrn.append(rxn)
 
             # IMPLEMENTATION DETAILS
-            if verbose:
-                print "# Enumerated system: {} species, {} reactions".format(
-                    len(solution.complexes), len(icrn))
-                print "#  - {} signal species".format(
-                    len([c for c in solution.complexes if c.name in interpret.keys()]))
-                print "#  - {} fuel species".format(
-                    len([c for c in solution.complexes if c.name in map(str, fuels)]))
-                print "#  - {} intermediate species".format(
-                    len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))]))
-                print '# Number of distinct strands in the system:', len(solution.strands)
-                print '# Length of all distinct strands in the system:', sum(
-                    sum(map(lambda d: d.length, s)) for s in solution.strands.values())
+            logging.info("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
+            logging.info("  {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()])))
+            logging.info("  {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)])))
+            logging.info("  {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))])))
+            logging.info("Number of distinct strands in the system: {}".format(len(solution.strands)))
+            logging.info("Length of all distinct strands in the system: {}".format(sum( sum(map(lambda d: d.length, s)) for s in solution.strands.values())))
 
             # NOTE: New code.. to do the module enumeration:
             if modular:
-                seen_intermed = set()
-                intermediates = filter(
-                    lambda x: x.name[0] == 'e', solution.complexes)
+                seen_reactions = set()
+                all_reactions = set(solution.reactions)
+
                 module_crns = []
                 for e, module in enumerate(modules):
-                    # first, replace history complexes with their
-                    # interpretation!
+                    # first, replace history complexes with their interpretation!
+                    initials = map(str, module.complexes)
                     for cplx in module.complexes:
                         # TODO quite inefficient loops
                         for k, v in interpret.items():
                             if (cplx.name in v) and k != cplx.name:
                                 [newc] = solution.selected_complexes([k])
-                                module.add_complex(
-                                    newc, solution.get_complex_concentration(newc))
+                                module.add_complex(newc, solution.get_complex_concentration(newc))
                                 if module.has_complex(cplx):
                                     module.rm_complex(cplx)
 
                     # then, enumerate!
                     if 'rr' in semantics:
                         pc_args.reject_remote = True
-                        module.enumerate_reactions(
-                            pc_args, condensed=not pc_args.enum_detailed, prefix='tmp')
+                        module.enumerate_reactions( pc_args, 
+                                condensed=not pc_args.enum_detailed,
+                                prefix='tmp', init_memory=solution.complexes)
                         pc_args.reject_remote = False
-                    else:
-                        module.enumerate_reactions(
-                            pc_args, condensed=not pc_args.enum_detailed, prefix='tmp')
+                    else :
+                        module.enumerate_reactions( pc_args, 
+                                condensed=not pc_args.enum_detailed,
+                                prefix='tmp', init_memory=solution.complexes)
 
-                    # after enumeration, rename all tmp species with e species
-                    # names in solution.
+                    # after enumeration, make sure there are no new 'tmp' species present.
                     for cplx in module.complexes:
-                        if cplx.name[:3] == 'tmp':
-                            replaced = False
-                            debugging = 0
-                            # TODO also quite inefficient
-                            while (not replaced):
-                                for x in intermediates:
-                                    if (cplx.sequence, cplx.structure) == (
-                                            x.sequence, x.structure):
-                                        cplx.name = x.name
-                                        seen_intermed.add(x)
-                                        replaced = True
-                                        break
-                                cplx.rotate_once
-                                if debugging > len(cplx.lol_sequence):
-                                    raise RuntimeError(
-                                        "couldn't find enumerated species")
-                                debugging += 1
+                        assert cplx.name[:3] != 'tmp'
 
                     # append the CRN
                     mcrn = []
                     for r in module.reactions:
+                        assert r in all_reactions
+                        seen_reactions.add(r)
+                        #logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
                         rxn = [map(str, r.reactants), map(
                             str, r.products), [r.rate]]
                         mcrn.append(rxn)
                     module_crns.append(mcrn)
+                    #logging.info("")
 
-                # last, identify crosstalk as the last implementation CRN
-                # (without formal correspondence)
-                crosstalk = set()
-                for x in intermediates:
-                    if x not in seen_intermed:
-                        RG = solution.ReactionGraph
-                        for react in RG.successors(x) + RG.predecessors(x):
-                            crosstalk.add(react)
+                # last, identify crosstalk as the last implementation CRN (without
+                # formal correspondence)
+                mcrn = [] # crosstalk
+                for r in all_reactions :
+                    if r not in seen_reactions :
+                        #logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                        rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
+                        mcrn.append(rxn)
 
                 # append the CRN
-                mcrn = []
-                for r in crosstalk:
-                    rxn = [map(str, r.reactants), map(
-                        str, r.products), [r.rate]]
-                    mcrn.append(rxn)
                 if mcrn:
                     module_crns.append(mcrn)
 
-                icrns = map(
-                    lambda x: removeSpecies(
-                        x, map(
-                            str, fuels)), module_crns)
+                icrns = map(lambda x: removeSpecies(x, map(str, fuels)), module_crns)
 
             # VERIFICATION
             vcrn = removeSpecies(icrn, fuels)
             for meth in vnotions:
                 if 'modular-' in meth:
-                    # NOTE: Temporary to fixe a bug in testModules
-                    import copy
-                    backup = copy.deepcopy(interpret) if interpret else None
-                    v, _ = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:],
-                                                verbose=(verbose > 1), timeout=vtime)
+                    if len(fcrm) > 1:
+                        # NOTE: Temporary to fixe a bug in testModules
+                        import copy
+                        backup = copy.deepcopy(interpret) if interpret else None
+                        v, _ = modular_bisimulation(fcrm, icrns, fs, interpret=backup, 
+                                method=meth[8:], verbose=(verbose > 2), timeout=vtime)
+                        #logging.warning('transfering interpretation to bisimulation')
+                        #interpret = backup
+                    else :
+                        assert fcrn == fcrm[0]
+                        v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:],
+                              verbose=(args.verbose > 1), timeout=args.verify_timeout)
                 else:
                     v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-                                  verbose=(verbose > 1), timeout=vtime)
+                                  verbose=(verbose > 2), timeout=vtime)
 
                 if v is True:
-                    if verbose:
-                        print "# {}: CRNs are {} equivalent.".format(v, meth)
+                    logging.info("{}: CRNs are {} equivalent.".format(v, meth))
                     current.append(v)
                 elif v is False:
-                    if verbose:
-                        print "# {}: CRNs are not {} equivalent.".format(v, meth)
+                    logging.info("{}: CRNs are not {} equivalent.".format(v, meth))
                     current.append(v)
                 elif v is None:
-                    if verbose:
-                        print "# {}: {} verification did not terminate within {} seconds.".format(v, meth, vtime)
+                    logging.info("{}: {} verification did not terminate within {} seconds.".format(v, meth, vtime))
                     current.append(v)
-                    #current.append('- [{} s]'.format(vtime))
 
             if cmp_total_nuc:
                 cost = sum(sum(map(lambda d: d.length, s))
@@ -312,7 +322,7 @@ def main(args):
     # _________________ #
 
     if args.from_csv:
-        print '# Parsing data from file ... '
+        logging.info('# Parsing data from file ... ')
         df = pd.DataFrame().from_csv(args.from_csv)
 
     else:
@@ -320,11 +330,12 @@ def main(args):
         # Process CRN input #
         # _________________ #
         if args.crn_dir:
-            print "Compiling CRNs in:", args.crn_dir
+            if args.crn_dir[-1] != '/': args.crn_dir += '/'
+            logging.info("Compiling CRNs in:", args.crn_dir)
             reactions = []
             for crnfile in filter(
                     lambda x: x[-4:] == '.crn', os.listdir(args.crn_dir)):
-                print ' *', crnfile
+                logging.info(' *{}'.format(crnfile))
                 with open(args.crn_dir + crnfile) as fcrn:
                     react = ''
                     for l in fcrn.readlines():
@@ -334,32 +345,33 @@ def main(args):
             input_crn = sys.stdin.readlines()
             input_crn = "".join(input_crn).strip()
             reactions = [(input_crn, input_crn)]
-            print "Compiling CRN:"
+            logging.info("Compiling CRN:")
             for (rxn, n) in reactions:
-                print ' *', rxn
-            print
+                for r in rxn.split('\n'):
+                    logging.info('  {}'.format(r))
+            logging.info("")
 
         # **************** #
         # Process TS input #
         # ________________ #
 
         if args.ts_dir:
-            print "Comparing schemes in:", args.ts_dir
+            if args.ts_dir[-1] != '/': args.ts_dir += '/'
+            logging.info("Comparing schemes in: {}".format(args.ts_dir))
         else:
-            print "Comparing default schemes:"
-            args.ts_dir = pkg_resources.resource_filename(
-                'nuskell', 'schemes') + '/'
+            logging.info("Comparing default schemes:")
+            args.ts_dir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
 
         for ts in filter(lambda x: x[-3:] == '.ts',
                          sorted(os.listdir(args.ts_dir))):
-            print ' *', ts
+            logging.info('  {}'.format(ts))
 
         # ***************** #
         # Process REF input #
         # _________________ #
 
         if args.reference and args.reference not in os.listdir(args.ts_dir):
-            raise Exception('Reference scheme not found.')
+            raise SystemExit('Reference scheme not found.')
 
         # ********* #
         # MAIN LOOP #
@@ -393,7 +405,7 @@ def main(args):
     # TODO: remove csv dependece
     if not args.from_csv and args.reference:
         plotdata = normalize(plotdata, args.reference)
-        print 'Normalized to {}:'.format(args.reference)
+        logging.info('Normalized to {}:'.format(args.reference))
         df = pd.DataFrame(plotdata,
                           columns=[
                               'Translation scheme', 'CRN', 'enumerated'] + args.verify + [
@@ -530,9 +542,24 @@ def get_peppercorn_args(parser):
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
     get_nuskellCMP_args(parser)
     get_peppercorn_args(parser)
     args = parser.parse_args()
+
+    logger = logging.getLogger()
+    if args.verbose == 1:
+        logger.setLevel(logging.INFO)
+    elif args.verbose == 2:
+        logger.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+        logger.setLevel(logging.NOTSET)
+
+    ch = logging.StreamHandler()
+
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
     main(args)

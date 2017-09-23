@@ -306,7 +306,7 @@ class NuskellExpressions(object):
                     dom_value = ~dom_value
                 domains[i] = dom_value
         return theenv._env, NusComplex(sequence=domains, structure=dotparen,
-                                       attr=attributes)
+                                       attr=attributes, memorycheck=False)
 
     def _list(self, theenv, content):
         for i in range(len(content)):
@@ -380,17 +380,13 @@ class NuskellFunctions(object):
     variables and are therefore declared as staticmethods.  As a consequence, the
     functions can be accessed without prior initialization of the Object.
 
-    Args:
-      sdl (int, optional): Short domain length
-      ldl (int, optional): Long domain length
     """
     ################################
     ### Builtin-function section ###
     ################################
 
-    def __init__(self, sdl=6, ldl=15):
-        self._short_domain_length = sdl
-        self._long_domain_length = ldl
+    def __init__(self, *kargs, **kwargs):
+        super(NuskellFunctions, self).__init__(*kargs, **kwargs)
 
     def eval_builtin_functions(self, f, args):
         """Evaluate built-in functions.
@@ -511,34 +507,11 @@ class NuskellFunctions(object):
         if args[0].sequence == [] and args[0].structure == []:
             return TestTube()
         else:
-            return TestTube(complexes={args[0].name: [args[0], float("inf"), None]})
-            # return TestTube(complexes={args[0].name: (args[0],
-            # float("inf"))})
-
-        # Translate NusCompex -> Complex, so that the environment returns a
-        # Standard TestTube Object.
-        #standard = Complex(sequence=args[0].sequence, structure=args[0].structure)
-        # return TestTube(complexes={standard.name: standard})
-
-    @staticmethod
-    def const_nM(args):
-        if not isinstance(args[0], NuskellComplex):
-            raise NuskellEnvError(
-                "The first argument of `const_nM' should be a Complex")
-        if not isinstance(args[1], float):
-            raise NuskellEnvError(
-                "The second argument of `const_nM' should be a concentration <float>")
-        args[0].flatten_cplx
-        if args[0].sequence == [] and args[0].structure == []:
-            return TestTube()
-        else:
-            return TestTube(complexes={args[0].name: (args[0], args[1])})
-
-    #@staticmethod
-    # def unique(args) :
-    #  if type(args[0]) != int:
-    #    raise NuskellEnvError("The first argument of `unique' should be an integer.")
-    #  return Domain(args[0])
+            try : 
+                final = NuskellComplex(args[0].sequence, args[0].structure, prefix='final')
+            except DSDDuplicationError, e:
+                final = e.existing
+            return TestTube(complexes={final.name: [final, float("inf"), None]})
 
     @staticmethod
     def complement(args):
@@ -653,19 +626,15 @@ class NuskellEnvironment(NuskellExpressions):
     schemes. Inherits from :obj:`NuskellExpressions()` and initializes built-in
     functions provided by :obj:`NuskellFunctions()`.
 
-    Args:
-      sdlen (optional, int): Default length of built-in short() domains
-      ldlen (optional, int): Default length of built-in long() domains
-
     Raises:
       NuskellEnvError
 
     """
 
-    def __init__(self, sdlen=6, ldlen=15):
+    def __init__(self):
         # Setup the builtin functions.
         self._env = [{}]
-        self._bfunc_Obj = self._init_builtin_functions(sdlen, ldlen)
+        self._bfunc_Obj = self._init_builtin_functions()
 
     # Public functions #
     def interpret(self, code):
@@ -767,25 +736,10 @@ class NuskellEnvironment(NuskellExpressions):
                 modules.append(self.constant_species_solution)
 
             # NOTE: The modular reaction-by-reaction translation does not *sum* over
-            # the whole CRN, but sums over every reaction. That means, species which
-            # are shared between reactions will not be intersected (i.e. they coexist
-            # as separate molecules with separate identities)
+            # the whole CRN, but sums over every reaction. The common memory management
+            # of NuskellComplexes ensures that species wich are shared between reactions 
+            # have the same name.
             unified_solution = sum(modules)
-            for csmod in modules:
-                # Use the naming-scheme from unified_solution.
-                replace = dict()
-                for cplx in csmod.complexes:
-                    if not unified_solution.has_complex(cplx):
-                        [cplx2] = filter(lambda x:
-                                         (cplx.sequence ==
-                                          x.sequence and cplx.structure == x.structure),
-                                         unified_solution.complexes)
-                        replace[cplx] = cplx2
-
-                for v, rv in replace.items():
-                    conc = csmod.get_complex_concentration(v)
-                    csmod.rm_complex(v)
-                    csmod.add_complex(rv, conc, sanitycheck=True)
             modules.insert(0, unified_solution)
 
         else:
@@ -797,14 +751,10 @@ class NuskellEnvironment(NuskellExpressions):
         return modules
 
     # Private Functions #
-    def _init_builtin_functions(self, sdlen, ldlen):
+    def _init_builtin_functions(self):
         """ Initialized built-in Nuskell functions.
 
         Add a binding for every builtin-fuction to the environment.
-
-        Args:
-          sdlen (int): Short domain length.
-          ldlen (int): Long domain length.
 
         Returns:
           [:obj:`NuskellFunctions()`] Execution object for built-in Nuskell
@@ -826,7 +776,7 @@ class NuskellEnvironment(NuskellExpressions):
             "irrev_reactions", NusFunction(
                 ["crn"], "irrev_reactions"))
         self._create_binding("empty", TestTube())
-        return NuskellFunctions(sdlen, ldlen)
+        return NuskellFunctions()
 
     def _create_binding(self, name, value):
         """ Create binding of a Nuskell function.

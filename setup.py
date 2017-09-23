@@ -37,7 +37,9 @@ variants = [  'schemes/variants/qian2011_3D_var1.ts', # SWS version
               #'schemes/variants/qian2011_3D_var2.ts', # as shown in the revised paper
               #'schemes/variants/lakin2016_2D_3I_var1.ts', # ML email version
 
-canonical = [
+# Optionally, select a list of canonical schemes that are installed with
+# nuskell. These schemes will be used by nuskellCMP to compare translations.
+canonical = [ 
       'schemes/literature/soloveichik2010.ts',
       'schemes/variants/qian2011_3D_var1.ts', 
       'schemes/literature/cardelli2011_NM.ts',
@@ -69,12 +71,12 @@ setup(
         'pandas>=0.19.1', # nuskellCMP
         'numpy>=1.11.0',  # nuskellCMP
         'sympy>=0.7.6.1', 
-        'peppercornenumerator>=0.5.0',
-        'dsdobjects>=0.2',
-        'crnsimulator>=0.2'],
+        'peppercornenumerator==0.5',
+        'dsdobjects==0.5',
+        'crnsimulator==0.2'],
     dependency_links=[
-        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/development#egg=peppercornenumerator-0.5.0',
-        'https://github.com/DNA-and-Natural-Algorithms-Group/dsdobjects/tarball/master#egg=dsdobjects-0.2',
+        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/development#egg=peppercornenumerator-0.5',
+        'https://github.com/DNA-and-Natural-Algorithms-Group/dsdobjects/tarball/master#egg=dsdobjects-0.5',
         'https://github.com/bad-ants-fleet/crnsimulator/tarball/master#egg=crnsimulator-0.2'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],

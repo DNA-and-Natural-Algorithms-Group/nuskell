@@ -341,9 +341,14 @@ def main():
         
         if not solution.reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
+        
+        if args.verbose:
+            for x in sorted(solution.complexes, key=lambda x: x.name):
+                logging.info("{} = {}".format(x, x.kernel_string))
+            logging.info("")
 
-        for r in solution.reactions:
-            logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+            for r in solution.reactions:
+                logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
 
         logging.info("")
         logging.info(colors.BOLD + "Replacing regular-expression complexes ..." + colors.ENDC)
@@ -431,8 +436,8 @@ def main():
                         prefix='tmp', init_memory=solution.complexes)
 
                 # after enumeration, make sure there are no new 'tmp' species present.
-                for cplx in map(str, module.complexes):
-                    assert cplx[:3] != 'tmp'
+                for cplx in module.complexes:
+                    assert cplx.name[:3] != 'tmp'
 
                 # append the CRN
                 mcrn = []
@@ -451,9 +456,7 @@ def main():
             mcrn = [] # crosstalk
             for r in all_reactions :
                 if r not in seen_reactions :
-                    print 'not seen', r.canonical_form
-                    #if args.verbose:
-                    #    logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                    logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
                     rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
                     mcrn.append(rxn)
 
@@ -510,15 +513,20 @@ def main():
                     logging.info("    {}".format(interpret.keys()))
 
             if 'modular-' in meth:
-                # NOTE: Temporary to fix a bug in testModules
-                import copy
-                backup = copy.deepcopy(interpret) if interpret else None
-                v, i = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:],
-                                            verbose=(args.verbose > 1), timeout=args.verify_timeout)
-                # NOTE: you can pass on the interpretation like this:
-                #if v: 
-                #    logging.warning('updating interpretation with modular-bisimulation results')
-                #    interpret = i
+                if len(fcrm) > 1:
+                    # NOTE: Temporary to fix a bug in testModules
+                    import copy
+                    backup = copy.deepcopy(interpret) if interpret else None
+                    v, i = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:],
+                                                verbose=(args.verbose > 1), timeout=args.verify_timeout)
+                    # NOTE: you can pass on the interpretation like this:
+                    #if v: 
+                    #    logging.warning('updating interpretation with modular-bisimulation results')
+                    #    interpret = i
+                else :
+                    assert fcrn == fcrm[0]
+                    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:],
+                              verbose=(args.verbose > 1), timeout=args.verify_timeout)
             else:
                 v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
                               verbose=(args.verbose > 1), timeout=args.verify_timeout)
@@ -535,7 +543,7 @@ def main():
 
             if i and args.verbose:
                 if not v:
-                    i = i[2 if 'modular-' in meth else 0]
+                    i = i[2 if 'modular-' in meth and len(fcrm) > 1 else 0]
                 logging.info("Returned interpretation ['{}']:".format(meth))
                 for impl, formal in sorted(i.items()):
                     logging.info("    {} => {}".format(
