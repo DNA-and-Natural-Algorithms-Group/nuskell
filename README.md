@@ -34,7 +34,7 @@ A preview of the documentation for the first official release v1.0 can be found
 at: [documentation].
 
 ## Version
-0.2.0
+0.5
 
 ### Authors
   - Seung Woo Shin

@@ -1,0 +1,9 @@
+Translation scheme          CRN                                     enumerated pathway bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
+   cardelli2011_FJ_noGC.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A      [c]    False   None          True                 915                   57                                 True  
+   cardelli2011_NM_noGC.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A      [c]    False   None          True                 720                   48                                 True  
+cardelli2013_2D_3I_noGC.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A  [c, rr]     None   None          True                1005                   39                                 True  
+   cardelli2013_2D_noGC.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A      [c]    False   None         False                 810                   42                              timeout  
+    chen2013_2D_JF_var1.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A  [c, rr]    False   None          True                1110                   36                                 True  
+    chen2013_2D_JF_var2.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A  [c, rr]    False   None          True                1110                   36                                 True  
+      lakin2012_3D_var1.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A      [c]    False   None          True                 660                   48                                 True  
+       qian2011_3D_var1.ts  B + A -> 2B\nC + B -> 2C \nA + C -> 2A      [c]     True   None          True                 840                   30                                 True

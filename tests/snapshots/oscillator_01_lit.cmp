@@ -1,0 +1,12 @@
+Translation scheme       CRN                                     enumerated pathway bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
+     cardelli2011_FJ.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]     None    None         None                1485                    78                             timeout  
+     cardelli2011_NM.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]     None    None         None                1290                    69                             timeout  
+     cardelli2013_2D.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]    False    None        False                 810                    42                             timeout  
+cardelli2013_2D_2TGC.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]     None    None        False                 990                    45                             timeout  
+  cardelli2013_2D_3I.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A  [c, rr]     None    None         True                1005                    39                                True  
+      chen2013_2D_JF.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]    False    None        False                 900                    39                             timeout  
+        lakin2012_3D.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]    False    None        False                 810                   108                             timeout  
+     lakin2016_2D_3I.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A  [c, rr]     None    None        False                1155                    36                             timeout  
+         qian2011_3D.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]    False   False        False                 630                    27                               False  
+     soloveichik2010.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]     True    True         True                 780                    27                                True  
+        srinivas2015.ts  A + B -> 2B\nB + C -> 2C \nC + A -> 2A      [c]     True    None         True                 780                    33                                True

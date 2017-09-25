@@ -95,7 +95,7 @@ class gate2D_GC(r,p)
     where {
       a = long();
       # generalize?
-      nout = if len(r) > 1 and r[-1] == p[0] then noutput_cat(r, reverse(p), a) else noutput(r, reverse(p), a) ;
+      nout = if len(r) > 1 and len(p) > 0 and r[-1] == p[0] then noutput_cat(r, reverse(p), a) else noutput(r, reverse(p), a) ;
       [i, jr] = flip(map(imac,r),2);
       j = reverse(jr);
       t = toehold };

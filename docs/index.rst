@@ -350,13 +350,6 @@ Developer Guidelines
 In order to ensure sustainability of the Nuskell compiler package, there
 are a few rules for developers before submitting a pull request.
 
- * **Use two-whitespace indents.** 
-
-   Do not use Tab-characters, the only white-space characters that should be
-   used are ' ' and '\\n'.
-
- * **Do not exceed 80 characters per line** 
-
  * **Use Google docstring format** `[Google Dochstring Guidelines] <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_ 
 
 

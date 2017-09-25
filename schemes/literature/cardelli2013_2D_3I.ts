@@ -39,7 +39,7 @@ class formal(s) = "t x"
         t = toehold;
         x = long() };
 
-class signal() = "t x"
+class fuel() = "t x"
                | ". ."
     where {
         t = toehold;
@@ -104,7 +104,7 @@ class gate2D_GC(r,p)
       | ". . ."] + nout
     where {
       a = long();
-      nout = if len(r) > 1 and r[-1] == p[0] then noutput_cat(r, reverse(p), a) else noutput(r, reverse(p), a) ;
+      nout = if len(r) > 1 and len(p) > 0 and r[-1] == p[0] then noutput_cat(r, reverse(p), a) else noutput(r, reverse(p), a) ;
       [i, jr, ifw] = flip(map(imac,r),3);
       j = reverse(jr);
       b = long();
@@ -113,7 +113,7 @@ class gate2D_GC(r,p)
 module reaction(r) =
     if len(r.reactants) == 0 then
       sum(map(infty,gate2D_GC([i], r.products)+[i]))
-        where { i = signal() }
+        where { i = fuel() }
     else
       sum(map(infty, gate2D_GC(r.reactants, r.products)));
 
