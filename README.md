@@ -19,7 +19,11 @@ of an ODE system to simulate the dynamics of the compiled DSD network.
 Implement a formal CRN using a particular translation-scheme:
 
 ```
-  $ echo "A + B <=> X + Y; X -> A" | nuskell --ts scheme.ts [options]
+  $ echo "A + B <=> X + Y; X -> A" | nuskell --ts scheme.ts --verify modular-bisimulation
+```
+for options see:
+```
+  $ nuskell --help
 ```
 ## Translation Schemes
 Detailed information about translation schemes can be found in the ``/schemes`` directory.
@@ -28,10 +32,13 @@ Detailed information about translation schemes can be found in the ``/schemes`` 
 ```
   $ python setup.py install
 ```
+or
+```
+  $ python setup.py install --user
+```
 
 ## Documentation
-A preview of the documentation for the first official release v1.0 can be found
-at: [documentation].
+A preview of the documentation for release v1.0 can be found at: [documentation].
 
 ## Version
 0.5
@@ -46,7 +53,14 @@ at: [documentation].
 ### License
 MIT
 
+## Cite
+Stefan Badelt, Seung Woo Shin, Robert F. Johnson, Qing Dong, Chris Thachuk, and Erik Winfree (2017)
+"A General-Purpose CRN-to-DSD Compiler with Formal Verification, Optimization, and Simulation Capabilities"
+[[Badelt et al. (2017)]].
+
+
 [//]: References
+[Badelt et al. (2017)]: <https://doi.org/10.1007/978-3-319-66799-7_15>
 [Grun et al. (2014)]: <https://arxiv.org/abs/1505.03738>
 [Shin et al. (2014)]: <http://dna.caltech.edu/DNAresearch_publications.html#PathwayDecomposition>
 [Johnson et al. (2016)]: <http://dna.caltech.edu/DNAresearch_publications.html#CRN-Bisimulation>

@@ -31,53 +31,35 @@ class NuskellObjectError(Exception):
 class NuskellDomain(DL_Domain):
     """Nucleic acid domain sequence.
 
-    A domain is a sequence of consecutive nucleotides (or domains). Domains can
-    form different secondary structures, however, they always fold as one entity,
-    just like single nucleotides.
+    Inherits from :obj:`dsdobjects.base_classes.DL_Domain()`.
 
-    Implementation:
-      - Domains with the same name have the same nucleotide sequence.
-      - Domains with the same nucleotide sequence have the same name.
-      - Every Domain() has exactly one ComplementaryDomain().
-
-    Not implemented:
-      - A domain cannot be complementary to multiple domains, e.g. due to
-        suboptimal hybridizations or wobble-base-pairs.
+    A domain is a sequence of consecutive nucleotides. Sequences of domains can
+    form the same secondary structures as sequences of nucleotides.  Several
+    options for specifying domain properties are allowed. Domains might have an
+    explicit integer (bp) length, or may be designated as short or long. If the
+    latter method is used, the code will use the relevant constant as the
+    integer domain length.
 
     Globals:
-      id_counter (int): An automatically assigned unique descriptor that allows
-        for accessing/modifying every occurrence in the System.
+      ID (int): An automatically assigned ID that is used to find automated
+      species names.
 
     Args:
-      sequence (list): A list of nucleotides or Domain() objects.
       name (str, optional): Name of this domain. If not specified, an automatic
         name is generated, defaults to ''
       prefix (str, optional): A prefix for automated naming of Domains. Has to be
         set if no name is provided. Defaults to 'd' for 'domain'. Usually, the
         prefix 't' is used for 'toehold domains', and 'h' for 'histoy domains'.
+      dtype (bool, optional): One of *short* or *long*. Defaults to None, i.e. 
+        guess from length parameter.
+      length (int, optional): Set length of a domain. Defaults to None, i.e. set
+        default length for *dtype* parameter.
 
     Raises:
-      NuskellObjectError: Domain name must not end with '*'!
-      NuskellObjectError: Domain name must not end with a digit!
       NuskellObjectError: Domain prefix must not be empty!
-      NuskellObjectError: Domain prefix must not end with a digit!
-      NuskellObjectError: Must pass a sequence of constraints or domain objects.
+      NuskellObjectError: NuskellDomain prefix must not be empty!
+      NuskellObjectError: NuskellDomain prefix must not end with a digit!
 
-    Note:
-      The Domain function does not allow names or prefixes ending with digits or
-      '*'. Proximal digits are reseved to name domains automatically using their
-      unique domain-IDs. A mixture of both naming modes is forbidden.  Beware,
-      that it is still possible to initialize two different domains with the same
-      name, but that the information that these domain are different is lost when
-      writing them to a file.
-    """
-
-
-    """
-    Represents a single domain. We allow several options for specifying domain
-    properties. Domains might have an explicit integer (bp) length, or may be
-    designated as short or long. If the latter method is used, the code will use
-    the relevant constant as the integer domain length.
     """
 
     ID = 0          # ID is used to assign names automatically
@@ -86,13 +68,18 @@ class NuskellDomain(DL_Domain):
         # Assign name
         if name == '':
             if prefix == '':
-                raise DSDObjectsError('DSD_Complex prefix must not be empty!')
+                raise NuskellObjectError('NuskellDomain prefix must not be empty!')
+            elif prefix[-1].isdigit():
+                raise NuskellObjectError('NuskellDomain must not end with a digit!')
             name = prefix + str(NuskellDomain.ID)
             NuskellDomain.ID += 1
         super(NuskellDomain, self).__init__(name, dtype, length)
 
     @property
     def complement(self):
+        """
+        Returns the complement of a Domain, initializes a new object if necessary.
+        """
         if self._complement is None:
             cname = self._name[:-1] if self.is_complement else self._name + '*'
             if cname in DL_Domain.MEMORY:
@@ -110,10 +97,19 @@ class NuskellDomain(DL_Domain):
         return self._name[-1:] == '*'
 
 class NuskellComplex(DSD_Complex):
-    """
-    Nuskell complex object. 
+    """ A sequence and structure pair.
 
-    Overwrites some functions with new names, adds some convenient stuff..
+    Inherits from :obj:`dsdobjects.base_classes.Complex()`.
+
+    Args:
+        sequence (list): A domain-level or nucleotide-level sequence.
+        structure (list): A domain-level or nucleotide-level dot-bracket notation.
+        name (str, optional): Name of this domain. If not specified, an automatic
+            name is generated.
+        prefix (str, optional): A prefix for automatic naming of Domains.
+            Defaults to 'cplx'.
+        memorycheck (bool, optional): Use built-in memory checks. Defaults to True.
+
     """
 
     def __init__(self, sequence, structure, name='', prefix='cplx', memorycheck=True):
@@ -132,13 +128,12 @@ class NuskellReaction(DSD_Reaction):
     """ A reaction pathway.
 
     Args:
-      reactants (list): A list of reactants. Reactants can be strings or :obj:`Complex()` objects.
-      products (list): A list of products. Products can be strings or :obj:`Complex()` objects.
-      rtype (str, optional): Reaction type, e.g. bind21, condensed, ..
-      rate (flt, optional): Reaction rate.
-      name (str, optional): Name of the reaction.
-      prefix (str, optional): Prefix for atomatic naming scheme.
-
+        reactants (list): A list of :obj:`NuskellComplex()` objects.
+        products (list): A list of :obj:`NuskellComplex()` objects.
+        rtype (str, optional): Reaction type. Must be one of:
+            'formal', 'condensed', 'open', 'bind11', 'bind21', 'branch-3way', 'branch-4way'.
+        rate (flt, optional): Reaction rate.
+        memorycheck (bool, optional): Use built-in memory checks. Defaults to True.
     """
     RTYPES = set(['formal', 'condensed', 'open', 'bind11', 'bind21', 'branch-3way', 'branch-4way'])
 
@@ -150,7 +145,7 @@ class NuskellReaction(DSD_Reaction):
                 del DSD_Reaction.MEMORY[self.canonical_form]
             except KeyError:
                 pass
-            raise DSDObjectsError('Reaction type {} not supported! '.format(self.rtype) + 
+            raise NuskellObjectError('Reaction type {} not supported! '.format(self.rtype) + 
                 'Set supported reaction types using NuskellReaction.RTYPES')
 
     @staticmethod
@@ -163,14 +158,14 @@ class TestTube(object):
     **Description:**
       :obj:`TestTube()` objects are Nuskell's interface to enumerate and simulate
       nucleic acid systems.  Domain-level reaction networks are enumerated using
-      the Python package `Peppercorn`_ and simulated using the Python package
+      the Python package `peppercornenumerator`_ and simulated using the Python package
       `crnsimulator`_. :obj:`TestTube()` objects to low-level data structures,
       e.g. to verify the equivalence between two :obj:`TestTube()` objects.
 
-      Single or multiple :obj:`Complex()` and/or :obj:`Reaction()` objects can be
+      Single or multiple :obj:`NuskellComplex()` and/or :obj:`NuskellReaction()` objects can be
       accessed, added and removed from the system.  :obj:`TestTube()` provides
-      (optional) assert statements checking if :obj:`Complex()` and
-      :obj:`Domain()` instances have been duplicated, but they might be
+      (optional) assert statements checking if :obj:`NuskellComplex()` and
+      :obj:`NuskellDomain()` instances have been duplicated, but they might be
       time-consuming for large networks.
 
       Built-in functions can process domain-level networks to remove strands with
@@ -185,38 +180,38 @@ class TestTube(object):
 
     **Structure:**
       :obj:`TestTube()` is based on networkx.MultiDiGraph(), with two types of nodes: (a)
-      :obj:`Complex()` and (b) :obj:`Reaction()`.  The graph is bipartite, edges
+      :obj:`NuskellComplex()` and (b) :obj:`NuskellReaction()`.  The graph is bipartite, edges
       are directed (from reactants to prodcuts), they connect reactants to a
       reaction node and a reaction node to products.
 
       :obj:`TestTube()` provides an additional *concentration* attribute and *constant*
-      atribute to :obj:`Complex()` nodes, as well as a rate attribute to
-      :obj:`Reaction()` nodes. These attributes are accessed when writing ODE
+      atribute to :obj:`NuskellComplex()` nodes, as well as a rate attribute to
+      :obj:`NuskellReaction()` nodes. These attributes are accessed when writing ODE
       systems and (optionally) updated after simulations. This means a
-      :obj:`TestTube()` *can* be initialized without using :obj:`Complex()` and
-      :obj:`Reaction()` objects, but by using a consistent naming scheme.
+      :obj:`TestTube()` *can* be initialized without using :obj:`NuskellComplex()` and
+      :obj:`NuskellReaction()` objects, but by using a consistent naming scheme.
 
     **Developers:**
       It is recommended to store all other node attributes (e.g. free energies,
-      etc.) directly in the :obj:`Complex()` and :obj:`Reaction()` objects.
+      etc.) directly in the :obj:`NuskellComplex()` and :obj:`NuskellReaction()` objects.
       :obj:`TestTube()` does not provide an I/O interface for file formats. There is a
       separate :obj:`TestTubeIO()` object explicitly to parse and write compatible file
       formats (\*.pil, \*.dom, \*.dna, etc.).
 
     Args:
       complexes (:obj:`dict`, optional) =  A dictionary of complex names that stores
-        a tuple of [0]: the respective :obj:`Complex()` object or :obj:`None`, [1]: the
+        a tuple of [0]: the respective :obj:`NuskellComplex()` object or :obj:`None`, [1]: the
         concentration, and [2]: boolean value to specify if the concentration
         stays constant during a simulation: True = constant; False = initial
         For example: complexes['A'] = (None, 100, True) is a new
-        species called 'A', which has no :obj:`Complex()` object initialized, and
+        species called 'A', which has no :obj:`NuskellComplex()` object initialized, and
         remains constant at 100 [nM] concentration.
         Note: The constant attribute defaults to False if not specified, in which
         case the concentrations specify the initial state and might be updated
         after a simulation.
 
       reactions <dict(), optional> =  A dictionary of reaction names that stores
-        either a :obj:`Reaction()` object or a list [[reactants], [products], rate]
+        either a :obj:`NuskellReaction()` object or a list [[reactants], [products], rate]
         Reactants and products have to be known complexes.
 
     Raises:
@@ -224,8 +219,8 @@ class TestTube(object):
       NuskellObjectError: 'Invalid Reaction format'
 
 
-    .. _Peppercorn:
-        http://www.github.com/DNA-and-Natural-Algorithms-Group/peppercorn
+    .. _peppercornenumerator:
+        http://www.github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator
     .. _crnsimulator:
         http://www.github.com/bad-ants-fleet/crnsimulator
 
@@ -288,7 +283,7 @@ class TestTube(object):
 
     @property
     def complexes(self):
-        """list: a list of :obj:`Complex()` objects. """
+        """list: a list of :obj:`NuskellComplex()` objects. """
         return [n for n in self._RG.nodes() if isinstance(n, NuskellComplex)]
 
     def has_complex(self, cplx):
@@ -296,13 +291,13 @@ class TestTube(object):
 
     @property
     def reactions(self):
-        """list: a list of :obj:`Reaction()` objects. """
+        """list: a list of :obj:`NuskellReaction()` objects. """
         return [n for n in self._RG.nodes() if isinstance(n, NuskellReaction)]
 
     def set_complex_concentration(self, cplx, concentration, constant):
         """
         Args:
-          cplx (:obj:`Complex()`): complex.
+          cplx (:obj:`NuskellComplex()`): complex.
           concentration (flt): concentration.
           constant (bool): True if the concentration is kept constant, False for
             initial concentration.
@@ -316,13 +311,13 @@ class TestTube(object):
         return self._RG.node[cplx]['concentration'], self._RG.node[cplx]['constant']
 
     def selected_complexes(self, names):
-        """list: a list of :obj:`Complex()` objects that correspond to specified names. """
+        """list: a list of :obj:`NuskellComplex()` objects that correspond to specified names. """
         return [n for n in self._RG.nodes() if isinstance(n, NuskellComplex)
                 and n.name in names]
 
     # TODO: exclude? or filter outside?
     def present_complexes(self, exclude=[], th=0):
-        """Returns a list of :obj:`Complex()` objects with occupancy greater than a threshold.
+        """Returns a list of :obj:`NuskellComplex()` objects with occupancy greater than a threshold.
 
         Args:
           exclude (list, optional): Exclude particular complex names.
@@ -336,7 +331,7 @@ class TestTube(object):
     def interpret_species(self, species, prune=True):
         """Get an interpretation dictionary.
 
-        If a :obj:`Complex()` sequence contains a wildcard, then this function will find
+        If a :obj:`NuskellComplex()` sequence contains a wildcard, then this function will find
         all matching complexes, and return those as interpretation.  Regex-nodes
         may have at most *one wildcard* per complex, a wildcard corresponds to
         exactly *one unpaired long domain*.
@@ -374,8 +369,8 @@ class TestTube(object):
             patternMatched.
 
             Args:
-              x (Complex()) : A nuskell Complex() object.
-              y (Complex()) : A nuskell Complex() object.
+              x (NuskellComplex()) : A nuskell :obj:`NuskellComplex()` object.
+              y (NuskellComplex()) : A nuskell :obj:`NuskellComplex()` object.
 
             Returns: True/False
             """
@@ -482,7 +477,7 @@ class TestTube(object):
         """Add a complex to the TestTube.
 
         Args:
-          cplx (:obj:`Complex()`): The complex object.
+          cplx (:obj:`NuskellComplex()`): The complex object.
           (conc, const) (flt, bool): Concentration and True/False for constant or
             initial concentrations.
           sanitycheck (bool): True: Check if complex exists under a different name.
@@ -525,7 +520,7 @@ class TestTube(object):
         """Remove a Complex from the TestTube.
 
         Args:
-          cplx (:obj:`Complex()`): The complex object.
+          cplx (:obj:`NuskellComplex()`): The complex object.
           force (bool): True: remove complex and all reactions it is engaged in.
             False: Raise an Error if complex is engaged in a reaction.
 
@@ -554,7 +549,7 @@ class TestTube(object):
         """Add a reaction to the TestTube.
 
         Args:
-          react (:obj:`Reaction()`): The *irreversible* reaction to be added.
+          react (:obj:`NuskellReaction()`): The *irreversible* reaction to be added.
           sanitycheck (bool): True: Check if reaction exists under a different name.
             This can be time consuming. Defaults to True.
         """
@@ -583,7 +578,7 @@ class TestTube(object):
         """Remove a reaction from the TestTube.
 
         Args:
-          react (:obj:`Reaction()`): The reaction object to be removed.
+          react (:obj:`NuskellReaction()`): The reaction object to be removed.
         """
         if self._RG.has_node(react):
             self._RG.remove_node(react)

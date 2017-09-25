@@ -238,6 +238,8 @@ to design fuel complexes specific for a reaction of formal species.
   # Translate formal reactions with two reactants and two products.
   # Lakin et. al (2012) "Abstractions for DNA circuit design." [Figure 5]
   # -----------------------------------------------------------------------------
+  #
+  # Coded by Stefan Badelt (badelt@caltech.edu)
   
   # Define a global short toehold domain
   global toehold = short();
@@ -268,7 +270,6 @@ to design fuel complexes specific for a reaction of formal species.
       else 
         bimol_fuels(r.reactants, r.products);
   
-  # Coded by Stefan Badelt (badelt@caltech.edu)
   # Write the module *main* that applies *rxn* to the crn.
   module main(crn) = sum(map(rxn, crn)) 
     where crn = irrev_reactions(crn);

@@ -39,7 +39,7 @@ underlying the Nuskell library. More details can be found in the publications
 cited below.
 
 **Cite:**
- * Nuskell: Badelt et al. (accepted manuscript)
+ * Nuskell: `Badelt et al. (2017)`_
  * CRN bisimulation: `Johnson et al. (2016)`_
  * Peppercornenumerator: `Grun et al. (2014)`_
  * Pathway decomposition equivalence: `Shin et al. (2014)`_
@@ -350,7 +350,7 @@ Developer Guidelines
 In order to ensure sustainability of the Nuskell compiler package, there
 are a few rules for developers before submitting a pull request.
 
- * **Use Google docstring format** `[Google Dochstring Guidelines] <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_ 
+ * **Use Google docstring format** `[Google Docstring Guidelines] <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_ 
 
 
 The Nuskell `repository`_ can be found on ``GitHub``: 
@@ -361,8 +361,8 @@ https://github.com/DNA-and-Natural-Algorithms-Group/nuskell
 .. _peppercornenumerator: https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator
 .. _crnsimulator: https://github.com/bad-ants-fleet/crnsimulator
 
-.. .. _Badelt et al. (2017): 
-.. _Grun et al. (2014): https://arxiv.org/abs/1505.03738
+.. _Badelt et al. (2017): http://dna.caltech.edu/DNAresearch_publications.html#NuskellCompiler
+.. _Grun et al. (2014): http://dna.caltech.edu/DNAresearch_publications.html#Peppercorn
 .. _Shin et al. (2014): http://dna.caltech.edu/DNAresearch_publications.html#PathwayDecomposition
 .. _Johnson et al. (2016): http://dna.caltech.edu/DNAresearch_publications.html#CRN-Bisimulation
 

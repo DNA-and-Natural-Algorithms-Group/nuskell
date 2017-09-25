@@ -2,5 +2,5 @@ nuskell.compiler
 ==========================
 
 .. automodule:: nuskell.compiler
-  :members: translate, printCRN, InvalidSchemeError
+  :members: translate, genCRN, InvalidSchemeError
 
