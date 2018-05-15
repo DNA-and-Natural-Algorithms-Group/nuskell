@@ -2,7 +2,7 @@
 import unittest
 import argparse
 
-from peppercornenumerator import Enumerator, ReactionGraph
+from peppercornenumerator import Enumerator, PepperCondensation
 from peppercornenumerator.objects import PepperDomain, PepperComplex, PepperReaction, clear_memory
 
 import nuskell.enumeration as ne
@@ -89,7 +89,7 @@ class EnumerationTests(unittest.TestCase):
 
         ###########################
         # Get condensed output CRN
-        enumRG = ReactionGraph(enum)
+        enumRG = PepperCondensation(enum)
         reactions = enumRG.condensed_reactions
 
         self.assertEqual(len(reactions), 1)

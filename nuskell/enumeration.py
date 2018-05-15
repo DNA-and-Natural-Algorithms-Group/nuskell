@@ -14,7 +14,7 @@ from peppercornenumerator.objects import PepperDomain, PepperComplex
 from peppercornenumerator import Enumerator
 import peppercornenumerator.reactions as reactions
 
-from peppercornenumerator.condense import ReactionGraph
+from peppercornenumerator.condense import PepperCondensation
 
 
 class TestTubePeppercornIO(object):
@@ -154,7 +154,7 @@ class TestTubePeppercornIO(object):
         condensed = TestTubePeppercornIO.condensed
 
         if condensed:
-            enumCG = ReactionGraph(enumerator)
+            enumCG = PepperCondensation(enumerator)
             enumCG.condense()
             reactions = enumCG.condensed_reactions
         else:
