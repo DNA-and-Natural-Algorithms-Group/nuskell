@@ -643,7 +643,7 @@ class TestTube(object):
         oR = dict()
         conc = dict()
         ode = dict()
-        for r in self._RG.nodes_iter():
+        for r in self._RG.nodes():
             if isinstance(r, NuskellComplex):
                 concentration = self._RG.node[r]['concentration']
                 const = self._RG.node[r]['constant']
@@ -693,12 +693,12 @@ class TestTube(object):
                     'concentration unit not supported', unit)
 
             reactants = []
-            for reac in self._RG.predecessors_iter(r):
+            for reac in self._RG.predecessors(r):
                 for i in range(self._RG.number_of_edges(reac, r)):
                     reactants.append(Symbol(str(reac)))
 
             products = []
-            for prod in self._RG.successors_iter(r):
+            for prod in self._RG.successors(r):
                 for i in range(self._RG.number_of_edges(r, prod)):
                     products.append(Symbol(str(prod)))
 

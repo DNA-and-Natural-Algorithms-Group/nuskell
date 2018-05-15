@@ -4,12 +4,6 @@
 
 from setuptools import setup, find_packages
 
-with open('README.md') as f:
-  readme = f.read()
-
-with open('LICENSE') as f:
-  license = f.read()
-
 # Literature: These schemes are implemented as described in a publication
 literature = ['schemes/literature/soloveichik2010.ts',
               'schemes/literature/qian2011_3D.ts',
@@ -54,30 +48,46 @@ if False:
 else :
   install_schemes = literature + variants
 
+
+LONG_DESCRIPTION="""
+``Nuskell`` compiles formal chemical reaction networks (CRNs) into domain-level
+strand displacement (DSD) systems. It provides a library of ``translation
+schemes`` (i.e. variations of CRN-to-DSD translations) to exploit the diversity
+of DSD circuits implementing the same CRN.
+
+In order to proof/disproof the correctness of a particular translation,
+``Nuskell`` includes the domain-level reaction enumerator ``Peppercorn`` [Grun
+et al. (2014)] to find intended and unintended reaction pathways and then
+provides two notions of stochastic trajectory-type CRN equivalence:
+bisimulation [Johnson et al. (2016)] and pathway decomposition [Shin et al. (2014)].
+
+The domain-level reactions and their approximate rates can be exported in form
+of an ODE system to simulate the dynamics of the compiled DSD network.
+"""
+
 setup(
     name='nuskell',
-    version='0.5',
+    version='0.5.1',
     description='Nucleic acid strand displacement compiler',
-    long_description=readme,
+    long_description=LONG_DESCRIPTION,
     author='Seung Woo Shin, Qing Dong, Robert Johnson, Stefan Badelt, Erik Winfree',
     author_email='winfree@caltech.edu',
     url='http://www.github.com/DNA-and-Natural-Algorithms-Group/nuskell/',
     data_files=[('nuskell/schemes', install_schemes)],
-    license=license,
+    license='MIT',
     install_requires=[
-        'pyparsing>=1.5.5', 
-        'networkx>=1.10',
-        'seaborn>=0.7.1', # nuskellCMP
-        'pandas>=0.19.1', # nuskellCMP
+        'pyparsing>=2.2', 
+        'networkx>=2.1',
+        'seaborn>=0.8.1', # nuskellCMP
+        'pandas>=0.22.0', # nuskellCMP
         'numpy>=1.11.0',  # nuskellCMP
-        'sympy>=0.7.6.1', 
-        'peppercornenumerator==0.5',
-        'dsdobjects==0.5',
-        'crnsimulator==0.2'],
+        'sympy>=1.1.1', 
+        'peppercornenumerator==0.6.1',
+        'dsdobjects==0.6.1',
+        'crnsimulator==0.4'],
     dependency_links=[
-        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/tarball/development#egg=peppercornenumerator-0.5',
-        'https://github.com/DNA-and-Natural-Algorithms-Group/dsdobjects/tarball/master#egg=dsdobjects-0.5',
-        'https://github.com/bad-ants-fleet/crnsimulator/tarball/master#egg=crnsimulator-0.2'],
+        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/archive/v0.6.1.tar.gz#egg=peppercornenumerator-0.6.1',
+        'https://github.com/bad-ants-fleet/crnsimulator/archive/v0.4.tar.gz#egg=crnsimulator-0.4'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell', 'scripts/nuskellCMP'],

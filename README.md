@@ -41,7 +41,7 @@ or
 A preview of the documentation for release v1.0 can be found at: [documentation].
 
 ## Version
-0.5
+0.5.1
 
 ### Authors
   - Seung Woo Shin
