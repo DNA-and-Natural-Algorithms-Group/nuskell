@@ -76,11 +76,13 @@ setup(
     data_files=[('nuskell/schemes', install_schemes)],
     license='MIT',
     install_requires=[
-        'pyparsing>=2.2', 
-        'networkx>=2.1',
+        'future', 
+        'pyparsing==2.2', 
+        'scipy==1.2.2', 
+        'networkx==2.2',
         'seaborn>=0.8.1', # nuskellCMP
-        'pandas>=0.22.0', # nuskellCMP
-        'numpy>=1.11.0',  # nuskellCMP
+        'pandas>=0.22.0,<0.24.2', # nuskellCMP
+        'numpy>=1.11.0,<1.14.0',  # nuskellCMP
         'sympy>=1.1.1', 
         'peppercornenumerator==0.6.1',
         'dsdobjects==0.6.1',
