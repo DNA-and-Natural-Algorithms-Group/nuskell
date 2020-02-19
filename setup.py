@@ -70,26 +70,25 @@ setup(
     version='0.5.1',
     description='Nucleic acid strand displacement compiler',
     long_description=LONG_DESCRIPTION,
-    author='Seung Woo Shin, Qing Dong, Robert Johnson, Stefan Badelt, Erik Winfree',
+    author='Stefan Badelt, Seung Woo Shin, Robert Johnson, Qing Dong, Erik Winfree',
     author_email='winfree@caltech.edu',
     url='http://www.github.com/DNA-and-Natural-Algorithms-Group/nuskell/',
     data_files=[('nuskell/schemes', install_schemes)],
     license='MIT',
     install_requires=[
         'future', 
-        'pyparsing==2.2', 
-        'scipy==1.2.2', 
-        'networkx==2.2',
-        'seaborn>=0.8.1', # nuskellCMP
-        'pandas>=0.22.0,<0.24.2', # nuskellCMP
-        'numpy>=1.11.0,<1.14.0',  # nuskellCMP
-        'sympy>=1.1.1', 
-        'peppercornenumerator==0.6.1',
-        'dsdobjects==0.6.1',
-        'crnsimulator==0.4'],
+        'pyparsing', 
+        'scipy', 
+        'networkx>=2.2',
+        'seaborn', # nuskellCMP
+        'pandas', # nuskellCMP
+        'numpy',  # nuskellCMP
+        'sympy', 
+        'peppercornenumerator>=0.7',
+        'dsdobjects>=0.7',
+        'crnsimulator>=0.6'],
     dependency_links=[
-        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/archive/v0.6.1.tar.gz#egg=peppercornenumerator-0.6.1',
-        'https://github.com/bad-ants-fleet/crnsimulator/archive/v0.4.tar.gz#egg=crnsimulator-0.4'],
+        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/archive/v0.6.1.tar.gz#egg=peppercornenumerator-0.6.1'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell', 'scripts/nuskellCMP'],

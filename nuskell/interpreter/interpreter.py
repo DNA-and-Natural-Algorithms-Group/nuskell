@@ -6,6 +6,7 @@
 #
 # The interpreter interface for translation schemes.
 #
+from __future__ import absolute_import, division, print_function
 
 import sys
 import logging
@@ -30,7 +31,7 @@ def ts_code_snippet():
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
 
-def interpret(ts_parsed, crn_parsed, fs_list, modular=False, verbose=False):
+def interpret(ts_parsed, crn_parsed, fs, modular = False, verbose = False, one = 100e-9):
     """ Interpretation of a translation scheme.
 
     Initializes the compiler environment, interprets the instructions of the
@@ -67,10 +68,10 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False, verbose=False):
     ts_env.interpret(ts_parsed)
 
     # translate formal species list using the formal() function
-    fs_result = ts_env.translate_formal_species(fs_list)
+    fs_result = ts_env.translate_formal_species(fs.keys())
 
     # translate the crn using the main() function
-    cs_modules = ts_env.translate_reactions(crn_parsed, modular=modular)
+    cs_modules = ts_env.translate_reactions(crn_parsed, modular = modular)
 
     if not modular:
         assert len(cs_modules) == 1
@@ -83,16 +84,20 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False, verbose=False):
     solution = TestTube()
     for k, v in fs_result.items():
         v.flatten_cplx  # NusComplex-specific function.
-        v = NuskellComplex(v.sequence, v.structure, name=k)
-        solution.add_complex(v, (None, None), sanitycheck=True)
+        v = NuskellComplex(v.sequence, v.structure, name = k)
+        conc = fs[k] if None in fs[k] else (fs[k][1]*one, fs[k][0] == 'constant')
+        solution.add_complex(v, conc, ctype = 'signal')
         fs_result[k] = v
         logging.debug("{} - {} {}".format(type(v), v, v.kernel_string))
 
     num = 0
     logging.debug("SOLUTION")
-    for cplx in sorted(cs_solution.complexes, key=lambda x: x.name):
-        cplx.name = name='f' + str(num)
-        solution.add_complex(cplx, cs_solution.get_complex_concentration(cplx), sanitycheck=True)
+    for cplx in sorted(cs_solution.complexes, key = lambda x: x.name):
+        cplx.name = name = 'f' + str(num)
+        assert (cs_solution.get_complex_concentration(cplx)) == (float('inf'), None)
+        assert cs_solution.ReactionGraph.nodes[cplx]['ctype'] == 'fuel'
+        conc = (1*one, False)
+        solution.add_complex(cplx, conc, ctype = 'fuel')
         logging.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
         num += 1
 
@@ -108,17 +113,17 @@ def interpret(ts_parsed, crn_parsed, fs_list, modular=False, verbose=False):
             if module.has_complex(v):
                 raise ValueError("Overwriting existing module species")
             if not solution.has_complex(v):
-                raise ValueError(
-                    "Cannot find formal module species in solution.")
+                raise ValueError("Cannot find formal module species in solution.")
             if k in rxn:
-                module.add_complex(v, (None, None))
+                conc = fs[k] if None in fs[k] else (fs[k][1]*one, fs[k][0] == 'constant')
+                module.add_complex(v, conc, ctype = 'signal')
             logging.debug("{} - {} {}".format(type(v), v, v.kernel_string))
 
         for cplx in csm.complexes:
             if not solution.has_complex(cplx):
                 raise ValueError("Cannot find constant module species in solution.")
-            module.add_complex(cplx, cs_solution.get_complex_concentration(cplx),
-                sanitycheck=True)
+            assert cs_solution.ReactionGraph.nodes[cplx]['ctype'] == 'fuel'
+            module.add_complex(cplx, cs_solution.get_complex_concentration(cplx), ctype = 'fuel')
             logging.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
         rxnmodules.append(module)
 

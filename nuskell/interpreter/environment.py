@@ -6,6 +6,7 @@
 #
 # The interpreter environment for translation schemes.
 #
+from __future__ import absolute_import, division, print_function
 
 """The nuskell programming language environment.
 
@@ -412,7 +413,7 @@ class NuskellFunctions(object):
             'long': self.long,
             'short': self.short,
             'infty': self.infty,
-            #'unique' : self.unique,
+            'unique' : self.unique,
             'complement': self.complement,
             'rev_reactions': self.rev_reactions,
             'irrev_reactions': self.irrev_reactions,
@@ -422,6 +423,17 @@ class NuskellFunctions(object):
             return keywords[f](args)
         else:
             raise NuskellEnvError("`" + f + "' could not be found.")
+
+    def unique(self, args):
+        """A function that returns branch-migration domains.
+        """
+        if type(args[0]) != int:
+            raise RuntimeError("The first argument of `unique' should be an integer.")
+
+        dom = NuskellDomain(length=args[0], prefix='u')
+        cdm = ~dom
+        return dom
+
 
     def long(self, args):
         """A function that returns branch-migration domains.
@@ -444,10 +456,10 @@ class NuskellFunctions(object):
         """Print statment, primarily to debug nuskell scripts"""
         for a in args:
             if isinstance(a, NuskellComplex):
-                print map(str, a.sequence)
+                print(list(map(str, a.sequence)))
             else:
-                print str(a),
-        print
+                print(str(a), end='')
+        print()
         return void()
 
     def _abort(self, args):
@@ -501,8 +513,7 @@ class NuskellFunctions(object):
         resulting object will be a TestTube instance
         """
         if not isinstance(args[0], NuskellComplex):
-            raise NuskellEnvError(
-                "The argument of `infty' should be a Complex")
+            raise NuskellEnvError("The argument of `infty' should be a Complex")
         args[0].flatten_cplx
         if args[0].sequence == [] and args[0].structure == []:
             return TestTube()
@@ -511,7 +522,7 @@ class NuskellFunctions(object):
                 final = NuskellComplex(args[0].sequence, args[0].structure, prefix='final')
             except DSDDuplicationError, e:
                 final = e.existing
-            return TestTube(complexes={final.name: [final, float("inf"), None]})
+            return TestTube(complexes={final.name: [final, float("inf"), None, 'fuel']})
 
     @staticmethod
     def complement(args):
@@ -530,7 +541,7 @@ class NuskellFunctions(object):
                 x[i] = [x[i]]
             return reversed(map(self._complement, x))
         elif isinstance(x, Domain):
-            print 'Untested:', ~x
+            print('Untested:', ~x)
             return ~x
         elif isinstance(x, NuskellComplex):
             raise NotImplementedError
@@ -767,7 +778,7 @@ class NuskellEnvironment(NuskellExpressions):
         self._create_binding("long", NusFunction([], "long"))
         self._create_binding("short", NusFunction([], "short"))
         self._create_binding("infty", NusFunction(["species"], "infty"))
-        #self._create_binding("unique", NusFunction(["l"], "unique"))
+        self._create_binding("unique", NusFunction(["l"], "unique"))
         #self._create_binding("complement", NusFunction(["l"], "complement"))
         self._create_binding(
             "rev_reactions", NusFunction(

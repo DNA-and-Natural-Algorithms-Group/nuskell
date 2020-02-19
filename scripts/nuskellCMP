@@ -45,7 +45,7 @@ def compare_schemes(reactions, schemedir,
     plotdata = []  # Scheme, CRN, Cost, Speed
     for scheme in sorted(os.listdir(schemedir)):
         if scheme[-3:] != '.ts':
-            logging.warning("Ignoring file:", args.ts_dir + scheme)
+            logging.warning("Ignoring file: {}".format(args.ts_dir + scheme))
             continue
         for (crn, crn_name) in reactions:
 

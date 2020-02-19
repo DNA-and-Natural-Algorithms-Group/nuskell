@@ -4,22 +4,25 @@
 #
 # nuskell.objects: shared between different components of nuskell
 #
-#from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 import logging
 import networkx as nx
 from collections import Counter
+
 from sympy import Symbol, sympify, Matrix
-
-from dsdobjects import clear_memory
-from dsdobjects import DL_Domain, DSD_Complex, DSD_Reaction
-from dsdobjects import DSDObjectsError, DSDDuplicationError
-
-#'http://www.github.com/bad-ants-fleet/crnsimulator'
 from crnsimulator import writeODElib
 
+from dsdobjects import clear_memory
+from dsdobjects import DL_Domain, DSD_Complex, DSD_Reaction, DSD_Macrostate
+from dsdobjects import DSDObjectsError, DSDDuplicationError
+from dsdobjects.utils import natural_sort
 from dsdobjects.parser import parse_kernel_file
+from dsdobjects.prototypes import Reaction as NuskellReaction
 
+NuskellReaction.RTYPES.add('formal')
+
+from nuskell import __version__
 
 class NuskellObjectError(Exception):
     """nuskell.objects error class."""
@@ -124,33 +127,8 @@ class NuskellComplex(DSD_Complex):
         if ids: 
             DSD_Complex.ID = dict()
 
-class NuskellReaction(DSD_Reaction):
-    """ A reaction pathway.
-
-    Args:
-        reactants (list): A list of :obj:`NuskellComplex()` objects.
-        products (list): A list of :obj:`NuskellComplex()` objects.
-        rtype (str, optional): Reaction type. Must be one of:
-            'formal', 'condensed', 'open', 'bind11', 'bind21', 'branch-3way', 'branch-4way'.
-        rate (flt, optional): Reaction rate.
-        memorycheck (bool, optional): Use built-in memory checks. Defaults to True.
-    """
-    RTYPES = set(['formal', 'condensed', 'open', 'bind11', 'bind21', 'branch-3way', 'branch-4way'])
-
-    def __init__(self, reactants, products, rtype=None, rate=None, memorycheck=True):
-        super(NuskellReaction, self).__init__(reactants, products, 
-                rtype=rtype, rate=rate, memorycheck=memorycheck)
-        if self._rtype not in NuskellReaction.RTYPES:
-            try:
-                del DSD_Reaction.MEMORY[self.canonical_form]
-            except KeyError:
-                pass
-            raise NuskellObjectError('Reaction type {} not supported! '.format(self.rtype) + 
-                'Set supported reaction types using NuskellReaction.RTYPES')
-
-    @staticmethod
-    def clear_memory():
-        DSD_Reaction.MEMORY = dict()
+class NuskellMacrostate(DSD_Macrostate):
+    pass
 
 class TestTube(object):
     """A reaction network of nucleic acid complexes.
@@ -226,34 +204,33 @@ class TestTube(object):
 
     """
 
-    # A global TestTube() variable to make (time-consuming) sanity-checks when
-    # separate instances are subject to boolean or arithmetic opertions.
-    sanitychecks = True
-    warnings = True
-
-    def __init__(self, complexes=None, reactions=None):
+    def __init__(self, complexes = None, reactions = None):
         self._RG = nx.MultiDiGraph()
 
         if complexes and isinstance(complexes, dict):
             for name, data in complexes.items():
-                assert isinstance(data, list) and len(data) == 3, 'wrong format for complexes'
+                assert isinstance(data, list) and len(data) == 4, 'wrong format for complexes'
                 if data[1] is not None :
                     assert isinstance(data[1], float), 'concentration must be of type float.'
                 if data[2] is not None :
                     assert isinstance(data[2], bool), '"constant" must be of type bool.'
+                if data[3] is not None :
+                    assert isinstance(data[3], str), '"ctype" must be of type string.'
 
                 cplx = data[0]
                 conc = data[1]
                 const = data[2]
+                ct = data[3]
                 if isinstance(cplx, NuskellComplex):
-                    self._RG.add_node(cplx, concentration=conc, constant=const)
+                    self._RG.add_node(cplx, concentration = conc, constant = const, ctype = ct)
                 else:
                     raise NotImplementedError('please specify NuskellComplex objects.')
-                    #self._RG.add_node(name, concentration=conc, constant=const)
+
         elif complexes and isinstance(complexes, list):
             for c in complexes:
+                print(c)
                 assert isinstance(c, NuskellComplex)
-                self._RG.add_node(c, concentration=None, constant=None)
+                self._RG.add_node(c, concentration = None, ctype = None, constant = None)
 
         if reactions:
             for react in reactions:
@@ -284,7 +261,25 @@ class TestTube(object):
     @property
     def complexes(self):
         """list: a list of :obj:`NuskellComplex()` objects. """
-        return [n for n in self._RG.nodes() if isinstance(n, NuskellComplex)]
+        return [n for n in self._RG.nodes if isinstance(n, NuskellComplex)]
+
+    @property
+    def signal_complexes(self):
+        """list: a list of :obj:`NuskellComplex()` objects. """
+        return [n for n in self._RG.nodes if \
+                isinstance(n, NuskellComplex) and self._RG.nodes[n]['ctype'] == 'signal']
+
+    @property
+    def fuel_complexes(self):
+        """list: a list of :obj:`NuskellComplex()` objects. """
+        return [n for n in self._RG.nodes if \
+                isinstance(n, NuskellComplex) and self._RG.nodes[n]['ctype'] == 'fuel']
+
+    @property
+    def unspecified_complexes(self):
+        """list: a list of :obj:`NuskellComplex()` objects. """
+        return [n for n in self._RG.nodes if \
+                isinstance(n, NuskellComplex) and self._RG.nodes[n]['ctype'] is None]
 
     def has_complex(self, cplx):
         return self._RG.has_node(cplx)
@@ -294,6 +289,7 @@ class TestTube(object):
         """list: a list of :obj:`NuskellReaction()` objects. """
         return [n for n in self._RG.nodes() if isinstance(n, NuskellReaction)]
 
+    # TODO: set complex concentrations in complex objects??
     def set_complex_concentration(self, cplx, concentration, constant):
         """
         Args:
@@ -328,13 +324,14 @@ class TestTube(object):
                 if isinstance(n, NuskellComplex) and 
                     att['concentration'] > th and n.name not in exclude]
 
-    def interpret_species(self, species, prune=True):
+    # TODO: this is already for verification
+    def interpret_species(self, species, prune = True):
         """Get an interpretation dictionary.
 
-        If a :obj:`NuskellComplex()` sequence contains a wildcard, then this function will find
-        all matching complexes, and return those as interpretation.  Regex-nodes
-        may have at most *one wildcard* per complex, a wildcard corresponds to
-        exactly *one unpaired long domain*.
+        If a :obj:`NuskellComplex()` sequence contains a wildcard, then this
+        function will find all matching complexes, and return those as
+        interpretation.  Regex-nodes may have at most *one wildcard* per
+        complex, a wildcard corresponds to exactly *one unpaired long domain*.
 
         Args:
           species (list[str], optional): A list of complex names that are potential
@@ -418,9 +415,9 @@ class TestTube(object):
         for fs in species:
             cplxs = self.selected_complexes([fs])
             if len(cplxs) == 0:
-                print '====='
-                print 'WARNING: No complex found with name of formal species:', fs
-                print '====='
+                print('=====')
+                print('WARNING: No complex found with name of formal species:', fs)
+                print('=====')
                 continue
             else:
                 assert len(cplxs) == 1, 'Duplicate complex names?'
@@ -436,7 +433,8 @@ class TestTube(object):
                     for e, m in enumerate(matches, 1):
                         m.name = fs + '_' + str(e) + '_'
                         interpretation[m.name] = Counter([fs])
-                    self.rm_complex(cplx, force=True)
+                        self.ReactionGraph.nodes[m]['ctype'] = 'signal'
+                    self.rm_complex(cplx, force = True)
                 else:
                     # NOTE: We cannot simply remove the domain, because we would need to
                     # enumerate the network again and remove the domain everywhere! So
@@ -473,24 +471,28 @@ class TestTube(object):
 
         return interpretation
 
-    def add_complex(self, cplx, conctup = (None, None), sanitycheck=True):
+    def add_complex(self, cplx, conctup = (None, None), ctype = None, sanitycheck = None):
         """Add a complex to the TestTube.
 
         Args:
           cplx (:obj:`NuskellComplex()`): The complex object.
           (conc, const) (flt, bool): Concentration and True/False for constant or
             initial concentrations.
-          sanitycheck (bool): True: Check if complex exists under a different name.
-            This can be time consuming. Defaults to True.
 
         Note:
           A new complex resets TestTube.domains and TestTube.strands
 
         """
+        if sanitycheck is not None:
+            print('TestTube.add_complex: Using deprecated optional argument: sanitycheck')
+
         (conc, const) = conctup
         assert isinstance(cplx, NuskellComplex), 'must be a NuskellComplex format'
 
         if self._RG.has_node(cplx): # Does not check for the name
+            if cplx.name not in map(str, self.complexes):
+                raise NuskellObjectError('Complex Name does not match canonical form: {}'.format(cplx))
+            # NOTE: I am not happy about using add_complex to update concentrations...
             if conc is not None:
                 if self._RG.node[cplx]['concentration'] is None:
                     self._RG.node[cplx]['concentration'] = conc
@@ -503,16 +505,17 @@ class TestTube(object):
                 else:
                     assert self._RG.node[cplx]['constant'] == const, \
                             "Conflicting complex concentrations"
+            if ctype is not None:
+                if self._RG.node[cplx]['ctype'] is None:
+                    self._RG.node[cplx]['ctype'] = ctype
+                else:
+                    assert self._RG.node[cplx]['ctype'] == ctype, "Conflicting complex type"
         else:
-            # NOTE: This might become inefficient at some point, but it has been
-            # introduced to overcome issues with some translation schemes that
-            # produce the same fuel strand multiple times.
-            if sanitycheck and cplx.canonical_form in map(
-                    lambda x: x.canonical_form, self.complexes):
+            if cplx.canonical_form in map(lambda x: x.canonical_form, self.complexes):
                 raise NuskellObjectError('trying to add duplicate complex: {} = {}'.format(
                     cplx.name, cplx.kernel_string))
             else:
-                self._RG.add_node(cplx, concentration=conc, constant=const)
+                self._RG.add_node(cplx, concentration = conc, constant = const, ctype = ctype)
                 self._domains = None
                 self._strands = None
 
@@ -545,25 +548,23 @@ class TestTube(object):
             self._domains = None
             self._strands = None
 
-    def add_reaction(self, react, sanitycheck=True):
+    def add_reaction(self, react, sanitycheck = None):
         """Add a reaction to the TestTube.
 
         Args:
           react (:obj:`NuskellReaction()`): The *irreversible* reaction to be added.
-          sanitycheck (bool): True: Check if reaction exists under a different name.
-            This can be time consuming. Defaults to True.
         """
+
+        if sanitycheck is not None:
+            print('TestTube.add_complex: Using deprecated optional argument: sanitycheck')
 
         assert isinstance(react, NuskellReaction) 
 
         if self._RG.has_node(react):
             assert self._RG.node[react]['rate'] == react.rate
         else:
-            # NOTE: This might become inefficient at some point, but there might be
-            # cases where reactions are duplicated, so we check if the very same
-            # reaction exists as a different node:
-            if sanitycheck and react.canonical_form in map(
-                    lambda x: x.canonical_form, self.reactions):
+            if react.canonical_form in map(lambda x: x.canonical_form, self.reactions):
+                # This cannot be true, ever!
                 raise NuskellObjectError('trying to add duplicate reaction:', react.kernel_string)
             else:
                 self._RG.add_node(react, rate=react.rate)
@@ -622,22 +623,25 @@ class TestTube(object):
                     self._domains.add(d)
         return list(self._domains)
 
-    def enumerate_reactions(self, args=None, condensed=True, rename=None, 
-            prefix='e', init_memory=None):
+    def enumerate_reactions(self, prefix = 'e', **kwargs):
         """Enumerate reactions using the *peppercorn* enumerator.
         Args:
           args(:obj:`argparse.ArgumentParser()`, optional): Arguments for *peppercorn*.
           condensed (bool, optional): Udate the reaction graph using *condensed* format.
         """
+        from peppercornenumerator import enumerate_pil
+        from peppercornenumerator.objects import PepperComplex
+        PepperComplex.PREFIX = prefix
 
-        from nuskell.enumeration import TestTubePeppercornIO
+        selfIO = TestTubeIO(self)
+        pilfile = selfIO.write_pil()
 
-        TestTubePeppercornIO.condensed = condensed
-        interface = TestTubePeppercornIO(testtube=self, enumerator=None,
-                                         pargs=args, rename=rename, prefix=prefix,
-                                         init_memory = init_memory)
-        interface.enumerate()
-        self.ReactionGraph = nx.compose(self.ReactionGraph, interface.testtube.ReactionGraph)
+        clear_memory()
+        enum, out = enumerate_pil(pilfile, is_file = False, 
+                detailed = False, condensed = True, **kwargs)
+
+        clear_memory()
+        selfIO.load_pil(out)
 
     def simulate_crn(self, odename, sorted_vars=None, unit='M'):
         oR = dict()
@@ -741,30 +745,7 @@ class TestTube(object):
     def __add__(self, other):
         assert isinstance(other, TestTube)
         combined = TestTube()
-
-        # global TestTube() variable
-        if not TestTube.sanitychecks:
-            if TestTube.warnings:
-                print Warning('TestTube() - sanity checks turned off!')
-            combined.ReactionGraph = nx.compose(
-                self.ReactionGraph, other.ReactionGraph)
-
-        elif len(other.complexes) > len(self.complexes):
-            combined.ReactionGraph.add_nodes_from(
-                other.ReactionGraph.nodes(data=True))
-            combined.ReactionGraph.add_edges_from(
-                other.ReactionGraph.edges(data=True))
-            map(lambda c: combined.add_complex(c, self.get_complex_concentration(c),
-                                               sanitycheck=True), self.complexes)
-            map(lambda r: combined.add_reaction(r, sanitycheck=True), self.reactions)
-        else:
-            combined.ReactionGraph.add_nodes_from(
-                self.ReactionGraph.nodes(data=True))
-            combined.ReactionGraph.add_edges_from(
-                self.ReactionGraph.edges(data=True))
-            map(lambda c: combined.add_complex(c, other.get_complex_concentration(c),
-                                               sanitycheck=True), other.complexes)
-            map(lambda r: combined.add_reaction(r, sanitycheck=True), other.reactions)
+        combined.ReactionGraph = nx.compose(self.ReactionGraph, other.ReactionGraph)
         return combined
 
     def __radd__(self, other):
@@ -792,11 +773,11 @@ class TestTubeIO(object):
         """:obj:`TestTube()` property."""
         return self._testtube
 
-    def write_pil_kernel(self, pil, unit='M', crn=None, ts=None):
+    def write_pil(self, fh = None, unit = 'M', crn = None, fs = None, ts = None):
         """Write the contents of :obj:`TestTube()` into a PIL file -- KERNEL notation).
 
         Args:
-          pil (filehandle): A filehandle that the output is written to.
+          fh (filehandle): A filehandle that the output is written to or None.
           unit (str, optional): Specify a unit of concentrations (M, mM, uM, nM, pM).
           crn (list[list], optional): a nuskell-style CRN expression
           ts (str, optional): name of the translation scheme
@@ -807,24 +788,33 @@ class TestTubeIO(object):
           length h3 = 1
           cplx1 = h3 d1( d2( + )) @ initial 10 nM
         """
-        pil.write("# File autogenerated by nuskell. ")
+        from nuskell.compiler import genCRN, genCON
 
+        out = []
+        def output_string(string):
+            if fh is None:
+                out.append(string)
+            else :
+                fh.write(string)
+
+        # Write header #
+        output_string("# File generated by nuskell-{}\n".format(__version__))
+        output_string("#\n")
         if ts:
-            pil.write("\n# - Translation Scheme: {}".format(ts))
+            output_string("# - Translation Scheme: {}\n".format(ts))
+            output_string("#\n")
+        if fs:
+            output_string("# - Input concentration: \n")
+            for ico in genCON(fs):
+                output_string('#    {}\n'.format(ico))
+            output_string("#\n")
         if crn:
-            pil.write("\n# - Input CRN: \n")
-            for rxn in crn:
-                assert len(rxn) == 3
-                if len(rxn[2]) == 2:
-                    pil.write("#    {} <=> {}\n".format(
-                        ' + '.join(rxn[0]), ' + '.join(rxn[1])))
-                else:
-                    pil.write("#    {} -> {}\n".format(
-                        ' + '.join(rxn[0]), ' + '.join(rxn[1])))
-        pil.write("#\n\n".format(crn))
+            output_string("# - Input CRN: \n")
+            for rxn in genCRN(crn):
+                output_string('#    {}\n'.format(rxn))
+            output_string("#\n")
 
         domains = self._testtube.domains
-
         def adjust_conc(conc, unit):
             units = ['M', 'mM', 'uM', 'nM', 'pM']
             # 0,  3,   6,   9,   12
@@ -833,153 +823,85 @@ class TestTubeIO(object):
             return conc * (10**mult), unit
 
         # Print Domains
-        pil.write("# Domain Specifications\n")
+        output_string("\n# Domain Specifications\n")
         seen = set()
-        for d in sorted(domains, key=lambda x: x.name):
+        for d in natural_sort(domains):
             if d.is_complement:
                 dom = ~d
             else :
                 dom = d
             if dom not in seen:
-                pil.write("length {:s} = {:d}\n".format(dom.name, dom.length))
+                output_string("length {:s} = {:d}\n".format(dom.name, dom.length))
                 seen.add(dom)
 
-        pil.write("\n# Complex Specifications\n")
 
-        # Print Complexes
-        for cplx in sorted(self._testtube.complexes, key=lambda x: str(x)):
-            pil.write("{:s} = ".format(cplx.name))
-            seq = cplx.sequence
-            sst = cplx.structure
-            for i in range(len(seq)):
-                if sst[i] == '+':
-                    pil.write("{:s} ".format(str(sst[i])))
-                elif sst[i] == ')':
-                    pil.write("{:s} ".format(str(sst[i])))
-                elif sst[i] == '(':
-                    pil.write("{:s} ".format(str(seq[i]) + str(sst[i])))
-                else:
-                    pil.write("{:s} ".format(str(seq[i])))
-
-            conc, const = self._testtube.get_complex_concentration(cplx)
-            if const is True:
-                pil.write(" @ constant {} {}".format(*adjust_conc(conc, unit)))
-            elif const is False:
-                pil.write(" @ initial {} {}".format(*adjust_conc(conc, unit)))
-            pil.write(" \n")
-
-    def load_pil_kernel(self, pilfile):
-        """Parses a file written in PIL - KERNEL notation! """
-        ppil = parse_kernel_file(pilfile)
-
-        def resolve_loops(loop):
-            """ Return a sequence, structure pair from kernel format with parenthesis. """
-            sequen = []
-            struct = []
-            for dom in loop:
-                if isinstance(dom, str):
-                    sequen.append(dom)
-                    if dom == '+':
-                        struct.append('+')
+        def print_cplxs(complexlist):
+            for cplx in complexlist:
+                output_string("{:s} = ".format(cplx.name))
+                seq = cplx.sequence
+                sst = cplx.structure
+                for i in range(len(seq)):
+                    if sst[i] == '+':
+                        output_string("{:s} ".format(str(sst[i])))
+                    elif sst[i] == ')':
+                        output_string("{:s} ".format(str(sst[i])))
+                    elif sst[i] == '(':
+                        output_string("{:s} ".format(str(seq[i]) + str(sst[i])))
                     else:
-                        struct.append('.')
-                elif isinstance(dom, list):
-                    struct[-1] = '('
-                    old = sequen[-1]
-                    se, ss = resolve_loops(dom)
-                    sequen.extend(se)
-                    struct.extend(ss)
-                    sequen.append(old + '*' if old[-1] != '*' else old[:-1])
-                    struct.append(')')
-            return sequen, struct
+                        output_string("{:s} ".format(str(seq[i])))
 
-        # Do domains first, just in case...
-        domains = {'+' : '+'} # saves some code
-        for line in ppil :
-            name = line[1]
-            if line[0] == 'dl-domain':
-                if line[2] == 'short':
-                    (dtype, dlen) = ('short', None)
-                elif line[2] == 'long':
-                    (dtype, dlen) = ('long', None)
-                else :
-                    (dtype, dlen) = (None, int(line[2]))
-                if name not in domains:
-                    domains[name] = NuskellDomain(name, dtype = dtype, length = dlen)
-                logging.info('Domain {} with length {}'.format(domains[name], len(domains[name])))
-                cname = name[:-1] if domains[name].is_complement else name + '*'
-                if cname in domains:
-                    assert domains[cname] == ~domains[name]
-                else :
-                    domains[cname] = ~domains[name]
+                conc, const = self._testtube.get_complex_concentration(cplx)
+                if const is True:
+                    output_string(" @constant {} {}".format(*adjust_conc(conc, unit)))
+                elif const is False:
+                    output_string(" @initial {} {}".format(*adjust_conc(conc, unit)))
+                output_string(" \n")
 
-        complexes = {}
-        for line in ppil :
-            name = line[1]
-            if line[0] == 'dl-domain':
-                pass
-            elif line[0] == 'complex':
-                sequence, structure = resolve_loops(line[2])
+        sc = natural_sort(self._testtube.signal_complexes)
+        if len(sc):
+            output_string("\n# Signal complexes ({})\n".format(len(sc)))
+            print_cplxs(sc)
 
-                # Replace names with domain objects.
-                try :
-                    sequence = map(lambda d : domains[d], sequence)
-                except KeyError:
-                    for e, d in enumerate(sequence):
-                        if d not in domains :
-                            logging.warning("Assuming {} is a long domain.".format(d))
-                            domains[d] = PepperDomain(d, 'long')
-                            cdom = ~domains[d]
-                            domains[cdom.name] = cdom
-                        sequence[e] = domains[d]
+        fc = natural_sort(self._testtube.fuel_complexes)
+        if len(fc):
+            output_string("\n# Fuel complexes ({})\n".format(len(fc)))
+            print_cplxs(fc)
 
-                constant, concentration = False, 0
-                if len(line) > 3:
-                    i, c, u = line[3]
-                    constant = (i == 'constant')
-                    if u == 'M':
-                        concentration = float(c)
-                    elif u == 'mM':
-                        concentration = float(c)*1e-3
-                    elif u == 'uM':
-                        concentration = float(c)*1e-6
-                    elif u == 'nM':
-                        concentration = float(c)*1e-9
-                    elif u == 'pM':
-                        concentration = float(c)*1e-12
-                    else :
-                        raise ValueError('unknown unit for concentrations specified.')
+        oc = natural_sort(self._testtube.unspecified_complexes)
+        if len(oc):
+            output_string("\n# Other complexes ({})\n".format(len(oc)))
+            print_cplxs(oc)
 
-                complexes[name] = NuskellComplex(sequence, structure, name=name)
-                self._testtube.add_complex(complexes[name], (concentration, constant))
 
-            elif line[0] == 'reaction':
-                rtype = line[1][0][0] if line[1] != [] and line[1][0] != [] else None
-                rate = float(line[1][1][0]) if line[1] != [] and line[1][1] != [] else None
-                if rate is None or rtype is None or rtype == 'condensed' :
-                    r = "{} -> {}".format(' + '.join(line[2]), ' + '.join(line[3]))
-                    logging.warning("Ignoring input reaction without a rate: {}".format(r))
-                    continue
-                else :
-                    r = "[{} = {:12g}] {} -> {}".format(
-                            rtype, rate, ' + '.join(line[2]), ' + '.join(line[3]))
-                    logging.warning("Ignoring input reaction: {}".format(r))
-                    continue
-                #try :
-                #    reactants = map(lambda c : complexes[c], line[2])
-                #    products  = map(lambda c : complexes[c], line[3])
-                #except KeyError:
-                #    logging.warning("Ignoring input reaction with undefined complex: {}".format(r))
-                #    continue
+        output_string("\n# Reactions ({})\n".format(len(self._testtube.reactions)))
+        for rxn in natural_sort(self._testtube.reactions):
+            output_string("reaction {:s}\n".format(rxn.full_string(unit, 's')))
 
-                #reaction = PepperReaction(reactants, products, rtype=rtype, rate=rate)
-                #reactions.append(reaction)
+        return ''.join(out)
 
-            elif line[0] == 'resting-state':
-                logging.warning("Ignoring resting-state specification: {}".format(name))
-            else :
-                raise NotImplementedError('cannot interpret keyword:', line[0])
+    def load_pil(self, data, is_file = False):
+        """Parses a file written in PIL notation! """
+        from dsdobjects.objectio import read_pil
+        import dsdobjects.objectio as oio
+        oio.LogicDomain = NuskellDomain
+        oio.Complex = NuskellComplex
+        oio.Reaction = NuskellReaction
+        oio.Macrostate = NuskellMacrostate
 
+        doms, cplxs, rms, det, con = read_pil(data, is_file)
+
+        for name, rm in rms.items():
+            self._testtube.add_complex(rm.canonical_complex) # concentration, ctype?
+
+        for rxn in con:
+            react = []
+            for rm in rxn.reactants:
+                react.append(rm.canonical_complex)
+            prod = []
+            for rs in rxn.products:
+                prod.append(rm.canonical_complex)
+            self._testtube.add_reaction(
+                    NuskellReaction(react, prod, rate = rxn.rate, rtype = rxn.rtype))
         return self._testtube
 
     def write_dnafile(self, fh, signals=[], crn=None, ts=None):
@@ -1041,7 +963,7 @@ class TestTubeIO(object):
                     "Too many opening brackets in secondary structure")
             return pt
 
-        fh.write("(* File autogenerated by nuskell. ")
+        fh.write("(* File generated by nuskell. ")
 
         if ts:
             fh.write("\n - Translation Scheme: {}".format(ts))
@@ -1179,4 +1101,80 @@ class TestTubeIO(object):
                 fh.write(" (* {} *)\n".format(name))
 
         fh.write(")\n")
+
+    #def write_np(self, pil, unit='M', crn=None, ts=None):
+    #    """Write the contents of :obj:`TestTube()` into a PIL file -- KERNEL notation).
+
+    #    Args:
+    #      pil (filehandle): A filehandle that the output is written to.
+    #      unit (str, optional): Specify a unit of concentrations (M, mM, uM, nM, pM).
+    #      crn (list[list], optional): a nuskell-style CRN expression
+    #      ts (str, optional): name of the translation scheme
+
+    #    Example:
+    #      length d1 = 6
+    #      length d2 = 4
+    #      length h3 = 1
+    #      cplx1 = h3 d1( d2( + )) @ initial 10 nM
+    #    """
+    #    pil.write("# File autogenerated by nuskell. ")
+
+    #    if ts:
+    #        pil.write("\n# - Translation Scheme: {}".format(ts))
+    #    if crn:
+    #        pil.write("\n# - Input CRN: \n")
+    #        for rxn in crn:
+    #            assert len(rxn) == 3
+    #            if len(rxn[2]) == 2:
+    #                pil.write("#    {} <=> {}\n".format(
+    #                    ' + '.join(rxn[0]), ' + '.join(rxn[1])))
+    #            else:
+    #                pil.write("#    {} -> {}\n".format(
+    #                    ' + '.join(rxn[0]), ' + '.join(rxn[1])))
+    #    pil.write("#\n\n".format(crn))
+
+    #    domains = self._testtube.domains
+
+    #    def adjust_conc(conc, unit):
+    #        units = ['M', 'mM', 'uM', 'nM', 'pM']
+    #        # 0,  3,   6,   9,   12
+    #        assert unit in units
+    #        mult = units.index(unit) * 3
+    #        return conc * (10**mult), unit
+
+    #    # Print Domains
+    #    pil.write("# Domain Specifications\n")
+    #    seen = set()
+    #    for d in sorted(domains, key=lambda x: x.name):
+    #        if d.is_complement:
+    #            dom = ~d
+    #        else :
+    #            dom = d
+    #        if dom not in seen:
+    #            pil.write("length {:s} = {:d}\n".format(dom.name, dom.length))
+    #            seen.add(dom)
+
+    #    pil.write("\n# Complex Specifications\n")
+
+    #    # Print Complexes
+    #    for cplx in sorted(self._testtube.complexes, key=lambda x: str(x)):
+    #        pil.write("{:s} = ".format(cplx.name))
+    #        seq = cplx.sequence
+    #        sst = cplx.structure
+    #        for i in range(len(seq)):
+    #            if sst[i] == '+':
+    #                pil.write("{:s} ".format(str(sst[i])))
+    #            elif sst[i] == ')':
+    #                pil.write("{:s} ".format(str(sst[i])))
+    #            elif sst[i] == '(':
+    #                pil.write("{:s} ".format(str(seq[i]) + str(sst[i])))
+    #            else:
+    #                pil.write("{:s} ".format(str(seq[i])))
+
+    #        conc, const = self._testtube.get_complex_concentration(cplx)
+    #        if const is True:
+    #            pil.write(" @ constant {} {}".format(*adjust_conc(conc, unit)))
+    #        elif const is False:
+    #            pil.write(" @ initial {} {}".format(*adjust_conc(conc, unit)))
+    #        pil.write(" \n")
 
