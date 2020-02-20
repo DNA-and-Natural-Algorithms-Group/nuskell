@@ -109,14 +109,14 @@ def translate(input_crn, ts_file, modular = False, verbose = False):
             raise InvalidSchemeError(ts_file, schemedir)
 
     ts = parse_ts_file(ts_file)
-    crn, fs = post_process(parse_crn_string(input_crn, process = False))
+    crn, fs = post_process(parse_crn_string(input_crn, process = False), defaultrate = 1., defaultmode = None, defaultconc = None)
 
     solution, modules = interpret(ts, crn, fs, modular = modular, verbose = verbose)
 
     return solution, modules
 
 
-def post_process(crn):
+def post_process(crn, defaultrate = None, defaultmode = 'initial', defaultconc = 0):
     """Process a parsed CRN.
     Taken and modified from crnsimulator, drop for Python 3.x
     """
@@ -145,9 +145,9 @@ def post_process(crn):
             r = remove_multipliers(r)
             p = remove_multipliers(p)
             if t == 'reversible':
-                new.append([r, p, [1., 1.]])
+                new.append([r, p, [defaultrate, defaultrate]])
             elif t == 'irreversible':
-                new.append([r, p, [1.]])
+                new.append([r, p, [defaultrate]])
             else:
                 raise CRNParseError('Wrong CRN format!')
         elif len(line) == 4:
@@ -166,7 +166,7 @@ def post_process(crn):
             raise CRNParseError('Wrong CRN format!')
         for s in r + p:
             if s not in species:
-                species[s] = (None, None)
+                species[s] = (defaultmode, defaultconc)
     return new, species
 
 

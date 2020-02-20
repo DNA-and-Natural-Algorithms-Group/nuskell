@@ -6,6 +6,7 @@ import logging
 import argparse
 import pkg_resources
 
+from dsdobjects.utils import natural_sort
 from crnsimulator import parse_crn_string
 from crnsimulator import ReactionGraph
 
@@ -197,7 +198,7 @@ def get_nuskell_args(parser):
 
     return parser
 
-def main():
+def main(args):
     """ The Nuskell compiler.
 
       - translate formal CRNs into domain-level strand displacement systems.
@@ -209,12 +210,6 @@ def main():
       - verification results
       - simulatior scripts
     """
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser = get_nuskell_args(parser)
-    parser = get_peppercorn_args(parser)
-    args = parser.parse_args()
-
     if args.schemes:
         schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
         print("Listing schemes in: {}".format(schemedir))
@@ -229,10 +224,8 @@ def main():
         logger.setLevel(logging.DEBUG)
     elif args.verbose >= 3:
         logger.setLevel(logging.NOTSET)
-
     ch = logging.StreamHandler()
 
-    # logging.Formatter('%(levelname)s - %(message)s')
     formatter = ColorFormatter('%(levelname)s %(message)s', use_color=sys.stdout.isatty())
     ch.setFormatter(formatter)
     logger.addHandler(ch)
@@ -249,7 +242,9 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~
     # Argument processing
     # ~~~~~~~~~~~~~~~~~~~
-    pilfile = args.output + '.pil' if args.pilfile else None
+    comppil = args.output + '_comp.pil' if args.pilfile else None
+    enumpil = args.output + '_enum.pil' if args.pilfile else None
+    finalpil = args.output + '_final.pil' if args.pilfile else None
     dnafile = args.output + '.dna' if args.dnafile else None
 
     if not args.modular:
@@ -260,7 +255,8 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
     input_crn = sys.stdin.readlines()
     input_crn = "".join(input_crn)
-    fcrn, fs = post_process(parse_crn_string(input_crn, process = False))
+    fcrn, fs = post_process(parse_crn_string(input_crn, process = False), 
+                            defaultrate = 1., defaultmode = None, defaultconc = None)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Initialize the TestTube
@@ -271,16 +267,10 @@ def main():
         solution, modules = translate(input_crn, args.ts,
                                       modular = args.modular,
                                       verbose = (args.verbose > 1))
-        
-        # What about the modules? Shall we give module information into pil?
-
-        # to the translation...
-        # do the enumeration?
-
-    elif args.readpil:  # Parse implementation species from a PIL file
+    elif args.readpil:  # Parse information from a PIL file (cannot give modules!)
         logging.info("Parsing PIL file...")
         solution = TestTube()
-        TestTubeIO(solution).load_pil_kernel(args.readpil)
+        TestTubeIO(solution).load_pil(args.readpil, is_file = True)
     else:
         # At some point Nuskell should choose translation schemes automatically,
         # but we are not there yet ... use nuskellCMP for such things.
@@ -291,116 +281,77 @@ def main():
             print("   --ts {}".format(s))
         raise SystemExit
 
-    if args.verbose:
-        logging.info("Complexes in Solution: ")
-        for cplx in sorted(solution.complexes, key = lambda x: str(x)):
-            logging.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
-
-    if dnafile:
-        with open(dnafile, 'w') as dna:
-            TestTubeIO(solution).write_dnafile(dna, signals=signals,
-                                               crn=fcrn, ts=args.ts if args.ts else None)
-        print("Wrote file: {}".format(dnafile))
-
-    outp = TestTubeIO(solution).write_pil(fh = None,
-                                          unit = args.concentration_unit, 
-                                          crn = fcrn, fs = fs,
-                                          ts = args.ts if args.ts else None)
-    print(outp)
-
     fuels = solution.fuel_complexes
     signals = solution.signal_complexes
-    assert solution.unspecified_complexes == []
+
+    if solution.unspecified_complexes != []:
+        raise SystemExit('EXIT: solution contains intermediate species.')
 
     if signals == []:
         raise SystemExit('EXIT: solution does not contain signals.')
 
-    print("formal species: {}; signal species: {}; fuel species: {}".format(
-            sorted(fs), sorted(map(str, signals)), sorted(map(str,fuels))))
+    if args.verbose:
+        logging.info("Formal species: {}".format(natural_sort(fs)))
+        logging.info("Signal Complexes:")
+        for cplx in natural_sort(signals):
+            logging.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
+        logging.info("Fuel Complexes:")
+        for cplx in natural_sort(fuels):
+            logging.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
 
-    logging.info("")
-    logging.info(colors.BOLD + "Enumerating reaction pathways..." + colors.ENDC)
-    solution.enumerate_reactions(prefix = 'inter', 
-                                 max_complex_count = 1000, 
-                                 max_complex_size = 20, 
-                                 max_reaction_count = 5000)
+    if dnafile:
+        with open(dnafile, 'w') as dna:
+            TestTubeIO(solution).write_dnafile(dna, signals = signals,
+                                               crn = fcrn, ts = args.ts if args.ts else None)
+        print("Wrote file: {}".format(dnafile))
 
-    outp = TestTubeIO(solution).write_pil(fh = None,
+    if args.pilfile:
+        with open(comppil, 'w') as pil:
+            TestTubeIO(solution).write_pil(fh = pil,
                                           unit = args.concentration_unit, 
                                           crn = fcrn, fs = fs,
                                           ts = args.ts if args.ts else None)
-    print(outp)
+        print("Wrote file: {}".format(comppil))
 
-    logging.info("")
-    logging.info(colors.BOLD + "Replacing regular-expression complexes ..." + colors.ENDC)
-    # History domains within constant and intermediate species will not get replaced.
-    interpret = solution.interpret_species(fs.keys(), prune = True)
-
-    outp = TestTubeIO(solution).write_pil(fh = None,
-                                          unit = args.concentration_unit, 
-                                          crn = fcrn, fs = fs,
-                                          ts = args.ts if args.ts else None)
-    print(outp)
-
-    # Return the implementation CRN. (= enumerated CRN without regex complexes)
-    icrn = []
-    for r in solution.reactions:
-        logging.info("reaction {}".format(r.full_string()))
-        rxn = [map(str, r.reactants), map(str, r.products), [r.rate.constant]]
-        icrn.append(rxn)
-
-    print("")
-    print("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
-    print("  - {} signal species".format(
-        len([c for c in solution.complexes if c.name in interpret.keys()])))
-    print("  - {} fuel species".format(
-        len([c for c in solution.complexes if c.name in map(str, fuels)])))
-    print("  - {} intermediate species".format(
-        len([c for c in solution.complexes if c.name not in 
-            (interpret.keys() + map(str, fuels))])))
-    print('Number of distinct strands in the system: {}'.format(len(solution.strands)))
-    print('Length of all distinct strands in the system: {}'.format(sum(sum(
-        map(lambda d: d.length, s)) for s in solution.strands.values())))
-    print("")
-
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Prepare enumerated CRN and TestTube
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if args.verify or args.simulate or args.enumerate:
+    if args.enumerate:
         logging.info("")
         logging.info(colors.BOLD + "Enumerating reaction pathways..." + colors.ENDC)
-        condensed = not args.enum_detailed
+        solution.enumerate_reactions(prefix = 'inter', 
+                                     max_complex_count = 1000, 
+                                     max_complex_size = 20, 
+                                     max_reaction_count = 5000)
 
-        solution.enumerate_reactions(
-            args, condensed = condensed, prefix='e', rename=100)
-        
         if not solution.reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
-        
-        if args.verbose:
-            for x in sorted(solution.complexes, key=lambda x: x.name):
-                logging.info("{} = {}".format(x, x.kernel_string))
-            logging.info("")
 
-            for r in solution.reactions:
-                logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+        if args.pilfile:
+            with open(enumpil, 'w') as pil:
+                TestTubeIO(solution).write_pil(fh = pil,
+                                              unit = args.concentration_unit, 
+                                              crn = fcrn, fs = fs,
+                                              ts = args.ts if args.ts else None)
+                print("Wrote file: {}".format(enumpil))
 
         logging.info("")
         logging.info(colors.BOLD + "Replacing regular-expression complexes ..." + colors.ENDC)
-        interpret = solution.interpret_species(fs, prune=True)
-        # NOTE: History domains within constant and intermediate species will not get replaced.
+        # History domains within constant and intermediate species will not get replaced.
+        interpret = solution.interpret_species(fs.keys(), prune = True)
+
+        outp = TestTubeIO(solution).write_pil(fh = None,
+                                              unit = args.concentration_unit, 
+                                              crn = fcrn, fs = fs,
+                                              ts = args.ts if args.ts else None)
+        #print(outp)
 
         # Return the implementation CRN. (= enumerated CRN without regex complexes)
         icrn = []
-        for r in solution.reactions:
-            logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-            rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
+        for r in natural_sort(solution.reactions):
+            logging.info("reaction {}".format(r.full_string()))
+            rxn = [map(str, r.reactants), map(str, r.products), [r.rate.constant]]
             icrn.append(rxn)
 
         print("")
-        print("Enumerated system: {} species, {} reactions".format(
-            len(solution.complexes), len(icrn)))
+        print("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
         print("  - {} signal species".format(
             len([c for c in solution.complexes if c.name in interpret.keys()])))
         print("  - {} fuel species".format(
@@ -413,35 +364,39 @@ def main():
             map(lambda d: d.length, s)) for s in solution.strands.values())))
         print("")
 
-        if args.simulate or args.pilfile:
-            # If you use translation schemes, or if you didn't specify concentrations in
-            # the PIL file, then all non-signal species have 'infinite' concentration at
-            # this point. The experimental concentrations can be set by printing a
-            # pilfile, adjusting it, and loading it instead of the translation
-            # scheme.
 
-            # Set *initial* concentration of fuels to 100 nM.
-            for f in fuels:
-                if None in solution.get_complex_concentration(f):
-                    solution.set_complex_concentration(f, 100e-9, False)
+        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ## Prepare enumerated CRN and TestTube
+        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        #if args.simulate or args.pilfile:
+        #    # If you use translation schemes, or if you didn't specify concentrations in
+        #    # the PIL file, then all non-signal species have 'infinite' concentration at
+        #    # this point. The experimental concentrations can be set by printing a
+        #    # pilfile, adjusting it, and loading it instead of the translation
+        #    # scheme.
 
-            # Set *initial* concentraiton of signals to 0 nM.
-            for f in solution.selected_complexes(names=interpret.keys()):
-                if None in solution.get_complex_concentration(f):
-                    solution.set_complex_concentration(f, 0, False)
+        #    # Set *initial* concentration of fuels to 100 nM.
+        #    for f in fuels:
+        #        if None in solution.get_complex_concentration(f):
+        #            solution.set_complex_concentration(f, 100e-9, False)
 
-            # Set *initial* concentraiton of remaining species (intermediates) to 0 nM.
-            for i in solution.complexes:
-                if None in solution.get_complex_concentration(i):
-                    solution.set_complex_concentration(i, 0, False)
+        #    # Set *initial* concentraiton of signals to 0 nM.
+        #    for f in solution.selected_complexes(names=interpret.keys()):
+        #        if None in solution.get_complex_concentration(f):
+        #            solution.set_complex_concentration(f, 0, False)
 
-            if args.pilfile:
-                pilfile = args.output + '_c0.pil'
-                with open(pilfile, 'w') as pil:
-                    TestTubeIO(solution).write_pil(pil, unit=args.concentration_unit,
-                                                          crn=fcrn, ts=args.ts if args.ts else None)
+        #    # Set *initial* concentraiton of remaining species (intermediates) to 0 nM.
+        #    for i in solution.complexes:
+        #        if None in solution.get_complex_concentration(i):
+        #            solution.set_complex_concentration(i, 0, False)
 
-                print "Wrote file: {}".format(pilfile)
+        #    if args.pilfile:
+        #        pilfile = args.output + '_c0.pil'
+        #        with open(pilfile, 'w') as pil:
+        #            TestTubeIO(solution).write_pil(pil, unit=args.concentration_unit,
+        #                                                  crn=fcrn, ts=args.ts if args.ts else None)
+
+        #        print "Wrote file: {}".format(pilfile)
 
         if args.modular:
             # TODO(SB): cross-check verification:
@@ -452,6 +407,8 @@ def main():
 
             seen_reactions = set()
             all_reactions = set(solution.reactions)
+            #for r in natural_sort(solution.reactions):
+            #    print(r.full_string())
 
             module_crns = []
             for e, module in enumerate(modules):
@@ -466,20 +423,22 @@ def main():
                             if module.has_complex(cplx):
                                 module.rm_complex(cplx)
 
-                # then, enumerate!
-                module.enumerate_reactions(args, condensed=condensed,
-                        prefix='tmp', init_memory=solution.complexes)
+                module.enumerate_reactions(prefix = 'tmp', 
+                                     max_complex_count = 1000, 
+                                     max_complex_size = 20, 
+                                     max_reaction_count = 5000)
 
                 # after enumeration, make sure there are no new 'tmp' species present.
                 for cplx in module.complexes:
                     assert cplx.name[:3] != 'tmp'
 
                 # append the CRN
+                logging.info("Module {}".format(e))
                 mcrn = []
                 for r in module.reactions:
                     assert r in all_reactions
                     seen_reactions.add(r)
-                    logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                    logging.info("reaction {}".format(r.full_string()))
                     rxn = [map(str, r.reactants), map(
                         str, r.products), [r.rate]]
                     mcrn.append(rxn)
@@ -488,10 +447,11 @@ def main():
 
             # last, identify crosstalk as the last implementation CRN (without
             # formal correspondence)
+            logging.info("Crosstalk")
             mcrn = [] # crosstalk
             for r in all_reactions :
                 if r not in seen_reactions :
-                    logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                    logging.info("reaction {}".format(r.full_string()))
                     rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
                     mcrn.append(rxn)
 
@@ -616,4 +576,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = get_nuskell_args(parser)
+    parser = get_peppercorn_args(parser)
+    args = parser.parse_args()
+    main(args)

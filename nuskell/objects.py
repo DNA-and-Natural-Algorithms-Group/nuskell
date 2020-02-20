@@ -19,6 +19,7 @@ from dsdobjects import DSDObjectsError, DSDDuplicationError
 from dsdobjects.utils import natural_sort
 from dsdobjects.parser import parse_kernel_file
 from dsdobjects.prototypes import Reaction as NuskellReaction
+from dsdobjects.prototypes import Complex as NuskellComplex
 
 NuskellReaction.RTYPES.add('formal')
 
@@ -67,16 +68,34 @@ class NuskellDomain(DL_Domain):
 
     ID = 0          # ID is used to assign names automatically
 
-    def __init__(self, name='', prefix='d', dtype=None, length=None):
-        # Assign name
+    def __new__(cls, name='', prefix='d', dtype=None, length=None):
+        # The new method returns the present instance of an object, if it exists
+        self = DL_Domain.__new__(cls)
         if name == '':
             if prefix == '':
                 raise NuskellObjectError('NuskellDomain prefix must not be empty!')
             elif prefix[-1].isdigit():
-                raise NuskellObjectError('NuskellDomain must not end with a digit!')
+                raise NuskellObjectError('NuskellDomain prefix must not end with a digit!')
             name = prefix + str(NuskellDomain.ID)
             NuskellDomain.ID += 1
-        super(NuskellDomain, self).__init__(name, dtype, length)
+        try:
+            super(NuskellDomain, self).__init__(name, dtype, length)
+        except DSDDuplicationError as e:
+            other = e.existing
+            if dtype and (other.dtype != dtype) :
+                raise DSDObjectsError('Conflicting dtype assignments for {}: "{}" vs. "{}"'.format(
+                    name, dtype, other.dtype))
+            elif length and (other.length != length) :
+                raise DSDObjectsError('Conflicting length assignments for {}: "{}" vs. "{}"'.format(
+                    name, length, other.length))
+            return e.existing
+
+        self.nucleotides = None
+        return self
+
+    def __init__(self, name='', prefix='d', dtype=None, length=None):
+        # Remove default initialziation to get __new__ to work
+        pass
 
     @property
     def complement(self):
@@ -98,34 +117,6 @@ class NuskellDomain(DL_Domain):
         false otherwise.
         """
         return self._name[-1:] == '*'
-
-class NuskellComplex(DSD_Complex):
-    """ A sequence and structure pair.
-
-    Inherits from :obj:`dsdobjects.base_classes.Complex()`.
-
-    Args:
-        sequence (list): A domain-level or nucleotide-level sequence.
-        structure (list): A domain-level or nucleotide-level dot-bracket notation.
-        name (str, optional): Name of this domain. If not specified, an automatic
-            name is generated.
-        prefix (str, optional): A prefix for automatic naming of Domains.
-            Defaults to 'cplx'.
-        memorycheck (bool, optional): Use built-in memory checks. Defaults to True.
-
-    """
-
-    def __init__(self, sequence, structure, name='', prefix='cplx', memorycheck=True):
-        super(NuskellComplex, self).__init__(sequence, structure, name, prefix, memorycheck)
-
-    @staticmethod
-    def clear_memory(memory=True, names=True, ids=True):
-        if memory :
-            DSD_Complex.MEMORY = dict()
-        if names :
-            DSD_Complex.NAMES = dict()
-        if ids: 
-            DSD_Complex.ID = dict()
 
 class NuskellMacrostate(DSD_Macrostate):
     pass
@@ -457,8 +448,9 @@ class TestTube(object):
                     self.rm_reaction(rxn)
                     r = map(str, rxn.reactants)
                     p = map(str, rxn.products)
-                    if set(r).intersection(total) == set(r):
-                        total = total.union(set(p))
+                    if set(r).intersection(total) == set(r): 
+                        total |= set(p)
+
             map(self.add_reaction, filter(lambda x: set(map(str, x.reactants)).intersection(
                     total) == set(map(str, x.reactants)), rxns))
 
@@ -629,19 +621,58 @@ class TestTube(object):
           args(:obj:`argparse.ArgumentParser()`, optional): Arguments for *peppercorn*.
           condensed (bool, optional): Udate the reaction graph using *condensed* format.
         """
-        from peppercornenumerator import enumerate_pil
-        from peppercornenumerator.objects import PepperComplex
+        from peppercornenumerator import Enumerator
+        from peppercornenumerator.objects import PepperComplex, PepperDomain
+        from peppercornenumerator.utils import PeppercornUsageError
         PepperComplex.PREFIX = prefix
 
         selfIO = TestTubeIO(self)
         pilfile = selfIO.write_pil()
 
+        # Memory management.
+        backupCM = DSD_Complex.MEMORY
+        backupRM = DSD_Reaction.MEMORY
         clear_memory()
-        enum, out = enumerate_pil(pilfile, is_file = False, 
-                detailed = False, condensed = True, **kwargs)
+
+        cxs = {}
+        for can, obj in backupCM.items():
+            seq = []
+            for dom in obj.sequence:
+                if dom == '+':
+                    seq.append(dom)
+                else:
+                    seq.append(PepperDomain(dom.name, dtype = dom.dtype, length = dom.length))
+            cxs[obj.name] = PepperComplex(seq, obj.structure, obj.name)
+
+        init_cplxs = [cxs[n.name] for n in self.complexes if n.concentration is None or n.concentration.value != 0]
+        
+        enum = Enumerator(init_cplxs)
+        # set kwargs parameters
+        for k, w in kwargs.items():
+            if hasattr(enum, k):
+                setattr(enum, k, w)
+            else:
+                raise PeppercornUsageError('No Enumerator attribute called: {}'.format(k))
+        enum.enumerate()
+        enum.condense()
+
+        out = enum.to_pil(detailed = False, condensed = True)
 
         clear_memory()
         selfIO.load_pil(out)
+
+        for can, obj in backupCM.items():
+            if can not in DSD_Complex.MEMORY:
+                DSD_Complex.MEMORY[can] = obj
+            else:
+                assert DSD_Complex.MEMORY[can] == obj
+
+        for can, obj in backupRM.items():
+            if can not in DSD_Reaction.MEMORY:
+                DSD_Reaction.MEMORY[can] = obj
+            else:
+                assert DSD_Reaction.MEMORY[can] == obj
+
 
     def simulate_crn(self, odename, sorted_vars=None, unit='M'):
         oR = dict()
@@ -894,15 +925,16 @@ class TestTubeIO(object):
             self._testtube.add_complex(rm.canonical_complex) # concentration, ctype?
 
         for rxn in con:
+            del DSD_Reaction.MEMORY[rxn.canonical_form] # avoid duplication warning 
             react = []
             for rm in rxn.reactants:
                 react.append(rm.canonical_complex)
             prod = []
-            for rs in rxn.products:
+            for rm in rxn.products:
                 prod.append(rm.canonical_complex)
             self._testtube.add_reaction(
                     NuskellReaction(react, prod, rate = rxn.rate, rtype = rxn.rtype))
-        return self._testtube
+        return
 
     def write_dnafile(self, fh, signals=[], crn=None, ts=None):
         """ Write a TestTube Object into VisualDSD \*.dna format.
@@ -1102,79 +1134,4 @@ class TestTubeIO(object):
 
         fh.write(")\n")
 
-    #def write_np(self, pil, unit='M', crn=None, ts=None):
-    #    """Write the contents of :obj:`TestTube()` into a PIL file -- KERNEL notation).
-
-    #    Args:
-    #      pil (filehandle): A filehandle that the output is written to.
-    #      unit (str, optional): Specify a unit of concentrations (M, mM, uM, nM, pM).
-    #      crn (list[list], optional): a nuskell-style CRN expression
-    #      ts (str, optional): name of the translation scheme
-
-    #    Example:
-    #      length d1 = 6
-    #      length d2 = 4
-    #      length h3 = 1
-    #      cplx1 = h3 d1( d2( + )) @ initial 10 nM
-    #    """
-    #    pil.write("# File autogenerated by nuskell. ")
-
-    #    if ts:
-    #        pil.write("\n# - Translation Scheme: {}".format(ts))
-    #    if crn:
-    #        pil.write("\n# - Input CRN: \n")
-    #        for rxn in crn:
-    #            assert len(rxn) == 3
-    #            if len(rxn[2]) == 2:
-    #                pil.write("#    {} <=> {}\n".format(
-    #                    ' + '.join(rxn[0]), ' + '.join(rxn[1])))
-    #            else:
-    #                pil.write("#    {} -> {}\n".format(
-    #                    ' + '.join(rxn[0]), ' + '.join(rxn[1])))
-    #    pil.write("#\n\n".format(crn))
-
-    #    domains = self._testtube.domains
-
-    #    def adjust_conc(conc, unit):
-    #        units = ['M', 'mM', 'uM', 'nM', 'pM']
-    #        # 0,  3,   6,   9,   12
-    #        assert unit in units
-    #        mult = units.index(unit) * 3
-    #        return conc * (10**mult), unit
-
-    #    # Print Domains
-    #    pil.write("# Domain Specifications\n")
-    #    seen = set()
-    #    for d in sorted(domains, key=lambda x: x.name):
-    #        if d.is_complement:
-    #            dom = ~d
-    #        else :
-    #            dom = d
-    #        if dom not in seen:
-    #            pil.write("length {:s} = {:d}\n".format(dom.name, dom.length))
-    #            seen.add(dom)
-
-    #    pil.write("\n# Complex Specifications\n")
-
-    #    # Print Complexes
-    #    for cplx in sorted(self._testtube.complexes, key=lambda x: str(x)):
-    #        pil.write("{:s} = ".format(cplx.name))
-    #        seq = cplx.sequence
-    #        sst = cplx.structure
-    #        for i in range(len(seq)):
-    #            if sst[i] == '+':
-    #                pil.write("{:s} ".format(str(sst[i])))
-    #            elif sst[i] == ')':
-    #                pil.write("{:s} ".format(str(sst[i])))
-    #            elif sst[i] == '(':
-    #                pil.write("{:s} ".format(str(seq[i]) + str(sst[i])))
-    #            else:
-    #                pil.write("{:s} ".format(str(seq[i])))
-
-    #        conc, const = self._testtube.get_complex_concentration(cplx)
-    #        if const is True:
-    #            pil.write(" @ constant {} {}".format(*adjust_conc(conc, unit)))
-    #        elif const is False:
-    #            pil.write(" @ initial {} {}".format(*adjust_conc(conc, unit)))
-    #        pil.write(" \n")
 

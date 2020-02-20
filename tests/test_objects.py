@@ -60,17 +60,6 @@ class NuskellComplexObjectTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             foo = objects.NuskellComplex()
 
-        foo = objects.NuskellComplex(sequence=list('RNNNY'), structure=list('(...)'))
-        self.assertIsInstance(foo, objects.NuskellComplex)
-
-        self.assertEqual(foo.sequence, list('RNNNY'))
-        self.assertEqual(foo.structure, list('(...)'))
-        self.assertEqual(foo.lol_sequence, [list('RNNNY')])
-        self.assertEqual(foo.rotate_once(), foo)
-        for r in foo.rotate():
-            self.assertEqual(r.sequence, list('RNNNY'))
-            self.assertEqual(r.structure, list('(...)'))
-
     def test_ComplexDomains(self):
         foo = objects.NuskellComplex(
                 sequence=[self.d1, self.d2, self.d3, '+', self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2], 
@@ -149,13 +138,13 @@ class TestTubeTests(unittest.TestCase):
             foo = objects.TestTube(complexes)
 
         complexes = { 
-                'name1' : [self.cplx1, None, None], 
-                'name2' : [self.cplx2, None, None] }
+                'name1' : [self.cplx1, None, None, None], 
+                'name2' : [self.cplx2, None, None, None] }
         foo = objects.TestTube(complexes)
 
         complexes = { 
-                'name1' : [self.cplx1, 0.1, True], 
-                'name2' : [self.cplx2, 1e-9, False] }
+                'name1' : [self.cplx1, 0.1, True, 'fuel'], 
+                'name2' : [self.cplx2, 1e-9, False, 'signal'] }
         foo = objects.TestTube(complexes)
 
         complexes = [ self.cplx1, self.cplx2 ]
@@ -260,7 +249,7 @@ class TestTubeIOTest(unittest.TestCase):
         structure = ['(', '(', '+', '(', '(', '+', '(', '+', '(', '(', '+', '.', '(', '(', '+', '.', '(', '(', '+', ')', ')', ')', ')', ')', '+', ')', ')', ')', ')', ')', ')', '.']
 
         foo = objects.NuskellComplex(sequence=sequence, structure=structure)
-        fooIO = objects.TestTubeIO( objects.TestTube( complexes={ foo.name: [foo, float("inf"), None]}))
+        fooIO = objects.TestTubeIO( objects.TestTube( complexes={ foo.name: [foo, float("inf"), None, None]}))
 
         # fooIO.write_dnafile(sys.stdout)
         f = open(os.devnull, "w")
@@ -288,10 +277,10 @@ class TestTubeIOTest(unittest.TestCase):
         structure = [ '(', '(', '+', '(', '(', '+', '(', '+', '(', '(', '+', '.', '(', '(', '+', '.', '(', '(', '+', ')', ')', ')', ')', ')', '+', ')', ')', ')', ')', ')', ')', '.']
 
         foo = objects.NuskellComplex(sequence=sequence, structure=structure)
-        fooIO = objects.TestTubeIO( objects.TestTube( complexes={ foo.name: [foo, float("inf"), None]}))
+        fooIO = objects.TestTubeIO( objects.TestTube( complexes = {foo.name: [foo, float("inf"), None, 'signal']}))
 
         f = open(os.devnull, "w")
-        fooIO.write_pil_kernel(f)
+        fooIO.write_pil(f)
 
 
 if __name__ == '__main__':

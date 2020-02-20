@@ -15,8 +15,7 @@ class.  All other classes and functions are needed internally to set up the
 interpreter environment.  Built-in functions and expressions are encapuslated
 in the respective namespace.
 
-.. When modifying this file, use 2-whitespace character indents,
-.. otherwise follow the Google Python Style Guide:
+.. When modifying this file, follow the Google Python Style Guide:
 .. http://google.github.io/styleguide/pyguide.html
 """
 
@@ -24,6 +23,7 @@ import sys
 from copy import copy
 
 from nuskell.objects import NuskellDomain, NuskellComplex, TestTube, DSDDuplicationError
+from dsdobjects.core import DSD_Complex
 
 class NuskellEnvError(Exception):
     """Nuskell Environment Error.
@@ -96,7 +96,7 @@ def flatten(l):
         return flatten(l[0]) + flatten(l[1:])
     return l[:1] + flatten(l[1:])
 
-class NusComplex(NuskellComplex):
+class NusComplex(DSD_Complex):
     """Nucleic Acid Complex (Sequence, Structure) pair.
 
     This is an extension of nuskell.objects.Complex(), which stores an additional
@@ -111,17 +111,17 @@ class NusComplex(NuskellComplex):
     """
 
 
-    def __new__(cls, attr=dict(), **kwargs):
+    def __new__(cls, attr=dict(), *kargs, **kwargs):
         # The new method returns the present instance of an object, if it exists
-        self = NuskellComplex.__new__(cls)
+        self = DSD_Complex.__new__(cls)
         try:
-            super(NusComplex, self).__init__(**kwargs)
+            super(NusComplex, self).__init__(*kargs, **kwargs)
             self.attributes = attr
         except DSDDuplicationError, e :
             return e.existing
         return self
 
-    def __init__(self, attr=dict(), **kwargs):
+    def __init__(self, attr=dict(), *kargs, **kwargs):
         # Remove default initialziation to get __new__ to work
         pass
 
@@ -141,7 +141,7 @@ class NusComplex(NuskellComplex):
                 return s, c
             elif s == '+' and c == '+':
                 return s, c
-            elif isinstance(s, NuskellComplex):
+            elif isinstance(s, NusComplex):
                 assert (c == '~')
                 return s.sequence, s.structure
             elif isinstance(s, list):
@@ -455,7 +455,9 @@ class NuskellFunctions(object):
     def _print(self, args):
         """Print statment, primarily to debug nuskell scripts"""
         for a in args:
-            if isinstance(a, NuskellComplex):
+            if isinstance(a, NusComplex):
+                print(list(map(str, a.sequence)))
+            elif isinstance(a, NuskellComplex):
                 print(list(map(str, a.sequence)))
             else:
                 print(str(a), end='')
@@ -512,7 +514,7 @@ class NuskellFunctions(object):
         that the species is supposed to have "infinite" concentration. The
         resulting object will be a TestTube instance
         """
-        if not isinstance(args[0], NuskellComplex):
+        if not isinstance(args[0], NusComplex):
             raise NuskellEnvError("The argument of `infty' should be a Complex")
         args[0].flatten_cplx
         if args[0].sequence == [] and args[0].structure == []:
@@ -543,12 +545,8 @@ class NuskellFunctions(object):
         elif isinstance(x, Domain):
             print('Untested:', ~x)
             return ~x
-        elif isinstance(x, NuskellComplex):
+        elif isinstance(x, NusComplex):
             raise NotImplementedError
-            return NuskellComplex(
-                self._complement([x.sequence]),
-                self._complement([x.structure]),
-                dict(x.attributes))
         elif x == "(":
             return ")"
         elif x == ")":
@@ -748,7 +746,7 @@ class NuskellEnvironment(NuskellExpressions):
 
             # NOTE: The modular reaction-by-reaction translation does not *sum* over
             # the whole CRN, but sums over every reaction. The common memory management
-            # of NuskellComplexes ensures that species wich are shared between reactions 
+            # of NusComplexes ensures that species wich are shared between reactions 
             # have the same name.
             unified_solution = sum(modules)
             modules.insert(0, unified_solution)
