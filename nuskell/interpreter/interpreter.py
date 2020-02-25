@@ -104,7 +104,7 @@ def interpret(ts_parsed, crn_parsed, fs, modular = False, verbose = False, one =
     rxnmodules = []
     for e, csm in enumerate(cs_modules[1:]):
         logging.debug("MODULE {}".format(e))
-        rxn = set(crn_parsed[e][0] + crn_parsed[e][1])
+        rxn = set(crn_parsed[e].reactants + crn_parsed[e].products)
         module = TestTube()
 
         # TODO select formal species?

@@ -162,57 +162,6 @@ def _post_process(crn):
 
     return crn, sorted(list(fsp)), sorted(list(ssp)), sorted(list(csp))
 
-
-def split_reversible_reactions(crn):
-    """
-    Replace every reversible reaction with the two corresponding irreversible
-    reactions.
-    """
-    new = []
-    for [r, p, k] in crn:
-        # if None in k :
-        #  print Warning('# Set missing rates to 1.')
-        #  k[:] = [x if x != None else 1 for x in k]
-
-        if len(k) == 2:
-            new.append([r, p, [k[0]]])
-            new.append([p, r, [k[1]]])
-        else:
-            new.append([r, p, k])
-    return new
-
-
-def combine_reversible_reactions(crn):
-    """Condense two irreversible reactions into the corresponding reversible reactions. """
-    new_crn = []
-    removed = []
-    for rxn in crn:
-        if rxn in removed:
-            continue
-        [r, p, k] = rxn
-        assert isinstance(
-            r,
-            list) and isinstance(
-            p,
-            list) and isinstance(
-            k,
-            list)
-
-        for rxn2 in crn:
-            # if rxn in removed:
-            #  continue
-            [r2, p2, k2] = rxn2
-            if sorted(r) == sorted(p2) and sorted(p) == sorted(r2):
-                if len(k) == 2 or len(k2) == 2:
-                    raise ValueError('reaction specified twice!')
-                else:
-                    removed.append(rxn2)
-                    k += k2
-                break
-        new_crn.append([r, p, k])
-    return new_crn
-
-
 def parse_crn_file(filename):
     """Parses a CRN from a file.
 

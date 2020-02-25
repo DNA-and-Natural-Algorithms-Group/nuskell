@@ -17,45 +17,8 @@ import crn_pathway_equivalence
 class TimeoutError(Exception):
     pass
 
-
 def handler(signum, frame):
     raise TimeoutError('Time over')
-
-
-def removeRates(crn):
-    if len(crn[0][2]) == 2:
-        raise ValueError('attempting to remove reversible rates')
-    # Remove all rate constants
-    return [rxn[:2] for rxn in crn]
-
-
-def removeSpecies(crn, fuel):
-    # Remove all fuel species, keep rates untouched.
-    # if crn and len(crn[0])>2 :
-    #  print "Discarding CRN information"
-
-    crn = [[filter(lambda s: s not in fuel, rxn[0]),
-            filter(lambda s: s not in fuel, rxn[1])]
-           for rxn in crn]
-    return crn
-
-
-def removeDuplicates(l):
-    # Remove Reactions occuring multiple times?
-    def helper(l):
-        r = []
-        if len(l) == 0:
-            return []
-        l.sort()
-        while len(l) > 1:
-            if l[0] != l[1]:
-                r.append(l[0])
-            l = l[1:]
-        r.append(l[0])
-        return r
-    l = sorted(map(lambda x: [sorted(x[0]), sorted(x[1])], l))
-    return helper(l)
-
 
 def verify(formal_crn, impl_crn, formals, interpret=None,
            method='bisimulation', timeout=0, verbose=False):
@@ -90,10 +53,8 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
     v, i = None, None
 
     for rxn in formal_crn + impl_crn:
-        if len(rxn) > 2:
-            if len(rxn[2]) != 1:
-                raise Exception(
-                    'Reaction does not have the required format:', rxn)
+        if rxn.k_rev != 0:
+            raise Exception('Reaction does not have the required format:', rxn)
 
     fcrn = [[Counter(part) for part in rxn[:2]] for rxn in formal_crn]
     ecrn = [[Counter(part) for part in rxn[:2]] for rxn in impl_crn]
@@ -152,7 +113,6 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
 
     return v, i
 
-
 def modular_bisimulation(formal_crn, impl_crn, formals, interpret=None,
                          method='bisimulation', timeout=0, verbose=False):
     """
@@ -160,9 +120,9 @@ def modular_bisimulation(formal_crn, impl_crn, formals, interpret=None,
     """
     v, i = None, None
 
-    fcrns = [[[Counter(part) for part in rxn] for rxn in mod]
+    fcrns = [[[Counter(part) for part in rxn[:2]] for rxn in mod]
              for mod in formal_crn]
-    ecrns = [[[Counter(part) for part in rxn] for rxn in mod]
+    ecrns = [[[Counter(part) for part in rxn[:2]] for rxn in mod]
              for mod in impl_crn]
 
     signal.signal(signal.SIGALRM, handler)

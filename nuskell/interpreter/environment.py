@@ -728,12 +728,11 @@ class NuskellEnvironment(NuskellExpressions):
                 'Could not find the compiled formal species!')
 
         # replace every fs (str) with fs(NusComplex())
-        crn_remap = map(
-            lambda x: [x[2]] + map(lambda y: map(
-                lambda z: self.formal_species_dict[z], y), x[:2]), crn_parsed)
+        crn_remap = map(lambda rxn: [rxn.k_rev] + 
+                map(lambda y: map(lambda z: self.formal_species_dict[z], y), rxn[:2]), crn_parsed)
 
         crn_object = map(
-            lambda x: Reaction(x[1], x[2], len(x[0]) == 2), crn_remap)
+            lambda x: Reaction(x[1], x[2], x[0] != 0), crn_remap)
 
         # main(__crn__)
         modules = []

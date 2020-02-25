@@ -13,6 +13,10 @@ from collections import Counter
 from sympy import Symbol, sympify, Matrix
 from crnsimulator import writeODElib
 
+from peppercornenumerator import Enumerator
+from peppercornenumerator.objects import PepperComplex, PepperDomain
+from peppercornenumerator.utils import PeppercornUsageError
+
 from dsdobjects import clear_memory
 from dsdobjects import DL_Domain, DSD_Complex, DSD_Reaction, DSD_Macrostate
 from dsdobjects import DSDObjectsError, DSDDuplicationError
@@ -24,6 +28,7 @@ from dsdobjects.prototypes import Complex as NuskellComplex
 NuskellReaction.RTYPES.add('formal')
 
 from nuskell import __version__
+from nuskell.crnutils import genCRN, genCON
 
 class NuskellObjectError(Exception):
     """nuskell.objects error class."""
@@ -615,16 +620,16 @@ class TestTube(object):
                     self._domains.add(d)
         return list(self._domains)
 
-    def enumerate_reactions(self, prefix = 'e', **kwargs):
+    def enumerate_reactions(self, pargs, prefix = 'e', condensed = True):
         """Enumerate reactions using the *peppercorn* enumerator.
         Args:
           args(:obj:`argparse.ArgumentParser()`, optional): Arguments for *peppercorn*.
           condensed (bool, optional): Udate the reaction graph using *condensed* format.
         """
-        from peppercornenumerator import Enumerator
-        from peppercornenumerator.objects import PepperComplex, PepperDomain
-        from peppercornenumerator.utils import PeppercornUsageError
         PepperComplex.PREFIX = prefix
+
+        if not condensed:
+            raise NotImplementedError('detailed reaction networks currently not supported.')
 
         selfIO = TestTubeIO(self)
         pilfile = selfIO.write_pil()
@@ -647,12 +652,7 @@ class TestTube(object):
         init_cplxs = [cxs[n.name] for n in self.complexes if n.concentration is None or n.concentration.value != 0]
         
         enum = Enumerator(init_cplxs)
-        # set kwargs parameters
-        for k, w in kwargs.items():
-            if hasattr(enum, k):
-                setattr(enum, k, w)
-            else:
-                raise PeppercornUsageError('No Enumerator attribute called: {}'.format(k))
+        set_peppercorn_args(enum, pargs)
         enum.enumerate()
         enum.condense()
 
@@ -819,7 +819,6 @@ class TestTubeIO(object):
           length h3 = 1
           cplx1 = h3 d1( d2( + )) @ initial 10 nM
         """
-        from nuskell.compiler import genCRN, genCON
 
         out = []
         def output_string(string):
@@ -1135,3 +1134,80 @@ class TestTubeIO(object):
         fh.write(")\n")
 
 
+def set_peppercorn_args(enum, args):
+    """Transfer options to self._enumerator object.
+    Do NOT change default values here. These are supposed to be the defaults of
+    peppercorn!  Defaults for nuskell or any other script using this library are
+    set with the argparse object of your script, e.g. nuskell: scripts/nuskell.
+    """
+
+    if hasattr(args, 'verbose'):
+        import logging
+        logger = logging.getLogger()
+        if args.verbose == 1:
+            logger.setLevel(logging.INFO)
+        elif args.verbose == 2:
+            logger.setLevel(logging.DEBUG)
+        elif args.verbose >= 3:
+            logger.setLevel(logging.NOTSET)
+
+    if hasattr(args, 'max_complex_size'):
+        enum.max_complex_size = args.max_complex_size
+    else:
+        enum.max_complex_size = 20
+
+    if hasattr(args, 'max_complex_count'):
+        enum.max_complex_count = args.max_complex_count
+    else:
+        enum.max_complex_count = 1000
+
+    if hasattr(args, 'max_reaction_count'):
+        enum.max_reaction_count = args.max_reaction_count
+    else:
+        enum.max_reaction_count = 5000
+
+    if hasattr(args, 'reject_remote'):
+        enum.reject_remote = args.reject_remote
+    else:
+        enum.reject_remote = False
+
+    if hasattr(args, 'ignore_branch_3way') and args.ignore_branch_3way:
+        if reactions.branch_3way in enum.FAST_REACTIONS:
+            enum.FAST_REACTIONS.remove(reactions.branch_3way)
+
+    if hasattr(args, 'ignore_branch_4way') and args.ignore_branch_4way:
+        if reactions.branch_4way in enum.FAST_REACTIONS:
+            enum.FAST_REACTIONS.remove(reactions.branch_4way)
+
+    if hasattr(args, 'release_cutoff_1_1'):
+        enum.release_cutoff_1_1 = args.release_cutoff_1_1
+    else:
+        enum.release_cutoff_1_1 = 6
+
+    if hasattr(args, 'release_cutoff_1_N'):
+        enum.release_cutoff_1_N = args.release_cutoff_1_N
+    else:
+        enum.release_cutoff_1_N = 6
+
+    if hasattr(args, 'release_cutoff'):
+        if args.release_cutoff is not None:
+            enum.release_cutoff_1_1 = args.release_cutoff
+            enum.release_cutoff_1_N = args.release_cutoff
+            enum.release_cutoff = args.release_cutoff
+
+    if hasattr(args, 'no_max_helix'):
+        enum.max_helix = not args.no_max_helix
+    else:
+        enum.max_helix = True
+
+    if hasattr(args, 'k_slow'):
+        enum.k_slow = args.k_slow
+    else:
+        enum.k_slow = 0.0
+
+    if hasattr(args, 'k_fast'):
+        enum.k_fast = args.k_fast
+    else:
+        enum.k_slow = 0.0
+
+    return

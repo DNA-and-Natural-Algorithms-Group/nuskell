@@ -10,14 +10,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from numpy import nan
 
+from peppercornenumerator import CondensationError
+from peppercornenumerator import PolymerizationError
+
 from nuskell import translate, verify, NuskellExit, __version__
 from nuskell.objects import clear_memory
-from nuskell.parser import parse_crn_string, split_reversible_reactions
-from nuskell.enumeration import TestTubePeppercornIO
-from nuskell.verifier import removeSpecies, modular_bisimulation
-from peppercornenumerator import PolymerizationError
-from peppercornenumerator import CondensationError
-
+from nuskell.verifier import modular_bisimulation
+from nuskell.crnutils import parse_crn_string, Reaction
+from nuskell.crnutils import split_reversible_reactions, removeSpecies
 
 def compare_schemes(reactions, schemedir,
                     crn_name=True,
@@ -48,13 +48,12 @@ def compare_schemes(reactions, schemedir,
             logging.warning("Ignoring file: {}".format(args.ts_dir + scheme))
             continue
         for (crn, crn_name) in reactions:
-
             if crn_name:
                 current = [scheme, str(crn_name)]
             else:
                 current = [scheme, crn]
 
-            fcrn, fs, _, _ = parse_crn_string(crn)
+            fcrn, fs = parse_crn_string(crn)
 
             # formal chemical reaction module
             fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) 
@@ -66,28 +65,27 @@ def compare_schemes(reactions, schemedir,
             for r in crn.split('\n'):
                 logging.info(" {}".format(r))
 
-
             clear_memory()
             try:
                 solution, modules = translate(crn, schemedir + scheme,
-                                              modular=modular,
-                                              verbose=(verbose > 2))
+                                              modular = modular,
+                                              verbose = (verbose > 2))
             except NuskellExit as e:
                 logging.error(e)
                 logging.error("Exiting translation. [{}]".format(scheme))
                 logging.error("Formal CRN:")
                 for r in crn.split('\n'):
                     logging.error(" {}".format(r))
-                current.extend([None, None, None, None, None])
+                current.extend([None] * len(vnotions) + [None, None, None])
                 plotdata.append(current)
                 continue
 
-            fuels = map(str, solution.present_complexes(exclude=fs))
+            fuels = solution.fuel_complexes
+            signals = solution.signal_complexes
 
             semantics = ['d'] if pc_args.enum_detailed else ['c']
             try:
-                solution.enumerate_reactions(
-                    pc_args, condensed=not pc_args.enum_detailed)
+                solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
             except PolymerizationError as e:
                 # NOTE: Many PolymerizationErrors are easiest to fix with
                 # --reject-remote enumeration semantics, but that is not a
@@ -99,7 +97,7 @@ def compare_schemes(reactions, schemedir,
                     logging.warning(" {}".format(r))
                 try:
                     pc_args.reject_remote = True
-                    solution.enumerate_reactions(pc_args, condensed=not pc_args.enum_detailed)
+                    solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
                     semantics.append('rr')
                     pc_args.reject_remote = False
                 except PolymerizationError as e:
@@ -108,7 +106,7 @@ def compare_schemes(reactions, schemedir,
                     logging.error("Formal CRN:")
                     for r in crn.split('\n'):
                         logging.error(" {}".format(r))
-                    current.extend([None, None, None, None, None])
+                    current.extend([None] * len(vnotions) + [None, None, None])
                     plotdata.append(current)
                     continue
             except CondensationError as e:
@@ -117,7 +115,7 @@ def compare_schemes(reactions, schemedir,
                 logging.error("Formal CRN:")
                 for r in crn.split('\n'):
                     logging.error(" {}".format(r))
-                current.extend([None, None, None, None, None])
+                current.extend([None] * len(vnotions) + [None, None, None])
                 plotdata.append(current)
                 continue
 
@@ -126,7 +124,7 @@ def compare_schemes(reactions, schemedir,
                 logging.error("Formal CRN:")
                 for r in crn.split('\n'):
                     logging.error(" {}".format(r))
-                current.extend([None, None, None, None, None])
+                current.extend([None] * len(vnotions) + [None, None, None])
                 plotdata.append(current)
                 continue
 
@@ -139,7 +137,7 @@ def compare_schemes(reactions, schemedir,
             # been removed.
             for r in solution.reactions:
                 logging.debug("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-                rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
+                rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                 icrn.append(rxn)
 
             # IMPLEMENTATION DETAILS
@@ -171,14 +169,14 @@ def compare_schemes(reactions, schemedir,
                     # then, enumerate!
                     if 'rr' in semantics:
                         pc_args.reject_remote = True
-                        module.enumerate_reactions( pc_args, 
-                                condensed=not pc_args.enum_detailed,
-                                prefix='tmp', init_memory=solution.complexes)
+                        module.enumerate_reactions(pc_args, 
+                                condensed = not pc_args.enum_detailed,
+                                prefix = 'tmp')
                         pc_args.reject_remote = False
                     else :
-                        module.enumerate_reactions( pc_args, 
-                                condensed=not pc_args.enum_detailed,
-                                prefix='tmp', init_memory=solution.complexes)
+                        module.enumerate_reactions(pc_args, 
+                                condensed = not pc_args.enum_detailed,
+                                prefix = 'tmp')
 
                     # after enumeration, make sure there are no new 'tmp' species present.
                     for cplx in module.complexes:
@@ -190,8 +188,7 @@ def compare_schemes(reactions, schemedir,
                         assert r in all_reactions
                         seen_reactions.add(r)
                         #logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-                        rxn = [map(str, r.reactants), map(
-                            str, r.products), [r.rate]]
+                        rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                         mcrn.append(rxn)
                     module_crns.append(mcrn)
                     #logging.info("")
@@ -202,7 +199,7 @@ def compare_schemes(reactions, schemedir,
                 for r in all_reactions :
                     if r not in seen_reactions :
                         #logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-                        rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
+                        rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                         mcrn.append(rxn)
 
                 # append the CRN
@@ -212,7 +209,7 @@ def compare_schemes(reactions, schemedir,
                 icrns = map(lambda x: removeSpecies(x, map(str, fuels)), module_crns)
 
             # VERIFICATION
-            vcrn = removeSpecies(icrn, fuels)
+            vcrn = removeSpecies(icrn, map(str,fuels))
             for meth in vnotions:
                 if 'modular-' in meth:
                     if len(fcrm) > 1:
@@ -251,6 +248,7 @@ def compare_schemes(reactions, schemedir,
                 current.append(speed)
 
             plotdata.append(current)
+
     return plotdata
 
 
@@ -304,7 +302,6 @@ def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
 
 def main(args):
     """Compare multiple tranlation schemes for a given CRN. """
-    TestTubePeppercornIO.interruptable = True
 
     # *************** #
     # Check arguments #
@@ -388,10 +385,12 @@ def main(args):
 
         # Results:
         idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
-        df = pd.DataFrame(plotdata, index=idx,
-                          columns=[
-                              'Translation scheme', 'CRN', 'enumerated'] + args.verify + [
-                              'number of nucleotides', 'reactions in condensed network'])
+        df = pd.DataFrame(plotdata, index = idx,
+                          columns = ['Translation scheme', 
+                                     'CRN', 
+                                     'enumerated'] + args.verify + [
+                                     'number of nucleotides', 
+                                     'reactions in condensed network'])
 
     # print 'Rawdata:'
     # print df.to_string(index=False, justify='left')
@@ -527,8 +526,6 @@ def get_peppercorn_args(parser):
                             help="""Do not apply 'max helix at a time' semantics to 3-way branch
       migration reactions.""")
 
-    # NOTE: Output formatting: this option is not directly passed on to
-    # peppercorn
     peppercorn.add_argument('--enum-detailed', action='store_true',
                             help="Do not condense reactions into only resting complexes")
 

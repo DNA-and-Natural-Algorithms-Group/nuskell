@@ -5,10 +5,6 @@ import argparse
 from peppercornenumerator import Enumerator, PepperCondensation
 from peppercornenumerator.objects import PepperDomain, PepperComplex, PepperReaction, clear_memory
 
-import nuskell.enumeration as ne
-import nuskell.parser as np
-import nuskell.objects as objects
-
 class EnumerationTests(unittest.TestCase):
     """ Test the results of the peppercorn enumerator.
 
@@ -89,8 +85,8 @@ class EnumerationTests(unittest.TestCase):
 
         ###########################
         # Get condensed output CRN
-        enumRG = PepperCondensation(enum)
-        reactions = enumRG.condensed_reactions
+        enum.condense()
+        reactions = enum.condensed_reactions
 
         self.assertEqual(len(reactions), 1)
         rC = PepperReaction([c1, c2], [c4, c5], 'condensed', memorycheck=False)

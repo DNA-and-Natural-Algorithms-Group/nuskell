@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, division, print_function
 
 import os
 import sys
@@ -7,15 +8,12 @@ import argparse
 import pkg_resources
 
 from dsdobjects.utils import natural_sort
-from crnsimulator import parse_crn_string
-from crnsimulator import ReactionGraph
 
-from nuskell import translate, verify, genCRN, genCON, __version__
-from nuskell.compiler import post_process
-from nuskell.parser import split_reversible_reactions
-
+from nuskell import translate, verify, __version__
 from nuskell.objects import TestTube, TestTubeIO
-from nuskell.verifier import removeSpecies, modular_bisimulation
+from nuskell.crnutils import parse_crn_string, Reaction
+from nuskell.crnutils import split_reversible_reactions, removeSpecies, genCRN, genCON
+from nuskell.verifier import modular_bisimulation
 
 class colors:
     RED = '\033[91m'
@@ -123,78 +121,75 @@ def get_peppercorn_args(parser):
 def get_nuskell_args(parser):
     """ A collection of arguments for Nuskell """
     #input = parser.add_mutually_exclusive_group(required=True)
-    input = parser.add_argument_group('Nuskell Input Arguments (required)')
+    input = parser.add_argument_group('Nuskell Input Arguments (required - choose one)')
     default = parser.add_argument_group('Nuskell Output Arguments')
     verify = parser.add_argument_group('Nuskell Verification Arguments')
     simulate = parser.add_argument_group('Nuskell Simulation Arguments')
 
-    parser.add_argument(
-        '--version',
-        action='version',
-        version='%(prog)s ' +
-        __version__)
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+    parser.add_argument("--schemes", action='store_true', 
+            help="Print a list of available schemes and exit.")
     parser.add_argument("-v", "--verbose", action='count', default=0,
-                        help="print verbose output. -vv increases verbosity level.")
-
-    parser.add_argument("--schemes", action='count', default=0,
-                        help="Print a list of available schemes and exit.")
+            help="print verbose output. -vv increases verbosity level.")
 
     # Options for the translation mode of Nuskell
     input.add_argument("--ts", action='store', metavar='</path/to/file>',
-                       help="""Specify a translation scheme. Either choose from the default
-      schemes which are installed with Nuskell, or specify the full path to a
-      not-installed scheme. Omitting both --ts and --readpil will print a list
-      of available schemes and exit.""")
+            help="""Specify a translation scheme. Either choose from the
+            default schemes which are installed with Nuskell, or specify the
+            full path to a not-installed scheme. Omitting both --ts and
+            --readpil will print a list of available schemes and exit.""")
 
     input.add_argument("--readpil", action='store', metavar='</path/to/file>',
-                       help="""Read a compiled CRN from a file in PIL format (kernel-notation).
-      Use this option as an alternative to --ts.""")
+            help="""Read a domain-level strand displacement system from a file
+            in PIL format. (Modular bisimulation verification is not available
+            through this mode.)""")
 
-    default.add_argument("-o", "--output", default='domainlevel', action='store',
-                         metavar='<str>', help="Specify basename of output files.")
+    input.add_argument("--enumerated-pil", action='store', metavar='</path/to/file>',
+            help="""Read a domain-level strand displacement system from a file
+            in PIL format. Use this option to provide a custom set of reactions
+            and supress built-in reaction enumeration. (Modular bisimulation
+            verification is not available through this mode.)""")
+
+    default.add_argument("-o", "--output", default='domainlevel', action='store', metavar='<str>', 
+            help="Specify basename of output files.")
 
     default.add_argument("--pilfile", action='store_true',
-                         help="""Print results in the Pepper Internal Language *.PIL file format
-      (kernel notation).""")
+            help="""Print (intermediate) results in the Pepper Internal
+            Language (*.pil) file format.""")
 
     default.add_argument("--dnafile", action='store_true',
-                         help="Print results in the VisualDSD *.DNA file format.")
+            help="Print (intermediate) results in the VisualDSD (*.dna) file format.")
+
+    default.add_argument("-u", "--concentration-units", default='M', action='store',
+            choices=('M', 'mM', 'uM', 'nM', 'pM'),
+            help="""Specify default concentration units when writing results to 
+            ouptut files (reaction rates, initial concentrations). """)
 
     default.add_argument("--enumerate", action='store_true',
-                         help="""Enumerate the implementation CRN. This is turned on automatically
-      when using the arguments --verify or --simulate.""")
-
-    default.add_argument("--simulate", action='store_true',
-                         help="""Print Python executables to simulate the formal and/or
-      implementation CRNs using ODEs.""")
-
-    default.add_argument("-u", "--concentration-unit", default='M', action='store',
-                         choices=('M', 'mM', 'uM', 'nM', 'pM'),
-                         help="""Specify default units. They are used when writing concentrations
-      to files, when calculating reaction rates, and when using the option
-      --simulate""")
+            help="""Enumerate the DSD system. This is turned on automatically
+            when using the argument --verify in combination with --ts or --readpil.""")
 
     # Choose a verification method.
-    verify.add_argument("--verify", nargs='+', default='', action='store',
-                        choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
-                                 'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
-                                 'modular-bisim-loop-search',
-                                 'modular-bisim-depth-first',
-                                 'modular-bisim-whole-graph'),
-                        metavar='<str>', help="""Specify verification methods. Choose one or more
-      from: bisimulation, pathway, integrated, modular-bisimulation,
-      bisim-loop-search, bisim-depth-first, bisim-whole-graph,
-      modular-bisim-loop-search,
-      modular-bisim-depth-first,
-      modular-bisim-whole-graph.""")
+    verify.add_argument("--verify", nargs = '+', default = [], action = 'store',
+            choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
+                'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
+                'modular-bisim-loop-search', 'modular-bisim-depth-first',
+                'modular-bisim-whole-graph'), metavar = '<str>', 
+            help="""Specify verification methods. Choose one or more from:
+            bisimulation, pathway, integrated, modular-bisimulation,
+            bisim-loop-search, bisim-depth-first, bisim-whole-graph,
+            modular-bisim-loop-search, modular-bisim-depth-first,
+            modular-bisim-whole-graph.""")
 
-    verify.add_argument("--modular", action='store_true',
-                        help="""After enumeration of the full system, enumerate individual CRN
-      modules separately, to identify crosstalk between reactions. This is
-      turned on automatically when using modular-bisimulation verification.""")
+    verify.add_argument("--modular", action = 'store_true',
+            #help="""After enumeration of the full system, enumerate individual
+            #CRN modules separately, to identify crosstalk between reactions.
+            #This is turned on automatically when using modular-bisimulation
+            #verification.""")
+            help = argparse.SUPPRESS)
 
-    verify.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
-                        help="Specify time in seconds to wait for verification to complete.")
+    verify.add_argument("--verify-timeout", type = int, default = 30, metavar = '<int>',
+            help="Specify time in seconds to wait for verification to complete.")
 
     return parser
 
@@ -242,9 +237,8 @@ def main(args):
     # ~~~~~~~~~~~~~~~~~~~
     # Argument processing
     # ~~~~~~~~~~~~~~~~~~~
-    comppil = args.output + '_comp.pil' if args.pilfile else None
+    comppil = args.output + '_sys.pil' if args.pilfile else None
     enumpil = args.output + '_enum.pil' if args.pilfile else None
-    finalpil = args.output + '_final.pil' if args.pilfile else None
     dnafile = args.output + '.dna' if args.dnafile else None
 
     if not args.modular:
@@ -255,8 +249,7 @@ def main(args):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
     input_crn = sys.stdin.readlines()
     input_crn = "".join(input_crn)
-    fcrn, fs = post_process(parse_crn_string(input_crn, process = False), 
-                            defaultrate = 1., defaultmode = None, defaultconc = None)
+    fcrn, fs = parse_crn_string(input_crn)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Initialize the TestTube
@@ -271,6 +264,15 @@ def main(args):
         logging.info("Parsing PIL file...")
         solution = TestTube()
         TestTubeIO(solution).load_pil(args.readpil, is_file = True)
+        # Assign fuel complexes and signal complexes.
+
+        # signals = species that correspond to formal species in the formal CRN
+        # fuels   = all non-signal species that have concentration > 0 nM
+        for cplx in solution.complexes:
+            if cplx.name in fs:
+                solution.nodes[cplx]['ctype'] = 'signal'
+            elif cplx.concentration is not None:
+                solution.nodes[cplx]['ctype'] = 'fuel'
     else:
         # At some point Nuskell should choose translation schemes automatically,
         # but we are not there yet ... use nuskellCMP for such things.
@@ -284,7 +286,7 @@ def main(args):
     fuels = solution.fuel_complexes
     signals = solution.signal_complexes
 
-    if solution.unspecified_complexes != []:
+    if args.ts and solution.unspecified_complexes != []:
         raise SystemExit('EXIT: solution contains intermediate species.')
 
     if signals == []:
@@ -305,49 +307,55 @@ def main(args):
                                                crn = fcrn, ts = args.ts if args.ts else None)
         print("Wrote file: {}".format(dnafile))
 
+    pilstring = TestTubeIO(solution).write_pil(fh = None,
+                                               unit = args.concentration_units, 
+                                               crn = fcrn, fs = fs,
+                                               ts = args.ts if args.ts else None)
     if args.pilfile:
         with open(comppil, 'w') as pil:
-            TestTubeIO(solution).write_pil(fh = pil,
-                                          unit = args.concentration_unit, 
-                                          crn = fcrn, fs = fs,
-                                          ts = args.ts if args.ts else None)
+            pil.write(pilstring)
         print("Wrote file: {}".format(comppil))
+    else:
+        print(pilstring)
 
-    if args.enumerate:
+    ####
+    # Compilation is done now ... 
+    # Lets go on with verification, enumeration, etc.
+    ####
+
+    if args.verify or args.enumerate:
         logging.info("")
         logging.info(colors.BOLD + "Enumerating reaction pathways..." + colors.ENDC)
-        solution.enumerate_reactions(prefix = 'inter', 
-                                     max_complex_count = 1000, 
-                                     max_complex_size = 20, 
-                                     max_reaction_count = 5000)
+        solution.enumerate_reactions(args, prefix = 'i', condensed = not args.enum_detailed)
 
         if not solution.reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
 
-        if args.pilfile:
-            with open(enumpil, 'w') as pil:
-                TestTubeIO(solution).write_pil(fh = pil,
-                                              unit = args.concentration_unit, 
-                                              crn = fcrn, fs = fs,
-                                              ts = args.ts if args.ts else None)
-                print("Wrote file: {}".format(enumpil))
+        # Only for debugging.
+        #pilstring = TestTubeIO(solution).write_pil(fh = None,
+        #                                           unit = args.concentration_units, 
+        #                                           crn = fcrn, fs = fs,
+        #                                           ts = args.ts if args.ts else None)
 
         logging.info("")
         logging.info(colors.BOLD + "Replacing regular-expression complexes ..." + colors.ENDC)
         # History domains within constant and intermediate species will not get replaced.
         interpret = solution.interpret_species(fs.keys(), prune = True)
 
-        outp = TestTubeIO(solution).write_pil(fh = None,
-                                              unit = args.concentration_unit, 
-                                              crn = fcrn, fs = fs,
-                                              ts = args.ts if args.ts else None)
-        #print(outp)
+        pilstring = TestTubeIO(solution).write_pil(fh = None,
+                                                   unit = args.concentration_units, 
+                                                   crn = fcrn, fs = fs,
+                                                   ts = args.ts if args.ts else None)
+        if args.pilfile:
+            with open(enumpil, 'w') as pil:
+                pil.write(pilstring)
+            print("Wrote file: {}".format(enumpil))
 
-        # Return the implementation CRN. (= enumerated CRN without regex complexes)
+        # Return the implementation CRN. (= enumerated CRN)
         icrn = []
         for r in natural_sort(solution.reactions):
             logging.info("reaction {}".format(r.full_string()))
-            rxn = [map(str, r.reactants), map(str, r.products), [r.rate.constant]]
+            rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
             icrn.append(rxn)
 
         print("")
@@ -364,40 +372,6 @@ def main(args):
             map(lambda d: d.length, s)) for s in solution.strands.values())))
         print("")
 
-
-        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        ## Prepare enumerated CRN and TestTube
-        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        #if args.simulate or args.pilfile:
-        #    # If you use translation schemes, or if you didn't specify concentrations in
-        #    # the PIL file, then all non-signal species have 'infinite' concentration at
-        #    # this point. The experimental concentrations can be set by printing a
-        #    # pilfile, adjusting it, and loading it instead of the translation
-        #    # scheme.
-
-        #    # Set *initial* concentration of fuels to 100 nM.
-        #    for f in fuels:
-        #        if None in solution.get_complex_concentration(f):
-        #            solution.set_complex_concentration(f, 100e-9, False)
-
-        #    # Set *initial* concentraiton of signals to 0 nM.
-        #    for f in solution.selected_complexes(names=interpret.keys()):
-        #        if None in solution.get_complex_concentration(f):
-        #            solution.set_complex_concentration(f, 0, False)
-
-        #    # Set *initial* concentraiton of remaining species (intermediates) to 0 nM.
-        #    for i in solution.complexes:
-        #        if None in solution.get_complex_concentration(i):
-        #            solution.set_complex_concentration(i, 0, False)
-
-        #    if args.pilfile:
-        #        pilfile = args.output + '_c0.pil'
-        #        with open(pilfile, 'w') as pil:
-        #            TestTubeIO(solution).write_pil(pil, unit=args.concentration_unit,
-        #                                                  crn=fcrn, ts=args.ts if args.ts else None)
-
-        #        print "Wrote file: {}".format(pilfile)
-
         if args.modular:
             # TODO(SB): cross-check verification:
             # - enumeration detects crosstalk between modules and append it as
@@ -407,8 +381,6 @@ def main(args):
 
             seen_reactions = set()
             all_reactions = set(solution.reactions)
-            #for r in natural_sort(solution.reactions):
-            #    print(r.full_string())
 
             module_crns = []
             for e, module in enumerate(modules):
@@ -423,10 +395,8 @@ def main(args):
                             if module.has_complex(cplx):
                                 module.rm_complex(cplx)
 
-                module.enumerate_reactions(prefix = 'tmp', 
-                                     max_complex_count = 1000, 
-                                     max_complex_size = 20, 
-                                     max_reaction_count = 5000)
+                module.enumerate_reactions(args, prefix = 'tmp', 
+                        condensed = not args.enum_detailed)
 
                 # after enumeration, make sure there are no new 'tmp' species present.
                 for cplx in module.complexes:
@@ -439,20 +409,19 @@ def main(args):
                     assert r in all_reactions
                     seen_reactions.add(r)
                     logging.info("reaction {}".format(r.full_string()))
-                    rxn = [map(str, r.reactants), map(
-                        str, r.products), [r.rate]]
+                    rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                     mcrn.append(rxn)
                 module_crns.append(mcrn)
                 logging.info("")
 
-            # last, identify crosstalk as the last implementation CRN (without
-            # formal correspondence)
+            # last, identify crosstalk as the last implementation CRN 
+            # (without formal correspondence)
             logging.info("Crosstalk")
             mcrn = [] # crosstalk
             for r in all_reactions :
                 if r not in seen_reactions :
                     logging.info("reaction {}".format(r.full_string()))
-                    rxn = [map(str, r.reactants), map(str, r.products), [r.rate]]
+                    rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                     mcrn.append(rxn)
 
             # append the CRN
@@ -462,37 +431,31 @@ def main(args):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Verify equivalence of CRNs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    fcrm = map(lambda x: split_reversible_reactions(
-        [x]), fcrn)  # formal chemical reaction module
+    fcrm = map(lambda x: split_reversible_reactions([x]), fcrn)  # formal chemical reaction module
     fcrn = split_reversible_reactions(fcrn)
+
     if args.verify:
         logging.info("")
         logging.info(colors.BOLD + "Verification using: {}".format(args.verify) + colors.ENDC)
 
-        # NOTE: implicitly also removes rate constants
         vcrn = removeSpecies(icrn, map(str, fuels))
         if args.verbose:
             logging.info("Verification CRN:")
-            map(lambda r: logging.info('    ' + r), genCRN(vcrn, reversible=True, rates=False))
+            map(lambda r: logging.info('    ' + r), genCRN(vcrn, reversible = True))
             logging.info("")
 
         if args.modular:
-            icrns = map(
-                lambda x: removeSpecies(
-                    x, map(
-                        str, fuels)), module_crns)
+            icrns = map(lambda x: removeSpecies(x, map(str, fuels)), module_crns)
             if args.verbose:
                 for e, m in enumerate(icrns):
                     if e < len(fcrm):
                         logging.info("CRN Module {}:".format(e + 1))
                         logging.info("--")
-                        map(lambda r: logging.info('    ' + r), 
-                                genCRN(fcrm[e], reversible=True, rates=False))
+                        map(lambda r: logging.info('    ' + r), genCRN(fcrm[e], reversible = True))
                     else:
                         logging.info("CROSSTALK:")
                     logging.info("--")
-                    map(lambda r: logging.info('    ' + r), 
-                            genCRN(m, reversible=True, rates=False))
+                    map(lambda r: logging.info('    ' + r), genCRN(m, reversible = True))
                     logging.info("")
 
         for meth in args.verify:
@@ -529,12 +492,12 @@ def main(args):
                 #if v and i : interpret = i
 
             if v is True:
-                print " {}: CRNs are {} equivalent.".format(v, meth)
+                print(" {}: CRNs are {} equivalent.".format(v, meth))
             elif v is False:
-                print " {}: CRNs are not {} equivalent.".format(v, meth)
+                print(" {}: CRNs are not {} equivalent.".format(v, meth))
             elif v is None:
-                print " {}: {} verification did not terminate within {} seconds.".format(
-                        v, meth, args.verify_timeout)
+                print(" {}: {} verification did not terminate within {} seconds.".format(
+                        v, meth, args.verify_timeout))
 
             if i and args.verbose:
                 if not v:
@@ -546,38 +509,39 @@ def main(args):
             print("")
 
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Simulate CRNs in a TestTube
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if args.simulate:
-        logging.info("-----")
-        logging.info("Writing executable simulator scripts: {}_fCRN.py {}_iCRN.py".format(
-            args.output, args.output))
+    ## # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ## # Simulate CRNs in a TestTube
+    ## # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ## if args.simulate:
+    ##     logging.info("-----")
+    ##     logging.info("Writing executable simulator scripts: {}_fCRN.py {}_iCRN.py".format(
+    ##         args.output, args.output))
 
-        # Change CRN format from [[r], [p], [None]], if needed and add rate 1 to
-        # every reaction.
-        scrn = map(lambda rxn: rxn[:2] +
-                   (rxn[2] if rxn[2] != [None] else [1]), fcrn)
+    ##     # Change CRN format from [[r], [p], [None]], if needed and add rate 1 to
+    ##     # every reaction.
+    ##     scrn = map(lambda rxn: rxn[:2] +
+    ##                (rxn[2] if rxn[2] != [None] else [1]), fcrn)
 
-        # Simulate the formal CRN using crnsimulator
-        CRG = ReactionGraph(scrn)
-        fFile, _ = CRG.write_ODE_lib(
-            sorted(CRG.species), filename=args.output + '_fCRN')
-        if args.verbose:
-            logging.info('Wrote formal CRN simulator:'.format(fFile))
-            logging.info(' - execute with: python {}'.format(fFile))
+    ##     # Simulate the formal CRN using crnsimulator
+    ##     CRG = ReactionGraph(scrn)
+    ##     fFile, _ = CRG.write_ODE_lib(
+    ##         sorted(CRG.species), filename=args.output + '_fCRN')
+    ##     if args.verbose:
+    ##         logging.info('Wrote formal CRN simulator:'.format(fFile))
+    ##         logging.info(' - execute with: python {}'.format(fFile))
 
-        # Simulate the interpretation CRN using crnsimulator
-        iFile, _ = solution.simulate_crn(
-            args.output + '_iCRN', unit=args.concentration_unit)
-        if args.verbose:
-            logging.info('Wrote implementation CRN simulator:'.format(iFile))
-            logging.info(' - execute with: python {}'.format(iFile))
+    ##     # Simulate the interpretation CRN using crnsimulator
+    ##     iFile, _ = solution.simulate_crn(
+    ##         args.output + '_iCRN', unit=args.concentration_units)
+    ##     if args.verbose:
+    ##         logging.info('Wrote implementation CRN simulator:'.format(iFile))
+    ##         logging.info(' - execute with: python {}'.format(iFile))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        description = """Nuskell: Compile a formal CRN to a DSD system specification.""")
     parser = get_nuskell_args(parser)
     parser = get_peppercorn_args(parser)
     args = parser.parse_args()

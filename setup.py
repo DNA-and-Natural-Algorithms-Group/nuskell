@@ -67,7 +67,7 @@ of an ODE system to simulate the dynamics of the compiled DSD network.
 
 setup(
     name='nuskell',
-    version='0.5.1',
+    version='0.6',
     description='Nucleic acid strand displacement compiler',
     long_description=LONG_DESCRIPTION,
     author='Stefan Badelt, Seung Woo Shin, Robert Johnson, Qing Dong, Erik Winfree',
