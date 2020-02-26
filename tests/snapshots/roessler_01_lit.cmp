@@ -1,12 +1,12 @@
 Translation scheme       CRN                                              enumerated pathway bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
-     cardelli2011_FJ.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]     None    None         None                1880.0                 179.0                           timeout  
-     cardelli2011_NM.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                2065.0                 178.0                           timeout  
-     cardelli2013_2D.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                1620.0                  82.0                           timeout  
-cardelli2013_2D_2TGC.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                1690.0                  83.0                           timeout  
-  cardelli2013_2D_3I.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C  [c, rr]     None    None         None                2075.0                  75.0                           timeout  
-      chen2013_2D_JF.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None        False                1660.0                  73.0                           timeout  
-        lakin2012_3D.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C     None     None    None         None                   NaN                   NaN                           timeout  
-     lakin2016_2D_3I.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                2515.0                  84.0                           timeout  
-         qian2011_3D.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False   False        False                 660.0                  29.0                             False  
-     soloveichik2010.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]     True    None         None                1190.0                  70.0                              True  
-        srinivas2015.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]     True    None         None                1180.0                  76.0                              True
+      cardelli2011_FJ.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]     None    None         None                1880.0                 179.0                           timeout  
+      cardelli2011_NM.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                2065.0                 178.0                           timeout  
+      cardelli2013_2D.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                1620.0                  82.0                           timeout  
+ cardelli2013_2D_2TGC.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                1690.0                  83.0                           timeout  
+   cardelli2013_2D_3I.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C  [c, rr]     None    None         None                2075.0                  75.0                           timeout  
+       chen2013_2D_JF.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None        False                1660.0                  73.0                           timeout  
+         lakin2012_3D.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C     None     None    None         None                   NaN                   NaN                           timeout  
+      lakin2016_2D_3I.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False    None         None                2515.0                  84.0                           timeout  
+          qian2011_3D.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]    False   False        False                 660.0                  29.0                             False  
+      soloveichik2010.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]     True    None         None                1190.0                  70.0                              True  
+         srinivas2015.ts  A <=> 2A\nA + B -> 2B\nB ->\nA + C ->\nC <=> 2C      [c]     True    None         None                1180.0                  76.0                              True  

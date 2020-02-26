@@ -1,5 +1,6 @@
 from collections import namedtuple
 from crnsimulator import parse_crn_string as pcs
+from crnsimulator import parse_crn_file as pcf
 from dsdobjects.utils import natural_sort
 from crnsimulator.crn_parser import CRNParseError
 
@@ -8,6 +9,10 @@ Reaction = namedtuple('reaction', 'reactants products k_fwd k_rev')
 def parse_crn_string(crnstring):
     # A wrapper for the crnsimulator version
     return post_process(pcs(crnstring, process = False), defaultrate = 1, defaultmode = None, defaultconc = None)
+
+def parse_crn_file(crnfile):
+    # A wrapper for the crnsimulator version
+    return post_process(pcf(crnfile, process = False), defaultrate = 1, defaultmode = None, defaultconc = None)
 
 def post_process(crn, defaultrate = None, defaultmode = 'initial', defaultconc = 0):
     """Process a parsed CRN.

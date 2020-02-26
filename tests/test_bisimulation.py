@@ -1,9 +1,9 @@
+from __future__ import absolute_import, division, print_function
 import os
 import unittest
 from collections import Counter
 
-from nuskell.parser import parse_crn_string, split_reversible_reactions
-from nuskell.parser import parse_crn_file
+from nuskell.crnutils import parse_crn_file, parse_crn_string, split_reversible_reactions
 import nuskell.verifier.crn_bisimulation_equivalence as bisimulation
 
 SKIP_SLOW = True
@@ -31,26 +31,26 @@ class BisimulationTests(unittest.TestCase):
         if not os.path.isfile(filename):
             raise Exception(
                 "File for unittest is missing: {}".format(filename))
-        crn, formal, _, _ = parse_crn_file(filename)
+        crn, formal = parse_crn_file(filename)
         crn = split_reversible_reactions(crn)
-        return ([[Counter(part) for part in rxn] for rxn in crn], formal)
+        return ([[Counter(part) for part in rxn[:2]] for rxn in crn], formal)
 
     def _parse_modular_crn_file(self, filename, reversible=False):
         if not os.path.isfile(filename):
             raise Exception(
                 "File for unittest is missing: {}".format(filename))
-        crn, formal, _, _ = parse_crn_file(filename)
+        crn, formal = parse_crn_file(filename)
         if reversible:
             crn = [split_reversible_reactions([rxn]) for rxn in crn]
         else:
             crn = [[rxn] for rxn in split_reversible_reactions(crn)]
-        return ([[[Counter(part) for part in rxn] for rxn in module]
+        return ([[[Counter(part) for part in rxn[:2]] for rxn in module]
                  for module in crn], formal)
 
     def _parse_crn_string(self, string):
-        crn, formal, _, _ = parse_crn_string(string)
+        crn, formal = parse_crn_string(string)
         crn = split_reversible_reactions(crn)
-        return ([[Counter(part) for part in rxn] for rxn in crn], formal)
+        return ([[Counter(part) for part in rxn[:2]] for rxn in crn], formal)
 
     @unittest.skipIf(SKIP_SLOW, "skipping slow tests")
     def test_roessler_qian_equivalence(self):
@@ -121,16 +121,14 @@ class BisimulationTests(unittest.TestCase):
                     'i2232': Counter(['A']),
                     'i73': Counter(['B'])}
 
-        if True:
-            # NOTE: These tests complete in less than 10 minutes
+        if True: # NOTE: These tests complete in less than 10 minutes
             v, _ = bisimulation.test(fcrn, icrn, fs, permissive='whole-graph')
             self.assertTrue(v)
 
             v, _ = bisimulation.test(fcrn, icrn, fs, permissive='depth-first')
             self.assertTrue(v)
 
-        if False:
-            # NOTE: These don't finish within 10 minutes
+        if False: # NOTE: These might not even finish in an overnight run ...
             v, _ = bisimulation.test(fcrn, icrn, fs, permissive='loop-search')
             self.assertTrue(v)
 
@@ -138,8 +136,7 @@ class BisimulationTests(unittest.TestCase):
                 fcrn, icrn, fs, interpretation=inter_01, permissive='loop-search')
             self.assertTrue(v)
 
-        if True:
-            # These tests pass quite fast!
+        if True: # These tests pass quite fast!
             v, _ = bisimulation.test(fcrn, icrn, fs, interpretation=inter_01)
             self.assertTrue(v)
 
@@ -198,12 +195,8 @@ class BisimulationTests(unittest.TestCase):
                "x3 <=> x6 ; x9 <=> x10 ; x10 + x4 <=> x1 ; x7 -> x9 + x8"
 
         (fcrn, fs) = self._parse_crn_string(fcrn)
-        fcrn = split_reversible_reactions(fcrn)
-        fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
 
         (icrn, _) = self._parse_crn_string(icrn)
-        icrn = split_reversible_reactions(icrn)
-        icrn = [[Counter(part) for part in rxn] for rxn in icrn]
 
         v, _ = bisimulation.test(fcrn, icrn, fs)
         self.assertTrue(v)
@@ -259,12 +252,7 @@ class BisimulationTests(unittest.TestCase):
 
         # CRN preprocessing
         (fcrn, fs) = self._parse_crn_string(fcrn)
-        fcrn = split_reversible_reactions(fcrn)
-        fcrn = [[Counter(part) for part in rxn] for rxn in fcrn]
-
         (icrn, _) = self._parse_crn_string(icrn)
-        icrn = split_reversible_reactions(icrn)
-        icrn = [[Counter(part) for part in rxn] for rxn in icrn]
 
         # NOTE: Correct behavior
         v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=pinter1,
@@ -361,33 +349,6 @@ class BisimulationTests(unittest.TestCase):
                  'C': Counter(['C'])}
 
         v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter)
-        self.assertTrue(v)
-
-    def dont_test_cardelli2D(self):
-        fcrn = "-> A"
-        icrn = " <=> e68_; A + e163_ <=> e129_; e163_ -> e197_ + e198_; e68_ <=> e98_ + e99_; e98_ -> e127_ + e237_; e99_ -> e127_ + e129_"
-
-        (fcrn, fs) = self._parse_crn_string(fcrn)
-        (icrn, _) = self._parse_crn_string(icrn)
-
-        # ifull1 = {'B': Counter(['B']),
-        #         'x1': Counter(['B']),
-        #         'x2': Counter(['B','B']),
-        #         'x3': Counter(),
-        #         'x4': Counter()}
-
-        # ipart1 = {'A': Counter(['A']),
-        #         '_e129': Counter(['A']),
-        #         '_e237': Counter(),
-        #         '_e197': Counter()}
-
-        v, i = bisimulation.test(fcrn, icrn, fs)
-        print 'returned', v
-        print 'returned', i
-
-        for impl, formal in sorted(i[0].items()):
-            print "  {} => {}".format(impl, ', '.join([x for x in formal.elements()]))
-
         self.assertTrue(v)
 
 

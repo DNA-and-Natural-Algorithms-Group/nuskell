@@ -1,8 +1,8 @@
+from __future__ import absolute_import, division, print_function
 import os
 import unittest
 
-from nuskell.parser import parse_crn_string, split_reversible_reactions
-from nuskell.parser import parse_crn_file
+from nuskell.crnutils import parse_crn_string, parse_crn_file, split_reversible_reactions
 import nuskell.verifier.crn_pathway_equivalence as pathway_equivalence
 
 
@@ -30,12 +30,12 @@ class PathwayEquivalenceTests(unittest.TestCase):
         if not os.path.isfile(filename):
             raise Exception(
                 "File for unittest is missing: {}".format(filename))
-        crn, formal, _, _ = parse_crn_file(filename)
+        crn, formal = parse_crn_file(filename)
         crn = split_reversible_reactions(crn)
         return ([[Counter(part) for part in rxn] for rxn in crn], formal)
 
     def _parse_crn_string(self, string):
-        crn, formal, _, _ = parse_crn_string(string)
+        crn, formal = parse_crn_string(string)
         crn = split_reversible_reactions(crn)
         return (crn, formal)
 

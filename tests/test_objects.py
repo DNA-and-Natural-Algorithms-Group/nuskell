@@ -9,7 +9,7 @@ SKIP = False
 
 @unittest.skipIf(SKIP, "skipping tests")
 class NuskellDomainObjectTest(unittest.TestCase):
-    # Test the Nuskell Version of DNAObjects
+    # Test the Nuskell Version of DSDObjects
     def setUp(self):
         pass
 
@@ -62,23 +62,31 @@ class NuskellComplexObjectTest(unittest.TestCase):
 
     def test_ComplexDomains(self):
         foo = objects.NuskellComplex(
-                sequence=[self.d1, self.d2, self.d3, '+', self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2], 
-                structure=list('..(+(+))..'))
+                sequence = [self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                            self.d1c, self.d3c, self.d1c, self.d2], 
+                structure = list('..(+(+))..'))
 
-        self.assertEqual(foo.sequence, [self.d1, self.d2, self.d3, '+', self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2])
-        self.assertEqual(foo.lol_sequence, [[self.d1, self.d2, self.d3], [self.d1], [self.d1c, self.d3c, self.d1c, self.d2]])
+        self.assertEqual(foo.sequence, 
+                   [self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                    self.d1c, self.d3c, self.d1c, self.d2])
+        self.assertEqual(foo.lol_sequence, 
+                  [[self.d1, self.d2, self.d3], [self.d1], 
+                   [self.d1c, self.d3c, self.d1c, self.d2]])
 
         bar = objects.NuskellComplex(
-                sequence=[self.d1c, self.d3c, self.d1c, self.d2, '+', self.d1, self.d2, self.d3, '+', self.d1], 
-                structure=list('((..+..)+)'), memorycheck=False)
+                sequence = [self.d1c, self.d3c, self.d1c, self.d2, '+', 
+                            self.d1, self.d2, self.d3, '+', self.d1], 
+                structure = list('((..+..)+)'), memorycheck=False)
 
         self.assertEqual(foo, bar)
         self.assertTrue(foo == bar)
+        self.assertFalse(foo is bar)
 
     def test_names(self):
         foo = objects.NuskellComplex(
-                sequence=[self.d1, self.d2, self.d3, '+', self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2], 
-                structure=list('..(+(+))..'))
+                sequence = [self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                            self.d1c, self.d3c, self.d1c, self.d2], 
+                structure = list('..(+(+))..'))
         self.assertEqual(foo.name, 'cplx0')
 
         foo.name = 'bar'
@@ -92,15 +100,20 @@ class NuskellComplexObjectTest(unittest.TestCase):
 
     def test_rotations(self):
         foo = objects.NuskellComplex(
-                sequence=[self.d1, self.d2, self.d3, '+', self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2], 
-                structure=list('..(+(+))..'))
+                sequence = [self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                            self.d1c, self.d3c, self.d1c, self.d2], 
+                structure = list('..(+(+))..'))
         self.assertEqual(foo.rotate_once(), foo)
-        self.assertEqual(foo.sequence, [self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2, '+', self.d1, self.d2, self.d3])
+        self.assertEqual(foo.sequence, 
+                   [self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2, '+', 
+                    self.d1, self.d2, self.d3])
         self.assertEqual(foo.structure, list('(+)(..+..)'))
 
         for r in foo.rotate():
             self.assertEqual(r, foo)
-        self.assertEqual(foo.sequence, [self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2, '+', self.d1, self.d2, self.d3])
+        self.assertEqual(foo.sequence, 
+                   [self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2, '+', 
+                    self.d1, self.d2, self.d3])
         self.assertEqual(foo.structure, list('(+)(..+..)'))
 
 
@@ -116,16 +129,17 @@ class TestTubeTests(unittest.TestCase):
         self.d3c = ~self.d3
 
         self.cplx1 = objects.NuskellComplex(
-                [self.d1, self.d2, self.d3, '+', self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2], 
-                list('..(+(+))..'), name='cplx1')
+                [self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                 self.d1c, self.d3c, self.d1c, self.d2], 
+                list('..(+(+))..'), name = 'cplx1')
 
         self.cplx2 = objects.NuskellComplex(
                 [self.d1, self.d2, self.d3, '+', self.d3c, self.d2c, self.d2], 
-                list('.((+)).'), name='cplx2')
+                list('.((+)).'), name = 'cplx2')
 
         self.cplx3 = objects.NuskellComplex(
                 [self.h1, self.d2, self.d3, '+', self.d3c, self.d2c, self.d2], 
-                list('.((+)).'), name='cplx3')
+                list('.((+)).'), name = 'cplx3')
 
     def tearDown(self):
         objects.clear_memory()
@@ -147,7 +161,7 @@ class TestTubeTests(unittest.TestCase):
                 'name2' : [self.cplx2, 1e-9, False, 'signal'] }
         foo = objects.TestTube(complexes)
 
-        complexes = [ self.cplx1, self.cplx2 ]
+        complexes = [self.cplx1, self.cplx2]
         foo = objects.TestTube(complexes)
 
         foo = objects.TestTube()
@@ -155,7 +169,7 @@ class TestTubeTests(unittest.TestCase):
         self.assertTrue(foo.has_complex(self.cplx1))
 
     def test_TestTubeInterpret(self):
-        complexes = [ self.cplx1, self.cplx2, self.cplx3 ]
+        complexes = [self.cplx1, self.cplx2, self.cplx3]
         foo = objects.TestTube(complexes)
         out = foo.interpret_species([self.cplx3.name], prune = False)
         exp = {'cplx3_1_' : Counter({'cplx3':1})}
@@ -163,7 +177,7 @@ class TestTubeTests(unittest.TestCase):
         self.assertEqual(sorted(foo.complexes), sorted([self.cplx1, self.cplx2]))
 
         objects.clear_memory()
-        complexes = [ self.cplx1, self.cplx2, self.cplx3 ]
+        complexes = [self.cplx1, self.cplx2, self.cplx3]
         foo = objects.TestTube(complexes)
         out = foo.interpret_species([self.cplx3.name], prune = True)
         exp = {'cplx3_1_' : Counter({'cplx3':1})}
@@ -249,7 +263,7 @@ class TestTubeIOTest(unittest.TestCase):
         structure = ['(', '(', '+', '(', '(', '+', '(', '+', '(', '(', '+', '.', '(', '(', '+', '.', '(', '(', '+', ')', ')', ')', ')', ')', '+', ')', ')', ')', ')', ')', ')', '.']
 
         foo = objects.NuskellComplex(sequence=sequence, structure=structure)
-        fooIO = objects.TestTubeIO( objects.TestTube( complexes={ foo.name: [foo, float("inf"), None, None]}))
+        fooIO = objects.TestTubeIO(objects.TestTube(complexes = {foo.name: [foo, float("inf"), None, None]}))
 
         # fooIO.write_dnafile(sys.stdout)
         f = open(os.devnull, "w")

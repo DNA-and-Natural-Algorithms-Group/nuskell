@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, division, print_function
 
 import os
 import sys
@@ -392,9 +393,9 @@ def main(args):
                                      'number of nucleotides', 
                                      'reactions in condensed network'])
 
-    # print 'Rawdata:'
-    # print df.to_string(index=False, justify='left')
-    # print df.to_latex(index=False)
+    # print('Rawdata:')
+    # print(df.to_string(index=False, justify='left'))
+    # print(df.to_latex(index=False))
 
     # Save to portable format:
     if args.to_csv:
@@ -409,7 +410,7 @@ def main(args):
                           columns=[
                               'Translation scheme', 'CRN', 'enumerated'] + args.verify + [
                               'number of nucleotides', 'reactions in condensed network'])
-        print df.to_string(index=False, justify='right')
+        print(df.to_string(index = False, justify = 'right'))
 
     def equiv(x):
         if True in x:
@@ -422,7 +423,8 @@ def main(args):
     # Add column that combines equivalence notions.
     e = map(equiv, zip(*map(lambda x: df[x], args.verify)))
     df['equivalent'] = e
-    print df.to_string(index=False, justify='left')
+    df = df.sort_values(['Translation scheme', 'CRN'], ascending = [True, True])
+    print(df.to_string(index=False, justify='left'))
 
     if args.pyplot:
         single_plot(df, pfile=args.pyplot)

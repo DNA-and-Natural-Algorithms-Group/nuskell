@@ -1,9 +1,9 @@
 Translation scheme          CRN                                                enumerated pathway bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
-   cardelli2011_FJ_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 2330                   182                             timeout  
-   cardelli2011_NM_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 1440                   110                             timeout  
-cardelli2013_2D_3I_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]     None   None         None                 2010                    78                             timeout  
-   cardelli2013_2D_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 1620                    84                             timeout  
-    chen2013_2D_JF_var1.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 2340                    72                             timeout  
-    chen2013_2D_JF_var2.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 2340                    72                             timeout  
-      lakin2012_3D_var1.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 1320                   110                             timeout  
-       qian2011_3D_var1.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   True         True                  665                    24                                True
+    cardelli2011_FJ_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 2330                   182                             timeout  
+    cardelli2011_NM_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 1440                   110                             timeout  
+ cardelli2013_2D_3I_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]     None   None         None                 2010                    78                             timeout  
+    cardelli2013_2D_noGC.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   None         None                 1620                    84                             timeout  
+     chen2013_2D_JF_var1.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 2340                    72                             timeout  
+     chen2013_2D_JF_var2.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 2340                    72                             timeout  
+       lakin2012_3D_var1.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...  [c, rr]    False   None         None                 1320                   110                             timeout  
+        qian2011_3D_var1.ts  A <=>         X\n    B + X <=>     Y + A\nC + ...      [c]    False   True         True                  665                    24                                True  
