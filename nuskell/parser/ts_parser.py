@@ -1,13 +1,11 @@
 #
+#  nuskell/parser/ts_parser.py
+#  NuskellCompilerProject
 #
-# Copyright (c) 2010 Caltech. All rights reserved.
+# Copyright (c) 2010-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-#   edits by Stefan Badelt (badelt@caltech.edu)
+#            Stefan Badelt (stefan.badelt@gmail.com)
 #
-#
-# Parser module for translation scheme description files (*.ts).
-#
-
 from pyparsing import (Word, Literal, Group, Suppress, Optional, Forward,
                        OneOrMore, ZeroOrMore, nums, alphas, alphanums, delimitedList,
                        operatorPrecedence, ParserElement, opAssoc, StringStart, StringEnd,

@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright (c) 2010-2016 Caltech. All rights reserved.
+#  nuskell/interpreter/interpreter.py
+#  NuskellCompilerProject
+#
+# Copyright (c) 2010-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-#            Stefan Badelt (badelt@caltech.edu)
-#
-# The interpreter environment for translation schemes.
+#            Stefan Badelt (stefan.badelt@gmail.com)
 #
 from __future__ import absolute_import, division, print_function
-
 """The nuskell programming language environment.
 
 Nuskell code is interpreted using public functions of the **Environment**
@@ -18,8 +17,6 @@ in the respective namespace.
 .. When modifying this file, follow the Google Python Style Guide:
 .. http://google.github.io/styleguide/pyguide.html
 """
-
-import sys
 from copy import copy
 
 from nuskell.objects import NuskellDomain, NuskellComplex, TestTube, DSDDuplicationError

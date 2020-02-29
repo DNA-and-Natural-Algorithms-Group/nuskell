@@ -6,13 +6,12 @@
 #
 # Verification interface
 #
-
 import signal
+import logging
 from collections import Counter
 
 import crn_bisimulation_equivalence
 import crn_pathway_equivalence
-
 
 class TimeoutError(Exception):
     pass
@@ -20,8 +19,8 @@ class TimeoutError(Exception):
 def handler(signum, frame):
     raise TimeoutError('Time over')
 
-def verify(formal_crn, impl_crn, formals, interpret=None,
-           method='bisimulation', timeout=0, verbose=False):
+def verify(formal_crn, impl_crn, formals, interpret = None,
+            method = 'bisimulation', timeout = 0):
     """Verify the equivalence of a formal CRN and its implementation CRN.
 
     This wrapper function for two notions of equivalence (bisimulation and
@@ -42,8 +41,6 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
         'pathway', 'integrated'.
       timeout (int, optional): Set a timeout (in seconds) for verification. Defaults
         to 0, i.e. no timeout.
-      verbose (bool, optional): Print logging information during compilation.
-        Defaults to False.
 
     Returns:
       bool: True if equivalent, False otherwise.
@@ -64,15 +61,15 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
     try:
         if method == 'bisimulation' or method == 'bisim-whole-graph':
             v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
-                                                     interpretation=interpret, permissive='whole-graph', verbose=verbose)
+                                                     interpretation=interpret, permissive='whole-graph')
 
         elif method == 'bisim-loop-search':
             v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
-                                                     interpretation=interpret, permissive='loop-search', verbose=verbose)
+                                                     interpretation=interpret, permissive='loop-search')
 
         elif method == 'bisim-depth-first':
             v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
-                                                     interpretation=interpret, permissive='depth-first', verbose=verbose)
+                                                     interpretation=interpret, permissive='depth-first')
 
         elif method == 'pathway':
             # NOTE: Adaptation to pathway interface
@@ -85,7 +82,7 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
                     else:
                         pinter[k] = []
             v = crn_pathway_equivalence.test((formal_crn, formals),
-                                             (impl_crn, pinter.keys()), pinter, False, interactive, verbose)
+                                             (impl_crn, pinter.keys()), pinter, False, interactive)
         elif method == 'integrated':
             # TODO: integrated-hybrid -> first consider some species as formal for
             # pathway decomposition, then do bisimulation. This is necessary for
@@ -103,7 +100,7 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
                     else:
                         pinter[k] = []
             v = crn_pathway_equivalence.test((formal_crn, formals),
-                                             (impl_crn, pinter.keys()), pinter, True, interactive, verbose)
+                                             (impl_crn, pinter.keys()), pinter, True, interactive)
         else:
             raise RuntimeError('Unknown verification method.')
     except TimeoutError:
@@ -113,11 +110,12 @@ def verify(formal_crn, impl_crn, formals, interpret=None,
 
     return v, i
 
-def modular_bisimulation(formal_crn, impl_crn, formals, interpret=None,
-                         method='bisimulation', timeout=0, verbose=False):
+def modular_bisimulation(formal_crn, impl_crn, formals, interpret = None,
+                         method = 'bisimulation', timeout = 0):
     """
       Wrapper to choose from different notions of modular bisimulation equivalence.
     """
+
     v, i = None, None
 
     fcrns = [[[Counter(part) for part in rxn[:2]] for rxn in mod]
@@ -131,15 +129,15 @@ def modular_bisimulation(formal_crn, impl_crn, formals, interpret=None,
         # TODO: replace second formals!!!
         if method == 'bisimulation' or method == 'bisim-whole-graph':
             v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
-                                                            interpretation=interpret, permissive='whole-graph', verbose=verbose)
+                                                            interpretation=interpret, permissive='whole-graph')
 
         elif method == 'bisim-loop-search':
             v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
-                                                            interpretation=interpret, permissive='loop-search', verbose=verbose)
+                                                            interpretation=interpret, permissive='loop-search')
 
         elif method == 'bisim-depth-first':
             v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
-                                                            interpretation=interpret, permissive='depth-first', verbose=verbose)
+                                                            interpretation=interpret, permissive='depth-first')
 
         else:
             raise RuntimeError('Unsupported verification method.')

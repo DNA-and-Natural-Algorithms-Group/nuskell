@@ -1,14 +1,14 @@
 #
+#  nuskell/parser/crn_parser.py
+#  NuskellCompilerProject
 #
-# Copyright (c) 2010 Caltech. All rights reserved.
+# Copyright (c) 2010-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
+#            Stefan Badelt (stefan.badelt@gmail.com)
 #
-#
-# Parser module for chemical reaction network description files (*.crn).
-#
-
-from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore, Combine, nums,
-                       alphas, alphanums, delimitedList, StringStart, StringEnd, LineEnd, srange, OneOrMore,
+from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore, 
+                       Combine, nums, alphas, alphanums, delimitedList, 
+                       StringStart, StringEnd, LineEnd, srange, OneOrMore,
                        pythonStyleComment, ParseElementEnhance)
 
 

@@ -1,29 +1,25 @@
-# -*- coding: utf-8 -*-
 #
-# Written by Stefan Badelt (badelt@caltech.edu)
-#
-# nuskell.objects: shared between different components of nuskell
+#  nuskell/objects.py
+#  NuskellCompilerProject
 #
 from __future__ import absolute_import, division, print_function
+from builtins import map
 
 import logging
+log = logging.getLogger(__name__)
+
 import networkx as nx
 from collections import Counter
-
-from sympy import Symbol, sympify, Matrix
-from crnsimulator import writeODElib
-
-from peppercornenumerator import Enumerator
-from peppercornenumerator.objects import PepperComplex, PepperDomain
-from peppercornenumerator.utils import PeppercornUsageError
-
 from dsdobjects import clear_memory
 from dsdobjects import DL_Domain, DSD_Complex, DSD_Reaction, DSD_Macrostate
 from dsdobjects import DSDObjectsError, DSDDuplicationError
 from dsdobjects.utils import natural_sort
-from dsdobjects.parser import parse_kernel_file
 from dsdobjects.prototypes import Reaction as NuskellReaction
 from dsdobjects.prototypes import Complex as NuskellComplex
+import dsdobjects.objectio as oio
+from peppercornenumerator import Enumerator
+from peppercornenumerator.objects import PepperComplex, PepperDomain
+from peppercornenumerator.utils import PeppercornUsageError
 
 NuskellReaction.RTYPES.add('formal')
 
@@ -146,7 +142,7 @@ class TestTube(object):
       wildcard-domains (also called history-domains).  Together with the
       remainder of the molecule, a species with a wildcard forms a
       regular-expression, matching every other species in the system that differs
-      only by a single domain instead of ‘?’.  If there exists a species matching
+      only by a single domain instead of '?'.  If there exists a species matching
       the regular expression, then the species with the wildcard domain and every
       enumerated reaction emerging from that species is be removed from the
       system, otherwise, the wildcard domain is replaced by a regular long
@@ -224,7 +220,6 @@ class TestTube(object):
 
         elif complexes and isinstance(complexes, list):
             for c in complexes:
-                print(c)
                 assert isinstance(c, NuskellComplex)
                 self._RG.add_node(c, concentration = None, ctype = None, constant = None)
 
@@ -320,7 +315,6 @@ class TestTube(object):
                 if isinstance(n, NuskellComplex) and 
                     att['concentration'] > th and n.name not in exclude]
 
-    # TODO: this is already for verification
     def interpret_species(self, species, prune = True):
         """Get an interpretation dictionary.
 
@@ -388,8 +382,8 @@ class TestTube(object):
                 return pM_check([pMx[0][1:], pMx[1][1:]],
                                 [pMy[0][1:], pMy[1][1:]])
 
-            pMx = [map(str, x.sequence), map(str, x.structure)]
-            pMy = [map(str, y.sequence), map(str, y.structure)]
+            pMx = [list(map(str, x.sequence)), list(map(str, x.structure))]
+            pMy = [list(map(str, y.sequence)), list(map(str, y.structure))]
             if pM_check(pMx, pMy):
                 return True
 
@@ -411,9 +405,7 @@ class TestTube(object):
         for fs in species:
             cplxs = self.selected_complexes([fs])
             if len(cplxs) == 0:
-                print('=====')
-                print('WARNING: No complex found with name of formal species:', fs)
-                print('=====')
+                log.warning('No complex found with name of formal species: {}'.format(fs))
                 continue
             else:
                 assert len(cplxs) == 1, 'Duplicate complex names?'
@@ -441,23 +433,27 @@ class TestTube(object):
                 interpretation[cplx.name] = Counter([fs])
 
         if prune and need_to_prune:
+            log.debug('Pruning the network.')
             # Get rid of all reactions with history wildcards. Start with a set
             # of produce molecules and see what species emerge from reactions
             # consuming these molecules.
             # Alternative: enumerate again using history-replaced species.
             rxns = self.reactions
-            [prev, total] = [set(), set(interpretation.keys() + map(str, self.present_complexes()))]
+            [prev, total] = [set(), set(interpretation.keys() + list(map(str, self.present_complexes())))]
+            log.debug('Prev {}, Total {}'.format(prev, total))
             while prev != total:
                 prev = set(list(total)) # force a copy?
                 for rxn in rxns:
                     self.rm_reaction(rxn)
-                    r = map(str, rxn.reactants)
-                    p = map(str, rxn.products)
-                    if set(r).intersection(total) == set(r): 
-                        total |= set(p)
+                    r = set(map(str, rxn.reactants))
+                    p = set(map(str, rxn.products))
+                    log.debug('R {}, P {}'.format(r, p))
+                    if r.intersection(total) == r: 
+                        total |= p
+                    log.debug('Total = {}'.format(total))
 
-            map(self.add_reaction, filter(lambda x: set(map(str, x.reactants)).intersection(
-                    total) == set(map(str, x.reactants)), rxns))
+            # Now add all reactions that are possible from the pruned state.
+            [self.add_reaction(x) for x in rxns if set(map(str, x.reactants)).issubset(total)]
 
             # Now remove all the left-over complexes from the graph.
             all_nodes = set(self.complexes)
@@ -481,7 +477,7 @@ class TestTube(object):
 
         """
         if sanitycheck is not None:
-            print('TestTube.add_complex: Using deprecated optional argument: sanitycheck')
+            log.warning('TestTube.add_complex: Using deprecated optional argument: sanitycheck')
 
         (conc, const) = conctup
         assert isinstance(cplx, NuskellComplex), 'must be a NuskellComplex format'
@@ -553,7 +549,7 @@ class TestTube(object):
         """
 
         if sanitycheck is not None:
-            print('TestTube.add_complex: Using deprecated optional argument: sanitycheck')
+            log.warning('TestTube.add_complex: Using deprecated optional argument: sanitycheck')
 
         assert isinstance(react, NuskellReaction) 
 
@@ -672,106 +668,6 @@ class TestTube(object):
                 DSD_Reaction.MEMORY[can] = obj
             else:
                 assert DSD_Reaction.MEMORY[can] == obj
-
-
-    def simulate_crn(self, odename, sorted_vars=None, unit='M'):
-        oR = dict()
-        conc = dict()
-        ode = dict()
-        for r in self._RG.nodes():
-            if isinstance(r, NuskellComplex):
-                concentration = self._RG.node[r]['concentration']
-                const = self._RG.node[r]['constant']
-                if concentration == float('inf'):
-                    concentration = 100 * 1e-9
-                elif concentration is None:
-                    concentration = 0.
-
-                if unit == 'M':
-                    pass
-                elif unit == 'mM':
-                    concentration *= 1e3
-                elif unit == 'uM':
-                    concentration *= 1e6
-                elif unit == 'nM':
-                    concentration *= 1e9
-                else:
-                    raise NuskellObjectError(
-                        'Concentration unit not supported', unit)
-
-                conc[str(r)] = concentration
-                continue
-
-            rate = 'k' + str(len(oR.keys()))
-            if unit == 'M':
-                oR[rate] = str(r.rate)
-            elif unit == 'mM':
-                if r.arity[0] > 1:
-                    factor = r.arity[0] - 1
-                    oR[rate] = str(float(r.rate) / (factor * 1e3))
-                else:
-                    oR[rate] = str(r.rate)
-            elif unit == 'uM':
-                if r.arity[0] > 1:
-                    factor = r.arity[0] - 1
-                    oR[rate] = str(float(r.rate) / (factor * 1e6))
-                else:
-                    oR[rate] = str(r.rate)
-            elif unit == 'nM':
-                if r.arity[0] > 1:
-                    factor = r.arity[0] - 1
-                    oR[rate] = str(float(r.rate) / (factor * 1e9))
-                else:
-                    oR[rate] = str(r.rate)
-            else:
-                raise NuskellObjectError(
-                    'concentration unit not supported', unit)
-
-            reactants = []
-            for reac in self._RG.predecessors(r):
-                for i in range(self._RG.number_of_edges(reac, r)):
-                    reactants.append(Symbol(str(reac)))
-
-            products = []
-            for prod in self._RG.successors(r):
-                for i in range(self._RG.number_of_edges(r, prod)):
-                    products.append(Symbol(str(prod)))
-
-            for x in reactants:
-                if x in ode:
-                    ode[x].append(['-' + rate] + reactants)
-                else:
-                    ode[x] = [['-' + rate] + reactants]
-
-            for x in products:
-                if x in ode:
-                    ode[x].append([rate] + reactants)
-                else:
-                    ode[x] = [[rate] + reactants]
-
-        if sorted_vars:
-            assert len(sorted_vars()) == len(ode.keys())
-            oV = map(Symbol, sorted_vars)
-        else:
-            oV = sorted(ode.keys(), key=lambda x: str(x))
-            oC = map(lambda x: conc[str(x)], oV)
-
-        # Sympy Symbol namespace
-        ns = dict(zip(map(str, oV), oV))
-
-        oM = []
-        for dx in oV:
-            sfunc = sympify(
-                ' + '.join(['*'.join(map(str, xp)) for xp in ode[dx]]), locals=ns)
-            ode[dx] = sfunc
-            oM.append(sfunc)
-
-        oM = Matrix(oM)
-        oJ = None
-
-        oFile, oname = writeODElib(
-            oV, oM, jacobian=oJ, rdict=oR, concvect=oC, filename=odename)
-        return oFile, oname
 
     def __add__(self, other):
         assert isinstance(other, TestTube)
@@ -911,14 +807,12 @@ class TestTubeIO(object):
 
     def load_pil(self, data, is_file = False):
         """Parses a file written in PIL notation! """
-        from dsdobjects.objectio import read_pil
-        import dsdobjects.objectio as oio
         oio.LogicDomain = NuskellDomain
         oio.Complex = NuskellComplex
         oio.Reaction = NuskellReaction
         oio.Macrostate = NuskellMacrostate
 
-        doms, cplxs, rms, det, con = read_pil(data, is_file)
+        doms, cplxs, rms, det, con = oio.read_pil(data, is_file)
 
         for name, rm in rms.items():
             self._testtube.add_complex(rm.canonical_complex) # concentration, ctype?
@@ -1140,16 +1034,6 @@ def set_peppercorn_args(enum, args):
     peppercorn!  Defaults for nuskell or any other script using this library are
     set with the argparse object of your script, e.g. nuskell: scripts/nuskell.
     """
-
-    if hasattr(args, 'verbose'):
-        import logging
-        logger = logging.getLogger()
-        if args.verbose == 1:
-            logger.setLevel(logging.INFO)
-        elif args.verbose == 2:
-            logger.setLevel(logging.DEBUG)
-        elif args.verbose >= 3:
-            logger.setLevel(logging.NOTSET)
 
     if hasattr(args, 'max_complex_size'):
         enum.max_complex_size = args.max_complex_size

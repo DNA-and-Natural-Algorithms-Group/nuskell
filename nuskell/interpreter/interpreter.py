@@ -1,15 +1,16 @@
-# -*- coding: utf-8 -*-
 #
-# Copyright (c) 2010-2016 Caltech. All rights reserved.
+#  nuskell/interpreter/interpreter.py
+#  NuskellCompilerProject
+#
+# Copyright (c) 2010-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-#            Stefan Badelt (badelt@caltech.edu)
-#
-# The interpreter interface for translation schemes.
+#            Stefan Badelt (stefan.badelt@gmail.com)
 #
 from __future__ import absolute_import, division, print_function
+from builtins import map
 
-import sys
 import logging
+log = logging.getLogger(__name__)
 
 from nuskell.parser import parse_ts_string
 from nuskell.objects import TestTube, NuskellComplex
@@ -31,7 +32,7 @@ def ts_code_snippet():
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
 
-def interpret(ts_parsed, crn_parsed, fs, modular = False, verbose = False, one = 100e-9):
+def interpret(ts_parsed, crn_parsed, fs, modular = False, one = 100e-9):
     """ Interpretation of a translation scheme.
 
     Initializes the compiler environment, interprets the instructions of the
@@ -46,8 +47,6 @@ def interpret(ts_parsed, crn_parsed, fs, modular = False, verbose = False, one =
 
       sdlen (int, optional): Domain length of the *built-in* short() function.
       ldlen (int, optional): Domain length of the *built-in* long() function.
-      verbose (bool, optional): Print logging information during compilation.
-        Defaults to False.
 
     Returns:
       [:obj:`TestTube()`,...]: A list of TestTube objects.
@@ -82,28 +81,28 @@ def interpret(ts_parsed, crn_parsed, fs, modular = False, verbose = False, one =
     #  ... using a new naming scheme
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     solution = TestTube()
+    log.debug("SOLUTION")
     for k, v in fs_result.items():
         v.flatten_cplx  # NusComplex-specific function.
         v = NuskellComplex(v.sequence, v.structure, name = k)
         conc = fs[k] if None in fs[k] else (fs[k][1]*one, fs[k][0] == 'constant')
         solution.add_complex(v, conc, ctype = 'signal')
         fs_result[k] = v
-        logging.debug("{} - {} {}".format(type(v), v, v.kernel_string))
+        log.debug("{} - {} {}".format(type(v), v, v.kernel_string))
 
     num = 0
-    logging.debug("SOLUTION")
     for cplx in sorted(cs_solution.complexes, key = lambda x: x.name):
         cplx.name = name = 'f' + str(num)
         assert (cs_solution.get_complex_concentration(cplx)) == (float('inf'), None)
         assert cs_solution.ReactionGraph.nodes[cplx]['ctype'] == 'fuel'
         conc = (1*one, False)
         solution.add_complex(cplx, conc, ctype = 'fuel')
-        logging.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
+        log.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
         num += 1
 
     rxnmodules = []
     for e, csm in enumerate(cs_modules[1:]):
-        logging.debug("MODULE {}".format(e))
+        log.debug("MODULE {}".format(e))
         rxn = set(crn_parsed[e].reactants + crn_parsed[e].products)
         module = TestTube()
 
@@ -117,14 +116,14 @@ def interpret(ts_parsed, crn_parsed, fs, modular = False, verbose = False, one =
             if k in rxn:
                 conc = fs[k] if None in fs[k] else (fs[k][1]*one, fs[k][0] == 'constant')
                 module.add_complex(v, conc, ctype = 'signal')
-            logging.debug("{} - {} {}".format(type(v), v, v.kernel_string))
+            log.debug("{} - {} {}".format(type(v), v, v.kernel_string))
 
         for cplx in csm.complexes:
             if not solution.has_complex(cplx):
                 raise ValueError("Cannot find constant module species in solution.")
             assert cs_solution.ReactionGraph.nodes[cplx]['ctype'] == 'fuel'
             module.add_complex(cplx, cs_solution.get_complex_concentration(cplx), ctype = 'fuel')
-            logging.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
+            log.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
         rxnmodules.append(module)
 
     return solution, rxnmodules

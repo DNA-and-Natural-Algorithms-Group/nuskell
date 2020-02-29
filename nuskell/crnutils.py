@@ -1,3 +1,13 @@
+#
+#  nuskell/crnutils.py
+#  NuskellCompilerProject
+#
+from __future__ import absolute_import, print_function, division
+from builtins import map
+
+import logging
+log = logging.getLogger(__name__)
+
 from collections import namedtuple
 from crnsimulator import parse_crn_string as pcs
 from crnsimulator import parse_crn_file as pcf

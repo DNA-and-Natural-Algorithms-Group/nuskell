@@ -1,5 +1,10 @@
 #!/usr/bin/env python
+#
+#  scripts/nuskell
+#  EnumeratorProject
+#
 from __future__ import absolute_import, division, print_function
+
 
 import os
 import sys
@@ -117,7 +122,6 @@ def get_peppercorn_args(parser):
 
     return parser
 
-
 def get_nuskell_args(parser):
     """ A collection of arguments for Nuskell """
     #input = parser.add_mutually_exclusive_group(required=True)
@@ -130,7 +134,9 @@ def get_nuskell_args(parser):
     parser.add_argument("--schemes", action='store_true', 
             help="Print a list of available schemes and exit.")
     parser.add_argument("-v", "--verbose", action='count', default=0,
-            help="print verbose output. -vv increases verbosity level.")
+            help="Print logging output. (-vv increases verbosity.)")
+    parser.add_argument('--logfile', default='', action='store', metavar='<str>',
+        help="""Redirect logging information to a file.""")
 
     # Options for the translation mode of Nuskell
     input.add_argument("--ts", action='store', metavar='</path/to/file>',
@@ -193,6 +199,19 @@ def get_nuskell_args(parser):
 
     return parser
 
+def header(msg):
+    return ' {} '.format(msg).center(80, '*')
+
+def set_handle_verbosity(h, v):
+    if v == 0:
+        h.setLevel(logging.WARNING)
+    elif args.verbose == 1:
+        h.setLevel(logging.INFO)
+    elif args.verbose == 2:
+        h.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+        h.setLevel(logging.NOTSET)
+
 def main(args):
     """ The Nuskell compiler.
 
@@ -205,34 +224,38 @@ def main(args):
       - verification results
       - simulatior scripts
     """
+    # ~~~~~~~~~~~~~
+    # Logging Setup 
+    # ~~~~~~~~~~~~~
+    title = "Nuskell Domain-level System Compiler {}".format(__version__)
+    if args.verbose >= 3: # Get root logger.
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger('nuskell')
+        logger.setLevel(logging.DEBUG)
+
+    if args.logfile:
+        fh = logging.FileHandler(args.logfile)
+        formatter = logging.Formatter('%(levelname)s - %(message)s')
+        set_handle_verbosity(fh, args.verbose)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    else:
+        ch = logging.StreamHandler()
+        formatter = ColorFormatter('%(levelname)s %(message)s', use_color = True)
+        set_handle_verbosity(ch, args.verbose)
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+    logger.info(header(title))
+    logger.info("")
+
     if args.schemes:
         schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
         print("Listing schemes in: {}".format(schemedir))
         for s in sorted(os.listdir(schemedir)):
             print("   --ts {}".format(s))
         raise SystemExit
-
-    logger = logging.getLogger()
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose == 2:
-        logger.setLevel(logging.DEBUG)
-    elif args.verbose >= 3:
-        logger.setLevel(logging.NOTSET)
-    ch = logging.StreamHandler()
-
-    formatter = ColorFormatter('%(levelname)s %(message)s', use_color=sys.stdout.isatty())
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-
-    if args.verbose > 3:
-        logging.warning("Verbosity greater than -vvv has no effect")
-
-    title = 'Nuskell - nucleic acid strand displacement compiler'
-    version = " {} ".format(__version__)
-    banner = (colors.BOLD + title + colors.ENDC + \
-              colors.GREEN + version + colors.ENDC)
-    logging.info(banner)
 
     # ~~~~~~~~~~~~~~~~~~~
     # Argument processing
@@ -255,13 +278,11 @@ def main(args):
     # Initialize the TestTube
     # ~~~~~~~~~~~~~~~~~~~~~~~
     if args.ts:  # Translate CRN using a translation scheme
-        logging.info("")
-        logging.info(colors.BOLD + "Translating..." + colors.ENDC)
+        logger.info(header("Translating"))
         solution, modules = translate(input_crn, args.ts,
-                                      modular = args.modular,
-                                      verbose = (args.verbose > 1))
+                                      modular = args.modular)
     elif args.readpil:  # Parse information from a PIL file (cannot give modules!)
-        logging.info("Parsing PIL file...")
+        logger.info(header("Parsing file {}".format(args.readpil)))
         solution = TestTube()
         TestTubeIO(solution).load_pil(args.readpil, is_file = True)
         # Assign fuel complexes and signal complexes.
@@ -276,9 +297,9 @@ def main(args):
     else:
         # At some point Nuskell should choose translation schemes automatically,
         # but we are not there yet ... use nuskellCMP for such things.
-        logging.error("Please specify a translation scheme, see option --ts.")
+        logger.error("Please specify a translation scheme, see option --ts.")
         schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-        logging.error("For exaple the schemes in: {}".format(schemedir))
+        logger.error("For exaple the schemes in: {}".format(schemedir))
         for s in sorted(os.listdir(schemedir)):
             print("   --ts {}".format(s))
         raise SystemExit
@@ -293,13 +314,13 @@ def main(args):
         raise SystemExit('EXIT: solution does not contain signals.')
 
     if args.verbose:
-        logging.info("Formal species: {}".format(natural_sort(fs)))
-        logging.info("Signal Complexes:")
+        logger.info("Formal species: {}".format(natural_sort(fs)))
+        logger.info("Signal Complexes:")
         for cplx in natural_sort(signals):
-            logging.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
-        logging.info("Fuel Complexes:")
+            logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
+        logger.info("Fuel Complexes:")
         for cplx in natural_sort(fuels):
-            logging.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
+            logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
 
     if dnafile:
         with open(dnafile, 'w') as dna:
@@ -307,29 +328,26 @@ def main(args):
                                                crn = fcrn, ts = args.ts if args.ts else None)
         print("Wrote file: {}".format(dnafile))
 
-    pilstring = TestTubeIO(solution).write_pil(fh = None,
-                                               unit = args.concentration_units, 
-                                               crn = fcrn, fs = fs,
-                                               ts = args.ts if args.ts else None)
     if args.pilfile:
         with open(comppil, 'w') as pil:
-            pil.write(pilstring)
-        print("Wrote file: {}".format(comppil))
+            TestTubeIO(solution).write_pil(fh = pil,
+                                           unit = args.concentration_units, 
+                                           crn = fcrn, fs = fs,
+                                           ts = args.ts if args.ts else None)
+        print("Compilation successfull. Wrote file: {}".format(comppil))
     else:
-        print(pilstring)
-
-    ####
-    # Compilation is done now ... 
-    # Lets go on with verification, enumeration, etc.
-    ####
+        print("Compilation successfull. Use --pilfile to inspect or modify.")
+    print(" - signal species: {}\n - fuel species: {}\n".format(
+            ' '.join(sorted(map(str, signals))), 
+            ' '.join(sorted(map(str, fuels)))))
 
     if args.verify or args.enumerate:
-        logging.info("")
-        logging.info(colors.BOLD + "Enumerating reaction pathways..." + colors.ENDC)
+        logger.info(header("Enumerating reaction pathways"))
         solution.enumerate_reactions(args, prefix = 'i', condensed = not args.enum_detailed)
 
         if not solution.reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
+        logger.debug("After enumeration: {:3d} species, {:3d} reactions".format(len(solution.complexes), len(solution.reactions)))
 
         # Only for debugging.
         #pilstring = TestTubeIO(solution).write_pil(fh = None,
@@ -337,47 +355,43 @@ def main(args):
         #                                           crn = fcrn, fs = fs,
         #                                           ts = args.ts if args.ts else None)
 
-        logging.info("")
-        logging.info(colors.BOLD + "Replacing regular-expression complexes ..." + colors.ENDC)
+        logger.info("Replacing regular-expression complexes ...")
         # History domains within constant and intermediate species will not get replaced.
         interpret = solution.interpret_species(fs.keys(), prune = True)
-
-        pilstring = TestTubeIO(solution).write_pil(fh = None,
-                                                   unit = args.concentration_units, 
-                                                   crn = fcrn, fs = fs,
-                                                   ts = args.ts if args.ts else None)
-        if args.pilfile:
-            with open(enumpil, 'w') as pil:
-                pil.write(pilstring)
-            print("Wrote file: {}".format(enumpil))
 
         # Return the implementation CRN. (= enumerated CRN)
         icrn = []
         for r in natural_sort(solution.reactions):
-            logging.info("reaction {}".format(r.full_string()))
+            logger.info("reaction {}".format(r.full_string()))
             rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
             icrn.append(rxn)
 
-        print("")
-        print("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
-        print("  - {} signal species".format(
+        if args.pilfile:
+            with open(enumpil, 'w') as pil:
+                TestTubeIO(solution).write_pil(fh = pil,
+                                               unit = args.concentration_units, 
+                                               crn = fcrn, fs = fs,
+                                               ts = args.ts if args.ts else None)
+            print("Enumeration successfull. Wrote file: {}".format(enumpil))
+        else:
+            print("Enumeration successfull. Use --pilfile to inspect or modify.")
+        print(" - {:3d} species\n - {:3d} reactions".format(len(solution.complexes), len(solution.reactions)))
+        print(" - {:3d} signal species".format(
             len([c for c in solution.complexes if c.name in interpret.keys()])))
-        print("  - {} fuel species".format(
+        print(" - {:3d} fuel species".format(
             len([c for c in solution.complexes if c.name in map(str, fuels)])))
-        print("  - {} intermediate species".format(
-            len([c for c in solution.complexes if c.name not in 
-                (interpret.keys() + map(str, fuels))])))
-        print('Number of distinct strands in the system: {}'.format(len(solution.strands)))
-        print('Length of all distinct strands in the system: {}'.format(sum(sum(
+        print(" - {:3d} intermediate species".format(
+            len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))])))
+        print(' - {:3d} distinct strands in the system'.format(len(solution.strands)))
+        print(' - {:3d} nucleotides to be designed\n'.format(sum(sum(
             map(lambda d: d.length, s)) for s in solution.strands.values())))
-        print("")
 
         if args.modular:
             # TODO(SB): cross-check verification:
             # - enumeration detects crosstalk between modules and append it as
             #   the last iCRN which has no corresponding fCRN.
-            logging.info("")
-            logging.info(colors.BOLD + "Modular network enumeration ..." + colors.ENDC)
+            logger.info("")
+            logger.info("Modular network enumeration ...")
 
             seen_reactions = set()
             all_reactions = set(solution.reactions)
@@ -403,24 +417,24 @@ def main(args):
                     assert cplx.name[:3] != 'tmp'
 
                 # append the CRN
-                logging.info("Module {}".format(e))
+                logger.info("Module {}:".format(e))
                 mcrn = []
                 for r in module.reactions:
                     assert r in all_reactions
                     seen_reactions.add(r)
-                    logging.info("reaction {}".format(r.full_string()))
+                    logger.info("reaction {}".format(r.full_string()))
                     rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                     mcrn.append(rxn)
                 module_crns.append(mcrn)
-                logging.info("")
+                logger.info("")
 
             # last, identify crosstalk as the last implementation CRN 
             # (without formal correspondence)
-            logging.info("Crosstalk")
+            logger.info("Crosstalk:")
             mcrn = [] # crosstalk
             for r in all_reactions :
                 if r not in seen_reactions :
-                    logging.info("reaction {}".format(r.full_string()))
+                    logger.info("reaction {}".format(r.full_string()))
                     rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                     mcrn.append(rxn)
 
@@ -435,108 +449,67 @@ def main(args):
     fcrn = split_reversible_reactions(fcrn)
 
     if args.verify:
-        logging.info("")
-        logging.info(colors.BOLD + "Verification using: {}".format(args.verify) + colors.ENDC)
+        logger.info(header("Verification using: {}".format(args.verify)))
 
         vcrn = removeSpecies(icrn, map(str, fuels))
         if args.verbose:
-            logging.info("Verification CRN:")
-            map(lambda r: logging.info('    ' + r), genCRN(vcrn, reversible = True))
-            logging.info("")
+            logger.info("Verification CRN:")
+            map(lambda r: logger.info('    ' + r), genCRN(vcrn, reversible = True))
+            logger.info("")
 
         if args.modular:
             icrns = map(lambda x: removeSpecies(x, map(str, fuels)), module_crns)
             if args.verbose:
                 for e, m in enumerate(icrns):
                     if e < len(fcrm):
-                        logging.info("CRN Module {}:".format(e + 1))
-                        logging.info("--")
-                        map(lambda r: logging.info('    ' + r), genCRN(fcrm[e], reversible = True))
+                        logger.info("CRN Module {}:".format(e + 1))
+                        logger.info("--")
+                        map(lambda r: logger.info('    ' + r), genCRN(fcrm[e], reversible = True))
                     else:
-                        logging.info("CROSSTALK:")
-                    logging.info("--")
-                    map(lambda r: logging.info('    ' + r), genCRN(m, reversible = True))
-                    logging.info("")
+                        logger.info("CROSSTALK:")
+                    logger.info("--")
+                    map(lambda r: logger.info('    ' + r), genCRN(m, reversible = True))
+                    logger.info("")
 
         for meth in args.verify:
             if interpret and args.verbose:
                 if 'bisimulation' in meth:
-                    logging.info("Partial interpretation for {}bisimulation:".format(
+                    logger.info("Partial interpretation for {}bisimulation:".format(
                         'modular-' if 'modular-' in meth else ''))
                     for impl, formal in sorted(interpret.items()):
-                        logging.info("    {} => {}".format(impl, ', '.join(
+                        logger.info("    {} => {}".format(impl, ', '.join(
                             [x for x in formal.elements()])))
+                    logger.info("")
                 else :
-                    logging.info("Formal species for pathway decomposition:")
-                    logging.info("    {}".format(interpret.keys()))
+                    logger.info("Formal species for pathway decomposition:")
+                    logger.info("    {}".format(interpret.keys()))
 
             if 'modular-' in meth:
                 if len(fcrm) > 1:
-                    # NOTE: Temporary to fix a bug in testModules
-                    import copy
+                    import copy # Temporary to fix a bug in testModules
                     backup = copy.deepcopy(interpret) if interpret else None
-                    v, i = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:],
-                                                verbose=(args.verbose > 1), timeout=args.verify_timeout)
-                    # NOTE: you can pass on the interpretation like this:
-                    #if v: 
-                    #    logging.warning('updating interpretation with modular-bisimulation results')
-                    #    interpret = i
+                    v, i = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:], timeout=args.verify_timeout)
                 else :
                     assert fcrn == fcrm[0]
-                    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:],
-                              verbose=(args.verbose > 1), timeout=args.verify_timeout)
+                    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:], timeout=args.verify_timeout)
             else:
-                v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-                              verbose=(args.verbose > 1), timeout=args.verify_timeout)
-                # NOTE: you can pass on the interpretation like this:
-                #if v and i : interpret = i
+                v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth, timeout=args.verify_timeout)
 
             if v is True:
-                print(" {}: CRNs are {} equivalent.".format(v, meth))
+                print("Verification result: {} - CRNs are {} equivalent.".format(v, meth))
             elif v is False:
-                print(" {}: CRNs are not {} equivalent.".format(v, meth))
+                print("Verification result: {} - CRNs are not {} equivalent.".format(v, meth))
             elif v is None:
-                print(" {}: {} verification did not terminate within {} seconds.".format(
-                        v, meth, args.verify_timeout))
+                print("No verification result: {} verification did not terminate within {} seconds.".format(meth, args.verify_timeout))
 
             if i and args.verbose:
                 if not v:
                     i = i[2 if 'modular-' in meth and len(fcrm) > 1 else 0]
-                logging.info("Returned interpretation ['{}']:".format(meth))
+                logger.info("")
+                logger.info("Returned interpretation ['{}']:".format(meth))
                 for impl, formal in sorted(i.items()):
-                    logging.info("    {} => {}".format(
+                    logger.info("    {} => {}".format(
                         impl, ', '.join([x for x in formal.elements()])))
-            print("")
-
-
-    ## # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ## # Simulate CRNs in a TestTube
-    ## # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ## if args.simulate:
-    ##     logging.info("-----")
-    ##     logging.info("Writing executable simulator scripts: {}_fCRN.py {}_iCRN.py".format(
-    ##         args.output, args.output))
-
-    ##     # Change CRN format from [[r], [p], [None]], if needed and add rate 1 to
-    ##     # every reaction.
-    ##     scrn = map(lambda rxn: rxn[:2] +
-    ##                (rxn[2] if rxn[2] != [None] else [1]), fcrn)
-
-    ##     # Simulate the formal CRN using crnsimulator
-    ##     CRG = ReactionGraph(scrn)
-    ##     fFile, _ = CRG.write_ODE_lib(
-    ##         sorted(CRG.species), filename=args.output + '_fCRN')
-    ##     if args.verbose:
-    ##         logging.info('Wrote formal CRN simulator:'.format(fFile))
-    ##         logging.info(' - execute with: python {}'.format(fFile))
-
-    ##     # Simulate the interpretation CRN using crnsimulator
-    ##     iFile, _ = solution.simulate_crn(
-    ##         args.output + '_iCRN', unit=args.concentration_units)
-    ##     if args.verbose:
-    ##         logging.info('Wrote implementation CRN simulator:'.format(iFile))
-    ##         logging.info(' - execute with: python {}'.format(iFile))
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

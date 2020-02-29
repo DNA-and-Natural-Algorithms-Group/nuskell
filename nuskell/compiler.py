@@ -1,16 +1,18 @@
-#!/usr/bin/env python
 #
-# Copyright (c) 2010-2016 Caltech. All rights reserved.
+# Copyright (c) 2010-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-#            Stefan Badelt (badelt@dna.caltech.edu)
+#            Stefan Badelt (stefan.badelt@gmail.com)
 #
-# Compiler module.
+#  nuskell/compiler.py
+#  NuskellCompilerProject
 #
+from __future__ import absolute_import, print_function, division
+from builtins import map
 
-""" Wrapper functions used by the nuskell compiler script. """
+import logging
+log = logging.getLogger(__name__)
 
 import os
-import logging
 import pkg_resources
 
 from nuskell.parser import parse_ts_file
@@ -31,7 +33,7 @@ class InvalidSchemeError(Exception):
 
         super(InvalidSchemeError, self).__init__(self.message)
 
-def translate(input_crn, ts_file, modular = False, verbose = False):
+def translate(input_crn, ts_file, modular = False):
     """CRN-to-DSD translation wrapper function.
 
     A formal chemical reaction network (CRN) is translated into a domain-level
@@ -44,8 +46,6 @@ def translate(input_crn, ts_file, modular = False, verbose = False):
       input_crn (str): An input string representation of the formal CRN.
       ts_file (str): The input file name of a translation scheme.
       modular (bool, optional): Split CRN into modules.
-      verbose (bool, optional): Print logging information during translation.
-        Defaults to False.
 
     Returns:
       [:obj:`TestTube()`,...]: A list of TestTube objects.
@@ -56,7 +56,7 @@ def translate(input_crn, ts_file, modular = False, verbose = False):
         builtin = 'schemes/' + ts_file
         try:
             ts_file = pkg_resources.resource_filename('nuskell', builtin)
-            logging.info("Using scheme: {}".format(ts_file))
+            log.info("Using scheme: {}".format(ts_file))
         except KeyError:
             schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
             raise InvalidSchemeError(ts_file, schemedir)
@@ -64,7 +64,7 @@ def translate(input_crn, ts_file, modular = False, verbose = False):
     ts = parse_ts_file(ts_file)
     crn, fs = parse_crn_string(input_crn)
 
-    solution, modules = interpret(ts, crn, fs, modular = modular, verbose = verbose)
+    solution, modules = interpret(ts, crn, fs, modular = modular)
 
     return solution, modules
 

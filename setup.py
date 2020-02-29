@@ -84,7 +84,7 @@ setup(
         'pandas', # nuskellCMP
         'numpy',  # nuskellCMP
         'sympy', 
-        'peppercornenumerator>=0.7',
+        'peppercornenumerator>=0.7.1',
         'dsdobjects>=0.7',
         'crnsimulator>=0.6'],
     dependency_links=[
