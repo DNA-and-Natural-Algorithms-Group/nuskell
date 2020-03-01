@@ -7,7 +7,7 @@
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
 from __future__ import absolute_import, division, print_function
-#from builtins import map
+from builtins import map
 
 import logging
 log = logging.getLogger(__name__)
@@ -136,9 +136,9 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
         print("(e.g. i187 -> A + B)")
         print("When done, press ctrl + D.")
         for line in sys.stdin:
-            z = map(lambda x: x.strip(), line.split("->"))
+            z = list(map(lambda x: x.strip(), line.split("->")))
             y1 = z[0]
-            y2 = map(lambda x: x.strip(), z[1].split("+"))
+            y2 = list(map(lambda x: x.strip(), z[1].split("+")))
             if y1[0] == "i" or y1[0] == "w": y1 = y1[1:]
             inter[y1] = y2
             fs2.add(y1)
@@ -148,7 +148,7 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
     basis = find_basis(crn2, fs2, True, inter if integrated else None)
 
     if basis == None: # irregular or nontidy
-        print("Pathway equivalence: could not find formal basis.")
+        log.info("Pathway equivalence: could not find formal basis.")
         return False
 
     if integrated: # integrated hybrid
@@ -225,7 +225,7 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
                 for j in l[1]:
                     r.append(i+j)
             return cartesian_product([r]+l[2:])
-        initial_states = cartesian_product(map(lambda x: interrev[x], rxn[0]))
+        initial_states = cartesian_product(list(map(lambda x: interrev[x], rxn[0])))
         for initial in initial_states:
             initial = sorted(initial)
             flag = False

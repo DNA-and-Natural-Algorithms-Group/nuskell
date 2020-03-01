@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#
+#  test_objects.py
+#  NuskellCompilerProject
+#
+from __future__ import absolute_import, division, print_function
 
 import os
 import sys

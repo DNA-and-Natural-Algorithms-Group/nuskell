@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#
+#  test_enumeration.py
+#  NuskellCompilerProject
+#
+from __future__ import absolute_import, division, print_function
 
 import unittest
 import argparse

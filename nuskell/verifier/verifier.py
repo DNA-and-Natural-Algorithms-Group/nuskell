@@ -1,17 +1,23 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2010-2016 Caltech. All rights reserved.
+#  nuskell/verifier/verifier.py
+#  NuskellCompilerProject
+#
+# Copyright (c) 2009-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
-#            Stefan Badelt (badelt@dna.caltech.edu)
+#            Stefan Badelt (stefan.badelt@gmail.com)
 #
-# Verification interface
-#
-import signal
+from __future__ import absolute_import, division, print_function
+from builtins import map
+
 import logging
+log = logging.getLogger(__name__)
+
+import signal
 from collections import Counter
 
-import crn_bisimulation_equivalence
-import crn_pathway_equivalence
+import nuskell.verifier.crn_pathway_equivalence 
+import nuskell.verifier.crn_bisimulation_equivalence 
 
 class TimeoutError(Exception):
     pass
@@ -60,15 +66,15 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
     signal.alarm(timeout)
     try:
         if method == 'bisimulation' or method == 'bisim-whole-graph':
-            v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
+            v, i = nuskell.verifier.crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
                                                      interpretation=interpret, permissive='whole-graph')
 
         elif method == 'bisim-loop-search':
-            v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
+            v, i = nuskell.verifier.crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
                                                      interpretation=interpret, permissive='loop-search')
 
         elif method == 'bisim-depth-first':
-            v, i = crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
+            v, i = nuskell.verifier.crn_bisimulation_equivalence.test(fcrn, ecrn, formals,
                                                      interpretation=interpret, permissive='depth-first')
 
         elif method == 'pathway':
@@ -81,7 +87,7 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
                         pinter[k] = [v]
                     else:
                         pinter[k] = []
-            v = crn_pathway_equivalence.test((formal_crn, formals),
+            v = nuskell.verifier.crn_pathway_equivalence.test((formal_crn, formals),
                                              (impl_crn, pinter.keys()), pinter, False, interactive)
         elif method == 'integrated':
             # TODO: integrated-hybrid -> first consider some species as formal for
@@ -99,7 +105,7 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
                         pinter[k] = [v]
                     else:
                         pinter[k] = []
-            v = crn_pathway_equivalence.test((formal_crn, formals),
+            v = nuskell.verifier.crn_pathway_equivalence.test((formal_crn, formals),
                                              (impl_crn, pinter.keys()), pinter, True, interactive)
         else:
             raise RuntimeError('Unknown verification method.')
@@ -128,15 +134,15 @@ def modular_bisimulation(formal_crn, impl_crn, formals, interpret = None,
     try:
         # TODO: replace second formals!!!
         if method == 'bisimulation' or method == 'bisim-whole-graph':
-            v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
+            v, i = nuskell.verifier.crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
                                                             interpretation=interpret, permissive='whole-graph')
 
         elif method == 'bisim-loop-search':
-            v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
+            v, i = nuskell.verifier.crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
                                                             interpretation=interpret, permissive='loop-search')
 
         elif method == 'bisim-depth-first':
-            v, i = crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
+            v, i = nuskell.verifier.crn_bisimulation_equivalence.testModules(fcrns, ecrns, formals,
                                                             interpretation=interpret, permissive='depth-first')
 
         else:

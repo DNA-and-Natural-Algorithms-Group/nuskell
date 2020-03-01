@@ -1,6 +1,11 @@
-
+#!/usr/bin/env python
+#
+#  test_schemes.py
+#  NuskellCompilerProject
+#
 from __future__ import absolute_import, division, print_function
 
+import os
 import filecmp
 import unittest
 import subprocess as sub
@@ -96,6 +101,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_oscillator_02_lit(self):
         # Exisiting Data
@@ -130,6 +137,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_oscillator_02_var(self):
         # Exisiting Data
@@ -164,6 +173,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_roessler_01_lit(self):
         # Exisiting Data
@@ -198,6 +209,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_roessler_01_var(self):
         # Exisiting Data
@@ -232,6 +245,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_bin_counter_01_lit(self):
         # Exisiting Data
@@ -266,6 +281,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_bin_counter_01_var(self):
         # Exisiting Data
@@ -300,6 +317,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
 @unittest.skipIf(SKIP, "slow tests are disabled by default")
 class MultiSnapshotCMP(unittest.TestCase):
@@ -345,6 +364,8 @@ class MultiSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_directory_bimolecular_var(self):
         # Exisiting Data
@@ -378,6 +399,8 @@ class MultiSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_directory_basic_lit(self):
         # Exisiting Data
@@ -411,6 +434,8 @@ class MultiSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_directory_basic_var(self):
         # Exisiting Data
@@ -444,6 +469,8 @@ class MultiSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
 if __name__ == '__main__':
     unittest.main()

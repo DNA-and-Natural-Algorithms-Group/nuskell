@@ -262,16 +262,16 @@ def enumerate_pathways(p, w_max, i_max, crn, fs, nonw = None):
                 ebasis.append(p)
                 if final1 not in RFS1:
                     log.info("The given system is not regular.")
-                    log.info(" - from initial state: {}\n ".format(
-                        initial) + '\n '.join(pretty_crn(p)))
+                    log.info(" - from initial state: {}".format(initial))
+                    [log.info('    ' + r) for r in pretty_crn(p)]
                     done = 1
                     return
             else: # compositional hybrid theory
                 ebasis.append(p)
                 if final not in RFS:
                     log.info("The given system is not regular.")
-                    log.info(" - from initial state: {}\n ".format(
-                        initial) + '\n '.join(pretty_crn(p)))
+                    log.info(" - from initial state: {}".format(initial))
+                    [log.info('    ' + r) for r in pretty_crn(p)]
                     done = 1
                     return
 

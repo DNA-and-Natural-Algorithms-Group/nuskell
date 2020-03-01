@@ -2,6 +2,8 @@
 #  __init__.py
 #  NuskellCompilerProject
 #
+from __future__ import absolute_import, division, print_function
+
 __version__ = "v0.6"
 
 import sys

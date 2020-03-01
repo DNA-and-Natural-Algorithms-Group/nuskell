@@ -1,9 +1,15 @@
 #!/usr/bin/env python
+#
+#  scripts/nuskellCMP
+#  EnumeratorProject
+#
 from __future__ import absolute_import, division, print_function
+
+import logging
+log = logging.getLogger('peppercornenumerator')
 
 import os
 import sys
-import logging
 import argparse
 import pkg_resources
 import pandas as pd
@@ -46,7 +52,7 @@ def compare_schemes(reactions, schemedir,
     plotdata = []  # Scheme, CRN, Cost, Speed
     for scheme in sorted(os.listdir(schemedir)):
         if scheme[-3:] != '.ts':
-            logging.warning("Ignoring file: {}".format(args.ts_dir + scheme))
+            log.warning("Ignoring file: {}".format(args.ts_dir + scheme))
             continue
         for (crn, crn_name) in reactions:
             if crn_name:
@@ -60,23 +66,22 @@ def compare_schemes(reactions, schemedir,
             fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) 
             fcrn = split_reversible_reactions(fcrn)
 
-            logging.info("")
-            logging.info("Translating using {}".format(scheme))
-            logging.info("Formal CRN:")
+            log.info("")
+            log.info("Translating using {}".format(scheme))
+            log.info("Formal CRN:")
             for r in crn.split('\n'):
-                logging.info(" {}".format(r))
+                log.info(" {}".format(r))
 
             clear_memory()
             try:
                 solution, modules = translate(crn, schemedir + scheme,
-                                              modular = modular,
-                                              verbose = (verbose > 2))
+                                              modular = modular)
             except NuskellExit as e:
-                logging.error(e)
-                logging.error("Exiting translation. [{}]".format(scheme))
-                logging.error("Formal CRN:")
+                log.error(e)
+                log.error("Exiting translation. [{}]".format(scheme))
+                log.error("Formal CRN:")
                 for r in crn.split('\n'):
-                    logging.error(" {}".format(r))
+                    log.error(" {}".format(r))
                 current.extend([None] * len(vnotions) + [None, None, None])
                 plotdata.append(current)
                 continue
@@ -91,40 +96,40 @@ def compare_schemes(reactions, schemedir,
                 # NOTE: Many PolymerizationErrors are easiest to fix with
                 # --reject-remote enumeration semantics, but that is not a
                 # guarantee it that it will work.
-                logging.warning("Changing enumeration parameters to reject-remote [{}]".format(
+                log.warning("Changing enumeration parameters to reject-remote [{}]".format(
                     scheme))
-                logging.warning("Formal CRN:")
+                log.warning("Formal CRN:")
                 for r in crn.split('\n'):
-                    logging.warning(" {}".format(r))
+                    log.warning(" {}".format(r))
                 try:
                     pc_args.reject_remote = True
                     solution.enumerate_reactions(pc_args, condensed = not pc_args.enum_detailed)
                     semantics.append('rr')
                     pc_args.reject_remote = False
                 except PolymerizationError as e:
-                    logging.error(e)
-                    logging.error("Insufficient enumeration parameters. [{}]".format(scheme))
-                    logging.error("Formal CRN:")
+                    log.error(e)
+                    log.error("Insufficient enumeration parameters. [{}]".format(scheme))
+                    log.error("Formal CRN:")
                     for r in crn.split('\n'):
-                        logging.error(" {}".format(r))
+                        log.error(" {}".format(r))
                     current.extend([None] * len(vnotions) + [None, None, None])
                     plotdata.append(current)
                     continue
             except CondensationError as e:
-                logging.error(e)
-                logging.error("Condensation error. [{}]".format(scheme))
-                logging.error("Formal CRN:")
+                log.error(e)
+                log.error("Condensation error. [{}]".format(scheme))
+                log.error("Formal CRN:")
                 for r in crn.split('\n'):
-                    logging.error(" {}".format(r))
+                    log.error(" {}".format(r))
                 current.extend([None] * len(vnotions) + [None, None, None])
                 plotdata.append(current)
                 continue
 
             if not solution.reactions:
-                logging.error("No reactions have been enumerated. [{}]".format(scheme))
-                logging.error("Formal CRN:")
+                log.error("No reactions have been enumerated. [{}]".format(scheme))
+                log.error("Formal CRN:")
                 for r in crn.split('\n'):
-                    logging.error(" {}".format(r))
+                    log.error(" {}".format(r))
                 current.extend([None] * len(vnotions) + [None, None, None])
                 plotdata.append(current)
                 continue
@@ -137,17 +142,17 @@ def compare_schemes(reactions, schemedir,
             # Implementation CRN is an enumerated CRN after regex-complexes have
             # been removed.
             for r in solution.reactions:
-                logging.debug("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                log.debug("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
                 rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                 icrn.append(rxn)
 
             # IMPLEMENTATION DETAILS
-            logging.info("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
-            logging.info("  {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()])))
-            logging.info("  {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)])))
-            logging.info("  {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))])))
-            logging.info("Number of distinct strands in the system: {}".format(len(solution.strands)))
-            logging.info("Length of all distinct strands in the system: {}".format(sum( sum(map(lambda d: d.length, s)) for s in solution.strands.values())))
+            log.info("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
+            log.info("  {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()])))
+            log.info("  {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)])))
+            log.info("  {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))])))
+            log.info("Number of distinct strands in the system: {}".format(len(solution.strands)))
+            log.info("Length of all distinct strands in the system: {}".format(sum( sum(map(lambda d: d.length, s)) for s in solution.strands.values())))
 
             # NOTE: New code.. to do the module enumeration:
             if modular:
@@ -188,18 +193,18 @@ def compare_schemes(reactions, schemedir,
                     for r in module.reactions:
                         assert r in all_reactions
                         seen_reactions.add(r)
-                        #logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                        #log.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
                         rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                         mcrn.append(rxn)
                     module_crns.append(mcrn)
-                    #logging.info("")
+                    #log.info("")
 
                 # last, identify crosstalk as the last implementation CRN (without
                 # formal correspondence)
                 mcrn = [] # crosstalk
                 for r in all_reactions :
                     if r not in seen_reactions :
-                        #logging.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
+                        #log.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
                         rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
                         mcrn.append(rxn)
 
@@ -218,25 +223,25 @@ def compare_schemes(reactions, schemedir,
                         import copy
                         backup = copy.deepcopy(interpret) if interpret else None
                         v, _ = modular_bisimulation(fcrm, icrns, fs, interpret=backup, 
-                                method=meth[8:], verbose=(verbose > 2), timeout=vtime)
-                        #logging.warning('transfering interpretation to bisimulation')
+                                method=meth[8:], timeout=vtime)
+                        #log.warning('transfering interpretation to bisimulation')
                         #interpret = backup
                     else :
                         assert fcrn == fcrm[0]
                         v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:],
-                              verbose=(args.verbose > 1), timeout=args.verify_timeout)
+                              timeout=args.verify_timeout)
                 else:
                     v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
-                                  verbose=(verbose > 2), timeout=vtime)
+                                  timeout=vtime)
 
                 if v is True:
-                    logging.info("{}: CRNs are {} equivalent.".format(v, meth))
+                    log.info("{}: CRNs are {} equivalent.".format(v, meth))
                     current.append(v)
                 elif v is False:
-                    logging.info("{}: CRNs are not {} equivalent.".format(v, meth))
+                    log.info("{}: CRNs are not {} equivalent.".format(v, meth))
                     current.append(v)
                 elif v is None:
-                    logging.info("{}: {} verification did not terminate within {} seconds.".format(v, meth, vtime))
+                    log.info("{}: {} verification did not terminate within {} seconds.".format(v, meth, vtime))
                     current.append(v)
 
             if cmp_total_nuc:
@@ -300,9 +305,37 @@ def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
     plt.savefig(pfile, bbox_inches="tight")
     return
 
+def set_handle_verbosity(h, v):
+    if v == 0:
+        h.setLevel(logging.WARNING)
+    elif args.verbose == 1:
+        h.setLevel(logging.INFO)
+    elif args.verbose == 2:
+        h.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+        h.setLevel(logging.NOTSET)
 
 def main(args):
     """Compare multiple tranlation schemes for a given CRN. """
+    # ~~~~~~~~~~~~~
+    # Logging Setup 
+    # ~~~~~~~~~~~~~
+    title = "NuskellCMP - Comparison of translation schemes {}".format(__version__)
+    if args.verbose >= 3: # Get root logger.
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger('nuskell')
+        logger.setLevel(logging.DEBUG)
+
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(levelname)s %(message)s')
+    set_handle_verbosity(ch, args.verbose)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    logger.info(title)
+    logger.info("")
 
     # *************** #
     # Check arguments #
@@ -320,7 +353,7 @@ def main(args):
     # _________________ #
 
     if args.from_csv:
-        logging.info('# Parsing data from file ... ')
+        logger.info('# Parsing data from file ... ')
         df = pd.DataFrame().from_csv(args.from_csv)
 
     else:
@@ -329,11 +362,11 @@ def main(args):
         # _________________ #
         if args.crn_dir:
             if args.crn_dir[-1] != '/': args.crn_dir += '/'
-            logging.info("Compiling CRNs in:", args.crn_dir)
+            logger.info("Compiling CRNs in: {}".format(args.crn_dir))
             reactions = []
             for crnfile in filter(
                     lambda x: x[-4:] == '.crn', os.listdir(args.crn_dir)):
-                logging.info(' *{}'.format(crnfile))
+                logger.info(' *{}'.format(crnfile))
                 with open(args.crn_dir + crnfile) as fcrn:
                     react = ''
                     for l in fcrn.readlines():
@@ -343,11 +376,11 @@ def main(args):
             input_crn = sys.stdin.readlines()
             input_crn = "".join(input_crn).strip()
             reactions = [(input_crn, input_crn)]
-            logging.info("Compiling CRN:")
+            logger.info("Compiling CRN:")
             for (rxn, n) in reactions:
                 for r in rxn.split('\n'):
-                    logging.info('  {}'.format(r))
-            logging.info("")
+                    logger.info('  {}'.format(r))
+            logger.info("")
 
         # **************** #
         # Process TS input #
@@ -355,14 +388,14 @@ def main(args):
 
         if args.ts_dir:
             if args.ts_dir[-1] != '/': args.ts_dir += '/'
-            logging.info("Comparing schemes in: {}".format(args.ts_dir))
+            logger.info("Comparing schemes in: {}".format(args.ts_dir))
         else:
-            logging.info("Comparing default schemes:")
+            logger.info("Comparing default schemes:")
             args.ts_dir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
 
         for ts in filter(lambda x: x[-3:] == '.ts',
                          sorted(os.listdir(args.ts_dir))):
-            logging.info('  {}'.format(ts))
+            logger.info('  {}'.format(ts))
 
         # ***************** #
         # Process REF input #
@@ -381,8 +414,7 @@ def main(args):
                                    cmp_total_nuc=True,
                                    vnotions=args.verify,
                                    modular=args.modular,
-                                   vtime=args.verify_timeout,
-                                   verbose=args.verbose)
+                                   vtime=args.verify_timeout)
 
         # Results:
         idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
@@ -405,7 +437,7 @@ def main(args):
     # TODO: remove csv dependece
     if not args.from_csv and args.reference:
         plotdata = normalize(plotdata, args.reference)
-        logging.info('Normalized to {}:'.format(args.reference))
+        logger.info('Normalized to {}:'.format(args.reference))
         df = pd.DataFrame(plotdata,
                           columns=[
                               'Translation scheme', 'CRN', 'enumerated'] + args.verify + [
@@ -432,133 +464,107 @@ def main(args):
 
 def get_nuskellCMP_args(parser):
     """ A collection of arguments for Nuskell """
-    parser.add_argument(
-        '--version',
-        action='version',
-        version='%(prog)s ' +
-        __version__)
-    parser.add_argument("-v", "--verbose", action='count', default=0,
-                        help="print verbose output. -vv increases verbosity level.")
+    parser.add_argument('--version', action = 'version', version = '%(prog)s ' + __version__)
+    parser.add_argument("-v", "--verbose", action = 'count', default = 0,
+            help = "Print logging output. -vv increases verbosity level.")
 
     input = parser.add_argument_group('NuskellCMP Input Arguments')
 
     input.add_argument("--ts-dir", action='store', metavar='<path/to/dir>',
-                       help="""Specify path to the translation scheme directory. Only files that
-      have a *.ts ending will be compared.""")
+            help="""Specify path to the translation scheme directory. Only
+            files that have a *.ts ending will be compared.""")
 
     input.add_argument("--crn-dir", action='store', metavar='<path/to/dir>',
-                       help="""Specify path to a CRN directory. Only files that have a *.crn
-      ending will be compared.""")
+            help="""Specify path to a CRN directory. Only files that have a
+            *.crn ending will be compared.""")
 
     input.add_argument("--reference", action='store', metavar='<path/to/file>',
-                       help="Specify a translation scheme that serves as a reference.")
+            help="Specify a translation scheme that serves as a reference.")
 
     input.add_argument("--from-csv", action='store', metavar='<path/to/file>',
-                       help="Read results from a *.CSV file. All other inputs are ignored.")
+            help="Read results from a *.CSV file. All other inputs are ignored.")
 
     default = parser.add_argument_group('NuskellCMP Output Arguments')
 
     default.add_argument("--pyplot", default='', action='store', metavar='<path/to/file>',
-                         help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
+            help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
 
     default.add_argument("--to-csv", action='store', default='', metavar='<path/to/file>',
-                         help="Print results to a *.CSV file.")
+            help="Print results to a *.CSV file.")
 
     # NOTE: changing the equivalence notions would break normalization and
     # plotting.
-    default.add_argument("--verify", nargs='+', default=['bisimulation', 'pathway'],
-                         action='store',
-                         choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
-                                  'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
-                                  'modular-bisim-loop-search',
-                                  'modular-bisim-depth-first',
-                                  'modular-bisim-whole-graph'),
-                         metavar='<str>',
-                         help="""Specify verification methods. Choose one or more
-      from: bisimulation, pathway, integrated, modular-bisimulation,
-      bisim-loop-search, bisim-depth-first, bisim-whole-graph,
-      modular-bisim-loop-search,
-      modular-bisim-depth-first,
-      modular-bisim-whole-graph.""")
+    default.add_argument("--verify", nargs='+', default=['bisimulation', 'pathway'], action='store',
+            choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
+                'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
+                'modular-bisim-loop-search', 'modular-bisim-depth-first',
+                'modular-bisim-whole-graph'), metavar='<str>',
+            help="""Specify verification methods. Choose one or more from:
+            bisimulation, pathway, integrated, modular-bisimulation,
+            bisim-loop-search, bisim-depth-first, bisim-whole-graph,
+            modular-bisim-loop-search, modular-bisim-depth-first,
+            modular-bisim-whole-graph.""")
 
     default.add_argument("--modular", action='store_true',
-                         help="""After enumeration of the full system, enumerate individual CRN
-      modules separately, to identify crosstalk between reactions. This is
-      turned on automatically when using modular-bisimulation verification.""")
+            help="""After enumeration of the full system, enumerate individual
+            CRN modules separately, to identify crosstalk between reactions.
+            This is turned on automatically when using modular-bisimulation
+            verification.""")
 
     default.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
-                         help="Specify time in seconds to wait for verification to complete.")
+            help="Specify time in seconds to wait for verification to complete.")
 
     return parser
 
 
 def get_peppercorn_args(parser):
     """Selected arguments for the peppercorn interface. """
-    peppercorn = parser.add_argument_group(
-        'Peppercorn Reaction Enumerator Arguments')
+    peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
     peppercorn.add_argument('--max-complex-size', default=50, type=int, metavar='<int>',
-                            help="""Maximum number of strands allowed in a complex (used to prevent
-      polymerization)""")
+            help="""Maximum number of strands allowed in a complex (used to prevent polymerization)""")
     peppercorn.add_argument('--max-complex-count', default=1000, type=int, metavar='<int>',
-                            help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
+            help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
     peppercorn.add_argument('--max-reaction-count', default=10000, type=int, metavar='<int>',
-                            help="""Maximum number of reactions that may be enumerated before the
-      enumerator halts.""")
+            help="""Maximum number of reactions that may be enumerated before the enumerator halts.""")
 
     peppercorn.add_argument('--reject-remote', action='store_true',
-                            help="Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
+            help="Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
     peppercorn.add_argument('--ignore-branch-3way', action='store_true',
-                            help="Ignore 3-way branch migration events during enumeration.")
+            help="Ignore 3-way branch migration events during enumeration.")
     peppercorn.add_argument('--ignore-branch-4way', action='store_true',
-                            help="Ignore 4-way branch migration events during enumeration.")
+            help="Ignore 4-way branch migration events during enumeration.")
 
     # TODO: explain these options in more detail!
     peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, metavar='<int>',
-                            help="""Maximum number of bases that will be released spontaneously in a
-      1-1 `open` reaction""")
+            help="""Maximum number of bases that will be released spontaneously in a 1-1 `open` reaction""")
     peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, metavar='<int>',
-                            help="""Maximum number of bases that will be released spontaneously in a
-      1-n `open` reaction.""")
+            help="""Maximum number of bases that will be released spontaneously in a 1-n `open` reaction.""")
     peppercorn.add_argument('--release-cutoff', type=int, default=None, metavar='<int>',
-                            help="""Maximum number of bases that will be released spontaneously in an
-      `open` reaction, for either 1-1 or 1-n reactions (equivalent to setting
-      --release-cutoff-1-1 and --release-cutoff-1-n to the same value)""")
+            help="""Maximum number of bases that will be released spontaneously
+            in an `open` reaction, for either 1-1 or 1-n reactions (equivalent
+            to setting --release-cutoff-1-1 and --release-cutoff-1-n to the
+            same value)""")
 
     peppercorn.add_argument('--no-max-helix', action='store_true',
-                            help="""Do not apply 'max helix at a time' semantics to 3-way branch
-      migration reactions.""")
+            help="""Do not apply 'max helix at a time' semantics to 3-way
+            branch migration reactions.""")
 
     peppercorn.add_argument('--enum-detailed', action='store_true',
-                            help="Do not condense reactions into only resting complexes")
+            help="Do not condense reactions into only resting complexes")
 
     peppercorn.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
-                            help="Unimolecular reactions slower than this rate will be discarded")
+            help="Unimolecular reactions slower than this rate will be discarded")
 
     peppercorn.add_argument('--k-fast', default=0.0, type=float, metavar='<flt>',
-                            help="Unimolecular reactions slower than this rate will be marked as slow")
+            help="Unimolecular reactions slower than this rate will be marked as slow")
 
     return parser
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     get_nuskellCMP_args(parser)
     get_peppercorn_args(parser)
     args = parser.parse_args()
-
-    logger = logging.getLogger()
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose == 2:
-        logger.setLevel(logging.DEBUG)
-    elif args.verbose >= 3:
-        logger.setLevel(logging.NOTSET)
-
-    ch = logging.StreamHandler()
-
-    formatter = logging.Formatter('%(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
 
     main(args)
