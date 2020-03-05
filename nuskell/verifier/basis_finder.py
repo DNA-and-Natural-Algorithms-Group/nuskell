@@ -8,10 +8,12 @@
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
 from __future__ import absolute_import, division, print_function
-from builtins import map
+from builtins import map, filter
 
 import logging
 log = logging.getLogger(__name__)
+
+from nuskell.crnutils import genCRN
 
 signatures = []
 
@@ -21,11 +23,11 @@ def pretty_crn(crn):
 
 def formal(s, fs):
   """Returns all formal species in the initial state S. """
-  return filter(lambda x: x in fs, s)
+  return list(filter(lambda x: x in fs, s))
 
 def intermediate(s, fs):
   """Returns all non-formal species in the initial state S. """
-  return filter(lambda x: x not in fs, s)
+  return list(filter(lambda x: x not in fs, s))
 
 def next_state(s, rxn):
     """Applies reaction rxn to state s """
@@ -86,7 +88,7 @@ def final_state(p, S):
 def linearcheck(path, S, nonw):
     init = S[:]
     for rxn in path:
-        c1 = filter(lambda x: x in nonw, init)
+        c1 = list(filter(lambda x: x in nonw, init))
         if len(c1) > 1: 
             return False
 
@@ -96,7 +98,7 @@ def linearcheck(path, S, nonw):
         for p in rxn[1]:
             init.append(p)
 
-    c1 = filter(lambda x: x in nonw, init)
+    c1 = list(filter(lambda x: x in nonw, init))
     if len(c1)>1: 
         return False
     return True
@@ -183,8 +185,7 @@ def regular_final_state(p, fs):
     return sorted(RFS)
 
 def width(pathway):
-    initial = minimal_initial_state(pathway)
-    S = initial[:]
+    S = minimal_initial_state(pathway)
     w = len(S)
     for rxn in pathway:
         S = next_state(S, rxn)
@@ -364,6 +365,8 @@ def enumerate_basis(crn, fs, nonw = None):
         #  - ebasis: enumerated bases (if sucessfull)
         #  - ret: A list of signatures
         enumerate_pathways([], w_max, i_max, crn, fs, nonw = nonw)
+        log.debug('After enumation of pathways: Done = {}'.format(done))
+        log.debug('After enumation of pathways: basis = {}'.format(ebasis))
 
         signatures = ret
         current_w = 0
@@ -385,9 +388,10 @@ def enumerate_basis(crn, fs, nonw = None):
         w_max = w_t
         i_max = i_t
     
-    if done: return None
+    if done or len(ebasis) == 0: 
+        return None
 
-    fbasis = []
+    fbasis = [] # interpretation
     fbasis_raw = []
     for p in ebasis:
         initial = minimal_initial_state(p)
@@ -398,11 +402,7 @@ def enumerate_basis(crn, fs, nonw = None):
             def collapse(l):
                 l2 = []
                 for x in l:
-                    if x in inter.keys():
-                        y = inter[x]
-                    else:
-                        y = [x]
-                    l2 += y
+                    l2 += inter.get(x, [x])
                 return l2
             p1 = list(map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p))
             initial = minimal_initial_state(p1)
@@ -427,7 +427,7 @@ def find_modules(crn, intermediates):
     division = {i:[] for i in intermediates}
     # First, determine which intermediates occur together...
     for rxn in crn:
-        t = filter(lambda x: x in intermediates, rxn[0] + rxn[1])
+        t = list(filter(lambda x: x in intermediates, rxn[0] + rxn[1]))
         if len(t) > 1:
             # if you got multiple intermediates, parent should point 
             # to the same "ancestor"
@@ -438,7 +438,7 @@ def find_modules(crn, intermediates):
                     parent[y] = z
     i = 0
     for rxn in crn:
-        t = filter(lambda x: x in intermediates, rxn[0] + rxn[1])
+        t = list(filter(lambda x: x in intermediates, rxn[0] + rxn[1]))
         if len(t) > 0:
             z = ancestor(t[0])
             division[z].append(rxn)
@@ -446,7 +446,7 @@ def find_modules(crn, intermediates):
             division[i] = [rxn]
             i += 1
 
-    return filter(lambda x: len(x) > 0, division.values())
+    return list(filter(lambda x: len(x) > 0, division.values()))
 
 
 def find_basis(crn, fs, optimize = True, inter2 = None):
@@ -481,7 +481,7 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
         basis_raw = []
         for e, mod in enumerate(divs, 1):
             log.info("Verifying module {}:".format(e))
-            [log.info('    ' + r) for r in pretty_crn(mod)]
+            [log.info('    {}'.format(r)) for r in genCRN(mod, rates = False)]
             # Optimization using linear structure
             reactants = set().union(*[set(r) for [r, p] in mod])
             wastes = intermediates - reactants 
@@ -490,16 +490,24 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
 
             linear = True
             for [r,p] in mod:
-                r1 = filter(lambda x: x in nonwastes, r)
-                p1 = filter(lambda x: x in nonwastes, p)
+                r1 = list(filter(lambda x: x in nonwastes, r))
+                p1 = list(filter(lambda x: x in nonwastes, p))
                 if len(r1) > 1 or len(p1) > 1: 
                     linear = False
                     break
             log.debug('Found monomolecular substructre: {}'.format(linear))
             b = enumerate_basis(mod, fs, nonw = nonwastes if linear else None)
             if b == None: # irregular or nontidy
+                log.info("Could not find formal basis.")
                 return None
             (b1, b2) = b
+
+            log.debug("Formal basis of the current module:")
+            [log.debug('    {}'.format(r)) for r in pretty_crn(b1)]
+            log.debug("Formal basis of the current module (interpreted):")
+            [log.debug('    {}'.format(r)) for r in pretty_crn(b2)]
+            log.info('')
+
             basis += b1
             basis_raw += b2
     else:
@@ -516,7 +524,7 @@ if __name__ == "__main__":
     import sys
     import argparse
     from nuskell import __version__
-    from nuskell.crnutils import parse_crn_file, split_reversible_reactions
+    from nuskell.crnutils import parse_crn_file, split_reversible_reactions, find_wastes, genCRN
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter)
@@ -571,16 +579,28 @@ if __name__ == "__main__":
         fs &= set(args.formal_species)
 
     log.info('Input formal species: {}'.format(fs))
+    log.info('Input fuel species: {}'.format(args.fuel_species))
     log.info('Input CRN (without fuel species):')
     [log.info('    ' + r) for r in pretty_crn(crn)]
 
+    wastes = find_wastes(crn, fs)
+    log.info('{} waste species are treated as formal. ({})'.format(len(wastes), ' '.join(wastes)))
+
     # TODO: Waste species have to be part of the formal species, otherwise the
     # algorithm cannot find the formal base.
-    basis = find_basis(crn, fs, optimize = not args.non_modular)
+    basis = find_basis(crn, fs | wastes, optimize = not args.non_modular)
+
+    inter = {}
+    for x in fs: inter[x] = [x]
+    for x in wastes: inter[x] = []
+
 
     if basis != None:
         print("Formal basis:")
-        for (r, p) in basis:
-            print_reaction([r, p])
+        for r in pretty_crn(basis):
+            print(r)
+        print("Interpretation of formal basis:")
+        for r in genCRN(basis, rates = False, interpretation = inter):
+            print(r)
     else:
         print("Could not find formal basis.")

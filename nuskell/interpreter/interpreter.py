@@ -7,7 +7,7 @@
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
 from __future__ import absolute_import, division, print_function
-from builtins import map
+from builtins import map, dict
 
 import logging
 log = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def interpret(ts_parsed, crn_parsed, fs, modular = False, one = 100e-9):
     ts_env.interpret(ts_parsed)
 
     # translate formal species list using the formal() function
-    fs_result = ts_env.translate_formal_species(fs.keys())
+    fs_result = ts_env.translate_formal_species(list(fs.keys()))
 
     # translate the crn using the main() function
     cs_modules = ts_env.translate_reactions(crn_parsed, modular = modular)

@@ -1,54 +1,31 @@
-# crn_bisimulation_equivalence.py written by Qing Dong <dong.qing.nju@gmail.com>
+#
+#  nuskell/verifier/crn_bisimulation_equivalence.py
+#  NuskellCompilerProject
+#
+from __future__ import absolute_import, division, print_function
+from builtins import map, zip, dict, range
+from functools import reduce
 
-#from sets import Set
-import itertools, time, basis_finder, string, copy, math
+import logging
+log = logging.getLogger(__name__)
+
+import itertools, time, string, copy, math
 # python's collections.Counter is a data type for multisets,
 #  such as states of a CRN or interpretations
 from collections import Counter
+
+import nuskell.verifier.basis_finder
 
 gprinting = False
 printing = gprinting
 debug = False
 
 def printRxn(rxn):
-    first = True
-    for x in rxn[0]:
-        if x[0] not in string.letters:
-            try:
-                xname = "i" + x
-            except TypeError:
-                xname = x[1]
-        else:
-            xname = x
-        if not first:
-            print "+",
-        else:
-            first = False
-        if rxn[0][x] > 1:
-            print rxn[0][x],
-        print xname,
-    print "->",
-    first = True
-    for x in rxn[1]:
-        if x[0] not in string.letters:
-            try:
-                xname = "i" + x
-            except TypeError:
-                xname = x[1]
-        else:
-            xname = x
-        if not first:
-            print "+",
-        else:
-            first = False
-        if rxn[1][x] > 1:
-            print rxn[1][x],
-        print xname,
-    print
+    print('{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
 
 def output(intrp):
     for sp in intrp:
-        print "   ",
+        print("   ",end='')
         k = sp
         try:
             replace = k[0] == 'impl'
@@ -57,7 +34,7 @@ def output(intrp):
         if replace:
             k = k[1]
         printRxn([{k: 1}, intrp[sp]])
-    print
+    print("")
 
 def deformalize(intrp, fs):
     intr = {}
@@ -156,7 +133,7 @@ def solve_domenjoud(a):
     m = len(a)
     n = len(a[0])
     rank = min(m,n)
-    for comb in itertools.combinations(xrange(n), rank):
+    for comb in itertools.combinations(range(n), rank):
         #
         asub = [[row[j] for j in comb] for row in a]
         
@@ -189,7 +166,7 @@ def msdiv(s, l):
     # l divides s if l divides s[k] for every key k
     c = Counter()
     for k in s:
-        c[k] = s[k]/l
+        c[k] = int(s[k]/l)
         if c[k] * l != s[k]:
             return False
     return c
@@ -198,8 +175,8 @@ def subsets(x):
 # generates all subsets of multiset x
 # Python's 'itertools.product' method works almost perfectly, and should
 #  work without duplicates
-    ks = x.keys()
-    vs = map(lambda v: xrange(v+1), x.values())
+    ks = list(x.keys())
+    vs = list(map(lambda v: range(v+1), x.values()))
     for prod in itertools.product(*vs):
         # calls to keys and values with no dictionary modifications in between
         #  should produce the keys and values in the same order,
@@ -240,7 +217,7 @@ def enum(n, s, weights=None):
 def interpret(s, intrp):
     # return interpretation of s according to intrp
     ss = s.copy()
-    ks = ss.keys()
+    ks = list(ss.keys())
     for k in ks:
         if k in intrp:
             v = ss.pop(k)
@@ -288,22 +265,22 @@ def update(fcrn, icrn, fs):
             t3 = fcrn[j][1] - icrn[i][1]
             t4 = icrn[i][1] - fcrn[j][1]
             if set(t2).isdisjoint(set(fs)) and set(t4).isdisjoint(set(fs)):
-                if t1.keys() == []:
-                    if t3.keys() == []:
+                if list(t1.keys()) == []:
+                    if list(t3.keys()) == []:
                         rr.append(True)
                     else:
-                        if t4.keys() == []:
+                        if list(t4.keys()) == []:
                             rr.append(False)
                         else:
                             rr.append(True)
                 else:
-                    if t2.keys() == []:
+                    if list(t2.keys()) == []:
                         rr.append(False)
                     else:
-                        if t3.keys() == []:
+                        if list(t3.keys()) == []:
                             rr.append(True)
                         else:
-                            if t4.keys() == []:
+                            if list(t4.keys()) == []:
                                 rr.append(False)
                             else:
                                 rr.append(True)
@@ -333,17 +310,17 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
     T = update(fcrn, crn2, fs)
     if not checkT(T):
         return [False, state]
-    nulls = [k for k in intrp if not intrp[k].keys()] # null species
+    nulls = [k for k in intrp if not len(intrp[k].keys())] # null species
 
     def cnstr(s):
         # given formal state s, generate minimal set of impl. states which
         #  interpret to a superset of s
         # = concatenation of any x such that s[0] in m(x) with
         #  all minimal implementations of s - m(x)
-        if s.keys() == []:
+        if list(s.keys()) == []:
             yield Counter()
         else:
-            s1 = s.keys()[0]
+            s1 = list(s.keys())[0]
             for k in intrp:
                 if s1 in intrp[k]:
                     if (s - intrp[k])[s1] >= s[s1]:
@@ -372,11 +349,11 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         else:
             hasht.add(hashee)
         for i in fr:
-            if (i[0] - s).keys() == []:
+            if list((i[0] - s).keys()) == []:
                 return True
         ret = False
         for i in tr:
-            if (i[0] - s).keys() == []:
+            if list((i[0] - s).keys()) == []:
                 t = (s - i[0]) + i[1]
                 out = search(t, d+1)
                 if out:
@@ -440,7 +417,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                     roundequiv *= 2
 
         for parti in enum(len(nulls) + 1,Counter(nulls)):
-            part = map(set,parti)
+            part = list(map(set,parti))
             if any([part[i] != set() and part[i+1] == set() \
                     for i in range(len(part) - 2)]):
                 continue # avoid redundancy
@@ -476,7 +453,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         #  can implement the given formal reaction
         #  by storing for each state the list of states it can reach w/o
         #  null species (except those producible by loops)
-        points = map(lambda x: [x,set([]),[]], cnstr(formal))
+        points = list(map(lambda x: [x,set([]),[]], cnstr(formal)))
         # points[i][0] is the ith implementation state
         # points[i][1] is all null species loopable from that state
         # points[i][2][j] is True if points[j][0] is known to be reachable
@@ -695,7 +672,7 @@ def equations(fcrn, icrn, fs, intrp, permcheck, state):
     # check atomic condition
     atoms = set()
     for k in intrp:
-        sps = intrp[k].keys()
+        sps = list(intrp[k].keys())
         if len(sps) == 1 and intrp[k][sps[0]] == 1:
             atoms.add(sps[0])
 
@@ -833,27 +810,27 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
     if T[k][-1] == True:  # if implementation reaction #k can be trivial, leave it that way and try more rows
         out = searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck,
                       [intr, max_depth] + state[2:], nontriv)
-        if out.next():
+        if next(out):
             if not found:
                 found = True
                 yield True
             for outintr in out:
                 yield outintr
         else:
-            state = out.next()
+            state = next(out)
             intr, max_depth = state[0:2]
     n = 0
     for c in range(len(fcrn)): # try to match implementation reaction #k with some formal reaction
         if T[k][c]:        
             ul = sicrn[k][0] - fcrn[c][0]
-            kl = ul.keys()
-            vl = ul.values()
+            kl = list(ul.keys())
+            vl = list(ul.values())
             nl = len(kl)
             sl = fcrn[c][0] - sicrn[k][0]
             tmpl = enum(nl, sl, vl)
             ur = sicrn[k][1] - fcrn[c][1]
-            kr = ur.keys()
-            vr = ur.values()
+            kr = list(ur.keys())
+            vr = list(ur.values())
             nr = len(kr)
             sr = fcrn[c][1] - sicrn[k][1]
             tmpr = enum(nr, sr, vr)
@@ -878,14 +855,14 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
                 itmp.update(intrpright)
                 out = searchr(fcrn, icrn, fs, untmp, itmp, d+1, permcheck,
                               [intr, max_depth] + state[2:])
-                if out.next():
+                if next(out):
                     if not found:
                         found = True
                         yield True
                     for outintrp in out:
                         yield outintrp
                 else:
-                    state = out.next()
+                    state = next(out)
                     intr, max_depth = state[0:2]
     if not found:
         yield False
@@ -923,14 +900,14 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
                 untmp.append(i)
         out = searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck,
                       [intr, max_depth] + state[2:])
-        if out.next():
+        if next(out):
             yield True
             found = True
             for outintrp in out:
                 yield outintrp
         else:
             yield False
-            yield out.next()
+            yield next(out)
             return
     else:
         untmp = list(unknown)
@@ -939,14 +916,14 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
         for k in range(len(icrn)):
             if T[k][c]:
                 ul = sicrn[k][0] - fcrn[c][0]
-                kl = ul.keys()
-                vl = ul.values()
+                kl = list(ul.keys())
+                vl = list(ul.values())
                 nl = len(kl)
                 sl = fcrn[c][0] - sicrn[k][0]
                 tmpl = enum(nl, sl, vl)
                 ur = sicrn[k][1] - fcrn[c][1]
-                kr = ur.keys()
-                vr = ur.values()
+                kr = list(ur.keys())
+                vr = list(ur.values())
                 nr = len(kr)
                 sr = fcrn[c][1] - sicrn[k][1]
                 tmpr = enum(nr, sr, vr)
@@ -971,14 +948,14 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
                     itmp.update(intrpright)
                     out = searchc(fcrn, icrn, fs, untmp, itmp, d+1,
                                   permcheck, [intr, max_depth] + state[2:])
-                    if out.next():
+                    if next(out):
                         if not found:
                             found = True
                             yield True
                         for outintrp in out:
                             yield outintrp
                     else:
-                        state = out.next()
+                        state = next(out)
                         intr, max_depth = state[0:2]
 
     if not found:
@@ -1046,25 +1023,25 @@ def test_iter(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
         permissive = [permissive, permissive_depth]
 
     if verbose:
-        print "Original CRN:"
+        print("Original CRN:")
         for rxn in fcrn:
-            print "   ",
+            print("   ",end='')
             printRxn(rxn)
-        print
+        print()
         if ic == []:
-            print "Compiled CRN is empty"
-            print
+            print("Compiled CRN is empty")
+            print()
             good = fcrn == []
             yield good
             if good:
                 yield {}
             else:
                 yield [{},0,[[],[]]]
-        print "Compiled CRN:"
+        print("Compiled CRN:")
         for rxn in ic:
-            print "   ",
+            print("   ",end='')
             printRxn(rxn)
-        print
+        print()
     elif ic == []:
         good = fcrn == []
         if good:
@@ -1074,11 +1051,11 @@ def test_iter(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
     unknown = [i for i in range(len(fcrn))]
     out = searchc(fcrn, icrn, fs, unknown, intrp, 0, permissive,
                   [{}, 0, [[Counter(),Counter()],Counter()]])
-    correct = out.next()
+    correct = next(out)
     if verbose:
         if correct:
-            intrpout1 = out.next()
-            print "Valid interpretation :"
+            intrpout1 = next(out)
+            print("Valid interpretation:")
             output(intrpout1)
             yield True
             yield formalize(intrpout1)
@@ -1086,25 +1063,25 @@ def test_iter(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
                 yield formalize(intrpout)
                 
         else:
-            intr, max_depth, permissive_failure = out.next()
+            intr, max_depth, permissive_failure = next(out)
             if max_depth >= 0:
-                print "Delimiting condition cannot be satisfied."
+                print("Delimiting condition cannot be satisfied.")
                 if max_depth >= len(fcrn):
-                    print "There is implementation reaction not in formal CRN."
+                    print("There is implementation reaction not in formal CRN.")
                 else:
-                    print "There is formal reaction not implemented."
-                print "Max search depth reached :", max_depth
-                print "with interpretation :"
+                    print("There is formal reaction not implemented.")
+                print("Max search depth reached:", max_depth)
+                print("with interpretation:")
                 output(intr)
             else:
-                print "Fail in permissive test with interpretation:"
+                print("Fail in permissive test with interpretation:")
                 output(intr)
-                print "for formal reaction:",
+                print("for formal reaction:", end='')
                 printRxn(permissive_failure[0])
-                print "from implementation state:", permissive_failure[1]
+                print("from implementation state:", permissive_failure[1])
                 if max_depth == -2:
-                    print "with max trivial reaction chain length", permissive_depth, "reached."
-            print
+                    print("with max trivial reaction chain length", permissive_depth, "reached.")
+            print()
 
             yield False
             yield [formalize(intr), max_depth, permissive_failure]
@@ -1116,7 +1093,7 @@ def test_iter(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
                 yield formalize(intrpout)
         else:
             yield False
-            intr, max_depth, permissive_failure = out.next()
+            intr, max_depth, permissive_failure = next(out)
             yield [formalize(intr), max_depth, permissive_failure]
 
 def test(fcrn, icrn, fs, interpretation=None, permissive='whole-graph',
@@ -1130,8 +1107,8 @@ def test(fcrn, icrn, fs, interpretation=None, permissive='whole-graph',
     if iterate:
         return iter_out
     else:
-        correct = iter_out.next()
-        return [correct, iter_out.next()]
+        correct = next(iter_out)
+        return [correct, next(iter_out)]
 
 def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
                 permissive='whole-graph', permissive_depth=None,
@@ -1158,9 +1135,7 @@ def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
     '''
 
     if ispCommon is None:
-        ispList = [reduce(lambda x,y: x | y, [set(rxn[0]) | set(rxn[1]) for
-                                            rxn in icrn])
-                   for icrn in icrns]
+        ispList = [reduce(lambda x,y: x | y, [set(rxn[0]) | set(rxn[1]) for rxn in icrn]) for icrn in icrns]
         ispCommon = reduce(lambda x,y: x & y, ispList)
         ispCommon = ispCommon.union(interpretation.keys()) # FIXME: this line is a hack
 
@@ -1173,14 +1148,14 @@ def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
     outs = [False for fcrn in fcrns]
     i = 0
 
-    for (fcrn, icrn) in itertools.izip(fcrns, icrns):
+    for (fcrn, icrn) in zip(fcrns, icrns):
         intr = {k: interpretation[k] for k in interpretation
                  if k in ispCommon
                  or any([k in rxn[0] or k in rxn[1] for rxn in icrn])}
         out = test(fcrn, icrn, fs, intr, permissive,
                    permissive_depth, verbose, iterate=True)
-        if not out.next():
-            return [False, [fcrn, icrn] + out.next()]
+        if not next(out):
+            return [False, [fcrn, icrn] + next(out)]
         found = False
         bad = None
         for intrp in out:
@@ -1217,6 +1192,6 @@ if __name__ == "__main__":
     cs2 = []
     v = test(fcrn, icrn, fs2)
     if v[0]:
-        print "verify: compilation was correct."
+        print("verify: compilation was correct.")
     else:
-        print "verify: compilation was incorrect."
+        print("verify: compilation was incorrect.")

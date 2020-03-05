@@ -6,7 +6,6 @@ from __future__ import absolute_import, division, print_function
 
 __version__ = "v0.6"
 
-import sys
 import logging
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 

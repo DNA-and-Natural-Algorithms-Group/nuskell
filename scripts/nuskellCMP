@@ -4,9 +4,10 @@
 #  EnumeratorProject
 #
 from __future__ import absolute_import, division, print_function
+from builtins import map, filter, dict, zip
 
 import logging
-log = logging.getLogger('peppercornenumerator')
+log = logging.getLogger('nuskell')
 
 import os
 import sys
@@ -48,7 +49,6 @@ def compare_schemes(reactions, schemedir,
       * number of nucleotides is wrong for schemes with history domains.
 
     """
-
     plotdata = []  # Scheme, CRN, Cost, Speed
     for scheme in sorted(os.listdir(schemedir)):
         if scheme[-3:] != '.ts':
@@ -63,10 +63,9 @@ def compare_schemes(reactions, schemedir,
             fcrn, fs = parse_crn_string(crn)
 
             # formal chemical reaction module
-            fcrm = map(lambda x: split_reversible_reactions([x]), fcrn) 
+            fcrm = list(map(lambda x: split_reversible_reactions([x]), fcrn))
             fcrn = split_reversible_reactions(fcrn)
 
-            log.info("")
             log.info("Translating using {}".format(scheme))
             log.info("Formal CRN:")
             for r in crn.split('\n'):
@@ -143,16 +142,16 @@ def compare_schemes(reactions, schemedir,
             # been removed.
             for r in solution.reactions:
                 log.debug("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-                rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
+                rxn = Reaction(list(map(str, r.reactants)), list(map(str, r.products)), r.rate.constant, 0)
                 icrn.append(rxn)
 
             # IMPLEMENTATION DETAILS
             log.info("Enumerated system: {} species, {} reactions".format(len(solution.complexes), len(icrn)))
             log.info("  {} signal species".format(len([c for c in solution.complexes if c.name in interpret.keys()])))
             log.info("  {} fuel species".format(len([c for c in solution.complexes if c.name in map(str, fuels)])))
-            log.info("  {} intermediate species".format(len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))])))
+            log.info("  {} intermediate species".format(len([c for c in solution.complexes if c.name not in (list(interpret.keys()) + list(map(str, fuels)))])))
             log.info("Number of distinct strands in the system: {}".format(len(solution.strands)))
-            log.info("Length of all distinct strands in the system: {}".format(sum( sum(map(lambda d: d.length, s)) for s in solution.strands.values())))
+            log.info("Length of all distinct strands in the system: {}".format(sum(sum(map(lambda d: d.length, s)) for s in solution.strands.values())))
 
             # NOTE: New code.. to do the module enumeration:
             if modular:
@@ -162,7 +161,6 @@ def compare_schemes(reactions, schemedir,
                 module_crns = []
                 for e, module in enumerate(modules):
                     # first, replace history complexes with their interpretation!
-                    initials = map(str, module.complexes)
                     for cplx in module.complexes:
                         # TODO quite inefficient loops
                         for k, v in interpret.items():
@@ -194,7 +192,7 @@ def compare_schemes(reactions, schemedir,
                         assert r in all_reactions
                         seen_reactions.add(r)
                         #log.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-                        rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
+                        rxn = Reaction(list(map(str, r.reactants)), list(map(str, r.products)), r.rate.constant, 0)
                         mcrn.append(rxn)
                     module_crns.append(mcrn)
                     #log.info("")
@@ -205,17 +203,17 @@ def compare_schemes(reactions, schemedir,
                 for r in all_reactions :
                     if r not in seen_reactions :
                         #log.info("{} [{} {} - {}]".format(r, r.rate, r.rateunits, r.rtype))
-                        rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
+                        rxn = Reaction(list(map(str, r.reactants)), list(map(str, r.products)), r.rate.constant, 0)
                         mcrn.append(rxn)
 
                 # append the CRN
                 if mcrn:
                     module_crns.append(mcrn)
 
-                icrns = map(lambda x: removeSpecies(x, map(str, fuels)), module_crns)
+                icrns = list(map(lambda x: removeSpecies(x, list(map(str, fuels))), module_crns))
 
             # VERIFICATION
-            vcrn = removeSpecies(icrn, map(str,fuels))
+            vcrn = removeSpecies(icrn, list(map(str,fuels)))
             for meth in vnotions:
                 if 'modular-' in meth:
                     if len(fcrm) > 1:
@@ -324,12 +322,14 @@ def main(args):
     if args.verbose >= 3: # Get root logger.
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+                '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s')
     else:
         logger = logging.getLogger('nuskell')
         logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(levelname)s %(message)s')
 
     ch = logging.StreamHandler()
-    formatter = logging.Formatter('%(levelname)s %(message)s')
     set_handle_verbosity(ch, args.verbose)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
@@ -372,6 +372,7 @@ def main(args):
                     for l in fcrn.readlines():
                         react += l.strip() + '; '
                 reactions.append((react[:-2], crnfile))
+            logger.info("")
         else:
             input_crn = sys.stdin.readlines()
             input_crn = "".join(input_crn).strip()
@@ -396,6 +397,7 @@ def main(args):
         for ts in filter(lambda x: x[-3:] == '.ts',
                          sorted(os.listdir(args.ts_dir))):
             logger.info('  {}'.format(ts))
+        logger.info("")
 
         # ***************** #
         # Process REF input #
@@ -417,7 +419,7 @@ def main(args):
                                    vtime=args.verify_timeout)
 
         # Results:
-        idx = zip(zip(*plotdata)[0], zip(*plotdata)[1])
+        idx = list(zip(list(zip(*plotdata))[0], list(zip(*plotdata))[1]))
         df = pd.DataFrame(plotdata, index = idx,
                           columns = ['Translation scheme', 
                                      'CRN', 
@@ -453,7 +455,7 @@ def main(args):
             return False
 
     # Add column that combines equivalence notions.
-    e = map(equiv, zip(*map(lambda x: df[x], args.verify)))
+    e = list(map(equiv, zip(*map(lambda x: df[x], args.verify))))
     df['equivalent'] = e
     df = df.sort_values(['Translation scheme', 'CRN'], ascending = [True, True])
     print(df.to_string(index=False, justify='left'))

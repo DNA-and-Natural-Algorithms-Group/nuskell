@@ -7,6 +7,7 @@
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
 from __future__ import absolute_import, division, print_function
+from builtins import map
 """The nuskell programming language environment.
 
 Nuskell code is interpreted using public functions of the **Environment**
@@ -114,7 +115,7 @@ class NusComplex(DSD_Complex):
         try:
             super(NusComplex, self).__init__(*kargs, **kwargs)
             self.attributes = attr
-        except DSDDuplicationError, e :
+        except DSDDuplicationError as e:
             return e.existing
         return self
 
@@ -519,7 +520,7 @@ class NuskellFunctions(object):
         else:
             try : 
                 final = NuskellComplex(args[0].sequence, args[0].structure, prefix='final')
-            except DSDDuplicationError, e:
+            except DSDDuplicationError as e:
                 final = e.existing
             return TestTube(complexes={final.name: [final, float("inf"), None, 'fuel']})
 
@@ -538,7 +539,7 @@ class NuskellFunctions(object):
             # args[0] forces us to introduce additional lists ...
             for i in range(len(x)):
                 x[i] = [x[i]]
-            return reversed(map(self._complement, x))
+            return list(reversed(map(self._complement, x)))
         elif isinstance(x, Domain):
             print('Untested:', ~x)
             return ~x
@@ -616,7 +617,7 @@ class NuskellFunctions(object):
         """Helper function to remove all tags from the given id_list."""
         kwd = l[0]
         if kwd == "idlist":
-            return map(NuskellFunctions.remove_id_tags, l[1:])
+            return list(map(NuskellFunctions.remove_id_tags, l[1:]))
         elif kwd == "id":
             return l[1]
         else:
@@ -676,7 +677,7 @@ class NuskellEnvironment(NuskellExpressions):
                 assert body[0][0] == "id"
                 id = body[0][1]
                 # remove 'id' tags from args
-                args = map(lambda x: x[1], body[1])
+                args = list(map(lambda x: x[1], body[1]))
                 body_ = body[2]  # the ['where' [...]] part
                 self._create_binding(id, NusFunction(args, body_))
 
@@ -689,7 +690,7 @@ class NuskellEnvironment(NuskellExpressions):
         Returns:
           [dict()] A dictionary of key=name, value=:obj:`NusComplex()`
         """
-        formal_species_objects = map(Species, fs_list)
+        formal_species_objects = list(map(Species, fs_list))
 
         # compile the formal species
         self._create_binding("__formalspecies__", formal_species_objects)
@@ -725,11 +726,11 @@ class NuskellEnvironment(NuskellExpressions):
                 'Could not find the compiled formal species!')
 
         # replace every fs (str) with fs(NusComplex())
-        crn_remap = map(lambda rxn: [rxn.k_rev] + 
-                map(lambda y: map(lambda z: self.formal_species_dict[z], y), rxn[:2]), crn_parsed)
+        crn_remap = list(map(lambda rxn: [rxn.k_rev] + 
+                list(map(lambda y: list(map(lambda z: self.formal_species_dict[z], y)), rxn[:2])), crn_parsed))
 
-        crn_object = map(
-            lambda x: Reaction(x[1], x[2], x[0] != 0), crn_remap)
+        crn_object = list(map(
+            lambda x: Reaction(x[1], x[2], x[0] != 0), crn_remap))
 
         # main(__crn__)
         modules = []
@@ -867,7 +868,7 @@ class NuskellEnvironment(NuskellExpressions):
         def hardcopy_list(l):
             if not isinstance(l, list):
                 return copy(l)
-            return map(hardcopy_list, l)
+            return list(map(hardcopy_list, l))
 
         if len(f.args) > len(args):
             raise NuskellEnvError("The function `" + f.name + "' requires at least "

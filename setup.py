@@ -52,17 +52,14 @@ else :
 LONG_DESCRIPTION="""
 ``Nuskell`` compiles formal chemical reaction networks (CRNs) into domain-level
 strand displacement (DSD) systems. It provides a library of ``translation
-schemes`` (i.e. variations of CRN-to-DSD translations) to exploit the diversity
-of DSD circuits implementing the same CRN.
+schemes`` (i.e. variations of CRN-to-DSD translations) to explore the diversity
+of DSD systems implementing the same formal CRN.
 
 In order to proof/disproof the correctness of a particular translation,
-``Nuskell`` includes the domain-level reaction enumerator ``Peppercorn`` [Grun
-et al. (2014)] to find intended and unintended reaction pathways and then
+``Nuskell`` includes the domain-level reaction enumerator ``Peppercorn`` [Badelt
+et al. (2020)] to find intended and unintended reaction pathways and then
 provides two notions of stochastic trajectory-type CRN equivalence:
-bisimulation [Johnson et al. (2016)] and pathway decomposition [Shin et al. (2014)].
-
-The domain-level reactions and their approximate rates can be exported in form
-of an ODE system to simulate the dynamics of the compiled DSD network.
+bisimulation [Johnson et al. (2019)] and pathway decomposition [Shin et al. (2019)].
 """
 
 setup(
@@ -75,20 +72,23 @@ setup(
     url='http://www.github.com/DNA-and-Natural-Algorithms-Group/nuskell/',
     data_files=[('nuskell/schemes', install_schemes)],
     license='MIT',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        ],
     install_requires=[
         'future', 
         'pyparsing', 
-        'scipy', 
         'networkx>=2.2',
         'seaborn', # nuskellCMP
         'pandas', # nuskellCMP
         'numpy',  # nuskellCMP
-        'sympy', 
         'peppercornenumerator>=0.7.1',
         'dsdobjects>=0.7',
         'crnsimulator>=0.6'],
     dependency_links=[
-        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/archive/v0.6.1.tar.gz#egg=peppercornenumerator-0.6.1'],
+        'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/archive/v0.7.1.tar.gz#egg=peppercornenumerator-0.7.1'],
     test_suite='tests',
     packages=['nuskell', 'nuskell.parser', 'nuskell.interpreter', 'nuskell.verifier'],
     scripts=['scripts/nuskell', 'scripts/nuskellCMP'],

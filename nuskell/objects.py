@@ -3,7 +3,7 @@
 #  NuskellCompilerProject
 #
 from __future__ import absolute_import, division, print_function
-from builtins import map
+from builtins import map, filter
 
 import logging
 log = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class NuskellMacrostate(DSD_Macrostate):
     pass
 
 class TestTube(object):
-    """A reaction network of nucleic acid complexes.
+    r"""A reaction network of nucleic acid complexes.
 
     **Description:**
       :obj:`TestTube()` objects are Nuskell's interface to enumerate and simulate
@@ -289,13 +289,13 @@ class TestTube(object):
           constant (bool): True if the concentration is kept constant, False for
             initial concentration.
         """
-        self._RG.node[cplx]['concentration'] = concentration
-        self._RG.node[cplx]['constant'] = constant
+        self._RG.nodes[cplx]['concentration'] = concentration
+        self._RG.nodes[cplx]['constant'] = constant
 
     def get_complex_concentration(self, cplx):
         """flt, bool: First value is concentration, second is True if it is constant,
         False if it is variable."""
-        return self._RG.node[cplx]['concentration'], self._RG.node[cplx]['constant']
+        return self._RG.nodes[cplx]['concentration'], self._RG.nodes[cplx]['constant']
 
     def selected_complexes(self, names):
         """list: a list of :obj:`NuskellComplex()` objects that correspond to specified names. """
@@ -311,9 +311,9 @@ class TestTube(object):
           th (flt, optional): Specify the threshold to consider complexes as
             *present* in solution. Defaults to 0.
         """
-        return [n for n, att in self._RG.node.items() 
-                if isinstance(n, NuskellComplex) and 
-                    att['concentration'] > th and n.name not in exclude]
+        return [n for n in self._RG.nodes if isinstance(n, NuskellComplex) and \
+                (self._RG.nodes[n]['concentration'] and \
+                self._RG.nodes[n]['concentration'] > th) and n.name not in exclude]
 
     def interpret_species(self, species, prune = True):
         """Get an interpretation dictionary.
@@ -411,7 +411,7 @@ class TestTube(object):
                 assert len(cplxs) == 1, 'Duplicate complex names?'
 
             cplx = cplxs[0]
-            hist = filter(lambda x: x[0] == 'h', map(str, cplx.sequence))
+            hist = list(filter(lambda x: x[0] == 'h', map(str, cplx.sequence)))
             if hist :
                 assert len(hist) == 1, 'no support for multiple history domains'
                 hist = hist[0]
@@ -439,7 +439,8 @@ class TestTube(object):
             # consuming these molecules.
             # Alternative: enumerate again using history-replaced species.
             rxns = self.reactions
-            [prev, total] = [set(), set(interpretation.keys() + list(map(str, self.present_complexes())))]
+            [prev, total] = [set(), 
+                    set(list(interpretation.keys()) + list(map(str, self.present_complexes())))]
             log.debug('Prev {}, Total {}'.format(prev, total))
             while prev != total:
                 prev = set(list(total)) # force a copy?
@@ -487,22 +488,22 @@ class TestTube(object):
                 raise NuskellObjectError('Complex Name does not match canonical form: {}'.format(cplx))
             # NOTE: I am not happy about using add_complex to update concentrations...
             if conc is not None:
-                if self._RG.node[cplx]['concentration'] is None:
-                    self._RG.node[cplx]['concentration'] = conc
+                if self._RG.nodes[cplx]['concentration'] is None:
+                    self._RG.nodes[cplx]['concentration'] = conc
                 else:
-                    assert self._RG.node[cplx]['concentration'] == conc, \
+                    assert self._RG.nodes[cplx]['concentration'] == conc, \
                             "Conflicting complex concentrations"
             if const is not None:
-                if self._RG.node[cplx]['constant'] is None:
-                    self._RG.node[cplx]['constant'] = const
+                if self._RG.nodes[cplx]['constant'] is None:
+                    self._RG.nodes[cplx]['constant'] = const
                 else:
-                    assert self._RG.node[cplx]['constant'] == const, \
+                    assert self._RG.nodes[cplx]['constant'] == const, \
                             "Conflicting complex concentrations"
             if ctype is not None:
-                if self._RG.node[cplx]['ctype'] is None:
-                    self._RG.node[cplx]['ctype'] = ctype
+                if self._RG.nodes[cplx]['ctype'] is None:
+                    self._RG.nodes[cplx]['ctype'] = ctype
                 else:
-                    assert self._RG.node[cplx]['ctype'] == ctype, "Conflicting complex type"
+                    assert self._RG.nodes[cplx]['ctype'] == ctype, "Conflicting complex type"
         else:
             if cplx.canonical_form in map(lambda x: x.canonical_form, self.complexes):
                 raise NuskellObjectError('trying to add duplicate complex: {} = {}'.format(
@@ -528,10 +529,10 @@ class TestTube(object):
         """
         if self._RG.has_node(cplx):
             if force:
-                for (r, c) in self._RG.in_edges(cplx):
+                for (r, c) in list(self._RG.in_edges(cplx)):
                     assert isinstance(r, NuskellReaction)
                     self.rm_reaction(r)
-                for (c, r) in self._RG.out_edges(cplx):
+                for (c, r) in list(self._RG.out_edges(cplx)):
                     assert isinstance(r, NuskellReaction)
                     self.rm_reaction(r)
             elif (self._RG.in_edges(cplx) or self._RG.out_edges(cplx)):
@@ -554,7 +555,7 @@ class TestTube(object):
         assert isinstance(react, NuskellReaction) 
 
         if self._RG.has_node(react):
-            assert self._RG.node[react]['rate'] == react.rate
+            assert self._RG.nodes[react]['rate'] == react.rate
         else:
             if react.canonical_form in map(lambda x: x.canonical_form, self.reactions):
                 # This cannot be true, ever!
@@ -830,7 +831,7 @@ class TestTubeIO(object):
         return
 
     def write_dnafile(self, fh, signals=[], crn=None, ts=None):
-        """ Write a TestTube Object into VisualDSD \*.dna format.
+        r""" Write a TestTube Object into VisualDSD \*.dna format.
 
         Note:
           This function assumes that toehold domains are named starting with a 't',

@@ -12,11 +12,11 @@ from builtins import map
 import logging
 log = logging.getLogger(__name__)
 
-import sys
 import time
 import string
 
 from nuskell.verifier.basis_finder import find_basis
+from nuskell.crnutils import genCRN, find_wastes
 
 def pretty_crn(crn):
     for rxn in crn:
@@ -50,31 +50,6 @@ def printRxn(rxn, inter = {}):
         print(x,end='')
     print()
 
-def findWastes(crn, formal):
-    """Returns waste species of a CRN.
-
-    Waste species are all non-formal species that are only products, but never
-    react. A non-waste is a formal species, or a species that is involved as a
-    reactant in a reaction that involves a non-waste species.
-    """
-    species = set().union(*[set().union(*rxn) for rxn in crn])
-    nonwastes = set(formal)
-    while True:
-        # Add x to non-waste if in any reaction x is an reactant while there
-        # are non-wastes in the reaction. Reset the outer loop if you found a
-        # new non-waste species.
-        flag=False
-        for x in species:
-            if x in nonwastes: 
-                continue
-            for rxn in crn:
-                if x in rxn[0] and (len(nonwastes & set(rxn[1]+rxn[0])) > 0):
-                    nonwastes.add(x)
-                    flag = True
-                    break
-        if not flag: break
-    return species - nonwastes
-
 def remove_duplicates(l):
     r = []
     if len(l) == 0: return []
@@ -86,7 +61,95 @@ def remove_duplicates(l):
     r.append(l[0])
     return r
 
-def test(c1, c2, inter, integrated = False, interactive = False, verbose = False):
+def passes_atomic_condition():
+    pass
+
+def passes_permissive_condition(fbasis, fbasis2, fbasis_raw, inter):
+    # Every (formal) initial state can yield the same (formal) next state...
+
+    def cartesian_product(l):
+        if len(l) == 0:
+            return []
+        if len(l) == 1:
+            return l[0]
+        r = []
+        for i in l[0]:
+            for j in l[1]:
+                r.append(i+j)
+        return cartesian_product([r]+l[2:])
+
+    interrev = {}
+    for x in inter:
+        for y in inter[x]:
+            if y not in interrev:
+                interrev[y] = [[x]]
+            else:
+                interrev[y].append([x])
+
+    for rxn in fbasis:
+        initial_states = cartesian_product(list(map(lambda x: interrev[x], rxn[0])))
+        for initial in initial_states:
+            initial = sorted(initial)
+            flag = False
+            for r in fbasis2:
+                if r[0] == initial and r[1] == rxn[1]:
+                    flag = True
+                    break
+            if not flag:
+                log.info("Permissive test failed:")
+                log.info("  Cannot get from {} to {}".format(initial, rxn[1]))
+                log.info("Formal basis:")
+                [log.info('    {}'.format(r)) for r in pretty_crn(basis)]
+                return False
+    return True
+
+def passes_delimiting_condition(crn1, basis):
+    # Every formal pathway must also be possible in the compiled CRN
+    # Every compiled pathway must also be possible in the formal CRN
+    flag = True
+    for rxn in crn1:
+        if rxn not in basis:
+            reactants = {}
+            for x in rxn[0]:
+                if x in reactants:
+                    reactants[x] += 1
+                else:
+                    reactants[x] = 1
+            products = {}
+            for x in rxn[1]:
+                if x in products:
+                    products[x] += 1
+                else:
+                    products[x] = 1
+            if reactants != products:
+                log.info("Delimiting condition failed: The formal reaction ...")
+                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
+                log.info("... is in the input CRN but not in the compiled CRN.")
+                flag = False
+
+    for rxn in basis:
+        if rxn not in crn1:
+            reactants = {}
+            for x in rxn[0]:
+                if x in reactants:
+                    reactants[x] += 1
+                else:
+                    reactants[x] = 1
+            products = {}
+            for x in rxn[1]:
+                if x in products:
+                    products[x] += 1
+                else:
+                    products[x] = 1
+            if reactants != products:
+                log.info("Delimiting condition failed: The formal reaction ...")
+                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
+                log.info("... is in the compiled CRN but not in the input CRN.")
+                flag = False
+
+    return flag
+
+def test(c1, c2, inter, integrated = False):
     """Test two CRNs for pathway equivalence.
 
     Args:
@@ -94,8 +157,6 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
         c2: Tuple of implementation CRN and formal species
         inter: partial interpretation of species
         integrated: Use integrated hybrid notion
-        verbose: Print verbose information.
-    
     """
     (crn1, fs1) = c1
     (crn2, fs2) = c2
@@ -104,11 +165,12 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
     crn2.sort()
 
     # Interpret waste species as nothing.
-    wastes = findWastes(crn2, fs2)
-    fs2 = (set(fs2)).union(wastes)
-    for x in wastes: inter[x] = []
+    wastes = find_wastes(crn2, fs2)
+    fs2 = set(fs2) | wastes
+    for x in wastes: 
+        inter[x] = []
 
-    # Remove trivial reactions
+    # Remove trivial reactions.
     remove_target = []
     for [R, P] in crn2:
         if sorted(R) == sorted(P):
@@ -117,34 +179,16 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
         crn2.remove(r)
 
     species = set().union(*[set().union(*rxn) for rxn in crn2])
-    if verbose :
-        print("# Number of species :", len(species))
-        print("Original CRN:")
-        for [R,P] in crn1:
-            print("   {} -> {}".format(' + '.join(R),' + '.join(P)))
-        print()
-        print("Compiled CRN with partial interpretation of species:")
-        print(inter)
-        for [R,P] in crn2:
-            R = ['({})'.format(','.join(inter.get(r, [r]))) for r in R]
-            P = ['({})'.format(','.join(inter.get(p, [p]))) for p in P]
-            print("   {} -> {}".format(' + '.join(R),' + '.join(P)))
-        print()
 
-    if interactive:
-        print("Enter formal species along with its interpretation:")
-        print("(e.g. i187 -> A + B)")
-        print("When done, press ctrl + D.")
-        for line in sys.stdin:
-            z = list(map(lambda x: x.strip(), line.split("->")))
-            y1 = z[0]
-            y2 = list(map(lambda x: x.strip(), z[1].split("+")))
-            if y1[0] == "i" or y1[0] == "w": y1 = y1[1:]
-            inter[y1] = y2
-            fs2.add(y1)
-        print
+    log.info("Original CRN:")
+    [log.info('    {}'.format(r)) for r in genCRN(crn1, rates = False)]
+    log.info("")
+    log.info("Compiled CRN with partial interpretation of ({}) species:".format(len(species)))
+    [log.info('    {}'.format(r)) for r in genCRN(crn2, interpretation = inter, rates = False)]
+    log.info("")
 
     t1 = time.time()
+    log.debug('Formal species to find basis: {}'.format(fs2))
     basis = find_basis(crn2, fs2, True, inter if integrated else None)
 
     if basis == None: # irregular or nontidy
@@ -192,11 +236,7 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
             def collapse(l):
                 l2 = []
                 for x in l:
-                    if x in inter.keys():
-                        y = inter[x]
-                    else:
-                        y = [x]
-                    l2 += y
+                    l2 += inter.get(x, [x])
                 return l2
             r = [sorted(initial), sorted(collapse(final))]
             fbasis2.append(r)
@@ -206,93 +246,74 @@ def test(c1, c2, inter, integrated = False, interactive = False, verbose = False
 
     # TODO : the following is not strictly correct because it tests for
     #        strong bisimulation instead of weak bisimulation.
-    # permissive test
-    interrev = {}
-    for x in inter.keys():
-        for y in inter[x]:
-            if y not in interrev.keys():
-                interrev[y] = [[x]]
-            else:
-                interrev[y].append([x])
-    for rxn in fbasis:
-        def cartesian_product(l):
-            if len(l) == 0:
-                return []
-            if len(l) == 1:
-                return l[0]
-            r = []
-            for i in l[0]:
-                for j in l[1]:
-                    r.append(i+j)
-            return cartesian_product([r]+l[2:])
-        initial_states = cartesian_product(list(map(lambda x: interrev[x], rxn[0])))
-        for initial in initial_states:
-            initial = sorted(initial)
-            flag = False
-            for r in fbasis2:
-                if r[0] == initial and r[1] == rxn[1]:
-                    flag = True
-                    break
-            if not flag:
-                print("Permissive test failed:")
-                print("  Cannot get from ",initial," to",rxn[1])
-                print("Formal basis found was:")
-                for [r,p] in fbasis_raw:
-                    print(r, "->", p)
-                return False
-    # permissive test end
-    basis = fbasis
+    if passes_permissive_condition(fbasis, fbasis2, fbasis_raw, inter):
+        pass
+
+    flag = passes_delimiting_condition(crn1, fbasis)
 
     log.info("Basis of the compiled CRN:")
-    [log.info('    ' + r) for r in pretty_crn(basis)]
-
-    # delimiting test
-    flag = True
-    for rxn in crn1:
-        if rxn not in basis:
-            reactants = {}
-            for x in rxn[0]:
-                if x in reactants.keys():
-                    reactants[x] += 1
-                else:
-                    reactants[x] = 1
-            products = {}
-            for x in rxn[1]:
-                if x in products.keys():
-                    products[x] += 1
-                else:
-                    products[x] = 1
-            if reactants != products:
-              if verbose :
-                print("Error : The formal pathway")
-                print("    ",end='')
-                printRxn(rxn)
-                print(" is in the input CRN but not in the compiled CRN.")
-              flag = False
-    for rxn in basis:
-        if rxn not in crn1:
-            reactants = {}
-            for x in rxn[0]:
-                if x in reactants.keys():
-                    reactants[x] += 1
-                else:
-                    reactants[x] = 1
-            products = {}
-            for x in rxn[1]:
-                if x in products.keys():
-                    products[x] += 1
-                else:
-                    products[x] = 1
-            if reactants != products:
-              if verbose :
-                print("Error : The formal pathway")
-                print("    ",end='')
-                printRxn(rxn)
-                print(" is in the compiled CRN but not in the input CRN.")
-              flag = False
-
+    [log.info('    {}'.format(r)) for r in pretty_crn(fbasis)]
 
     t2 = time.time()
-    if verbose :
-      print("Elapsed time :", t2-t1)
+    log.debug("Elapsed time: {}".format(t2-t1))
     return flag
+
+if __name__ == "__main__":
+    import sys
+    import argparse
+    from nuskell import __version__
+    from nuskell.crnutils import parse_crn_file, split_reversible_reactions, find_wastes, genCRN
+
+    parser = argparse.ArgumentParser(
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+    parser.add_argument("-v", "--verbose", action = 'count', default = 0,
+            help="print verbose output. -vv increases verbosity level.")
+    parser.add_argument("--crn-file", action='store', metavar='</path/to/file>',
+            help="""Read a CRN from a file.""")
+    parser.add_argument("--formal-species", nargs = '+', default = [], 
+            action = 'store', metavar = '<str>', 
+            help="""List formal species in the CRN.""")
+    parser.add_argument("--fuel-species", nargs = '+', default = [], 
+            action = 'store', metavar = '<str>', 
+            help="""List fuel species in the CRN.""")
+    parser.add_argument("--non-modular", action = 'store_true',
+            help="""Do not optimize using CRN modules.""")
+    args = parser.parse_args()
+
+    if interactive:
+        print("Enter formal species along with its interpretation:")
+        print("(e.g. i187 -> A + B)")
+        print("When done, press ctrl + D.")
+        for line in sys.stdin:
+            z = list(map(lambda x: x.strip(), line.split("->")))
+            y1 = z[0]
+            y2 = list(map(lambda x: x.strip(), z[1].split("+")))
+            if y1[0] == "i" or y1[0] == "w": y1 = y1[1:]
+            inter[y1] = y2
+            fs2.add(y1)
+        print()
+
+    def remove_const(crn, const):
+        for rxn in crn:
+            for x in const:
+                while x in rxn[0]:
+                    rxn[0].remove(x)
+                while x in rxn[1]:
+                    rxn[1].remove(x)
+        return crn
+
+    log.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(levelname)s %(message)s')
+    ch.setFormatter(formatter)
+    if args.verbose == 0:
+        ch.setLevel(logging.WARNING)
+    elif args.verbose == 1:
+        ch.setLevel(logging.INFO)
+    elif args.verbose == 2:
+        ch.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+        ch.setLevel(logging.NOTSET)
+    log.addHandler(ch)
+

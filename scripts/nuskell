@@ -4,6 +4,7 @@
 #  EnumeratorProject
 #
 from __future__ import absolute_import, division, print_function
+from builtins import map, dict
 
 
 import os
@@ -231,19 +232,21 @@ def main(args):
     if args.verbose >= 3: # Get root logger.
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
+        lformat = '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s'
     else:
         logger = logging.getLogger('nuskell')
         logger.setLevel(logging.DEBUG)
+        lformat = '%(levelname)s %(message)s'
 
     if args.logfile:
         fh = logging.FileHandler(args.logfile)
-        formatter = logging.Formatter('%(levelname)s - %(message)s')
+        formatter = logging.Formatter(lformat)
         set_handle_verbosity(fh, args.verbose)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     else:
         ch = logging.StreamHandler()
-        formatter = ColorFormatter('%(levelname)s %(message)s', use_color = True)
+        formatter = ColorFormatter(lformat, use_color = True)
         set_handle_verbosity(ch, args.verbose)
         ch.setFormatter(formatter)
         logger.addHandler(ch)
@@ -313,14 +316,13 @@ def main(args):
     if signals == []:
         raise SystemExit('EXIT: solution does not contain signals.')
 
-    if args.verbose:
-        logger.info("Formal species: {}".format(natural_sort(fs)))
-        logger.info("Signal Complexes:")
-        for cplx in natural_sort(signals):
-            logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
-        logger.info("Fuel Complexes:")
-        for cplx in natural_sort(fuels):
-            logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
+    logger.info("Formal species: {}".format(natural_sort(fs)))
+    logger.info("Signal Complexes:")
+    for cplx in natural_sort(signals):
+        logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
+    logger.info("Fuel Complexes:")
+    for cplx in natural_sort(fuels):
+        logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
 
     if dnafile:
         with open(dnafile, 'w') as dna:
@@ -347,7 +349,8 @@ def main(args):
 
         if not solution.reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
-        logger.debug("After enumeration: {:3d} species, {:3d} reactions".format(len(solution.complexes), len(solution.reactions)))
+        logger.debug("After enumeration: {:3d} species, {:3d} reactions".format(
+            len(solution.complexes), len(solution.reactions)))
 
         # Only for debugging.
         #pilstring = TestTubeIO(solution).write_pil(fh = None,
@@ -375,13 +378,15 @@ def main(args):
             print("Enumeration successfull. Wrote file: {}".format(enumpil))
         else:
             print("Enumeration successfull. Use --pilfile to inspect or modify.")
-        print(" - {:3d} species\n - {:3d} reactions".format(len(solution.complexes), len(solution.reactions)))
+        print(" - {:3d} species\n - {:3d} reactions".format(
+            len(solution.complexes), len(solution.reactions)))
         print(" - {:3d} signal species".format(
             len([c for c in solution.complexes if c.name in interpret.keys()])))
         print(" - {:3d} fuel species".format(
             len([c for c in solution.complexes if c.name in map(str, fuels)])))
         print(" - {:3d} intermediate species".format(
-            len([c for c in solution.complexes if c.name not in (interpret.keys() + map(str, fuels))])))
+            len([c for c in solution.complexes if c.name not in (
+                list(interpret.keys()) + list(map(str, fuels)))])))
         print(' - {:3d} distinct strands in the system'.format(len(solution.strands)))
         print(' - {:3d} nucleotides to be designed\n'.format(sum(sum(
             map(lambda d: d.length, s)) for s in solution.strands.values())))
@@ -399,7 +404,6 @@ def main(args):
             module_crns = []
             for e, module in enumerate(modules):
                 # first, replace history complexes with their interpretation!
-                initials = map(str, module.complexes)
                 for cplx in module.complexes:
                     # TODO quite inefficient loops
                     for k, v in interpret.items():
@@ -419,11 +423,13 @@ def main(args):
                 # append the CRN
                 logger.info("Module {}:".format(e))
                 mcrn = []
-                for r in module.reactions:
-                    assert r in all_reactions
-                    seen_reactions.add(r)
-                    logger.info("reaction {}".format(r.full_string()))
-                    rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
+                for rxn in module.reactions:
+                    assert rxn in all_reactions
+                    seen_reactions.add(rxn)
+                    logger.info("reaction {}".format(rxn.full_string()))
+                    rxn = Reaction([str(r) for r in rxn.reactions],
+                                   [str(r) for r in rxn.products],
+                                   rxn.rate.constant, 0)
                     mcrn.append(rxn)
                 module_crns.append(mcrn)
                 logger.info("")
@@ -435,7 +441,7 @@ def main(args):
             for r in all_reactions :
                 if r not in seen_reactions :
                     logger.info("reaction {}".format(r.full_string()))
-                    rxn = Reaction(map(str, r.reactants), map(str, r.products), r.rate.constant, 0)
+                    rxn = Reaction(list(map(str, r.reactants)), list(map(str, r.products)), r.rate.constant, 0)
                     mcrn.append(rxn)
 
             # append the CRN
@@ -445,71 +451,74 @@ def main(args):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Verify equivalence of CRNs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    fcrm = map(lambda x: split_reversible_reactions([x]), fcrn)  # formal chemical reaction module
+    fcrm = list(map(lambda x: split_reversible_reactions([x]), fcrn))  # formal chemical reaction module
     fcrn = split_reversible_reactions(fcrn)
 
     if args.verify:
         logger.info(header("Verification using: {}".format(args.verify)))
 
-        vcrn = removeSpecies(icrn, map(str, fuels))
-        if args.verbose:
-            logger.info("Verification CRN:")
-            map(lambda r: logger.info('    ' + r), genCRN(vcrn, reversible = True))
-            logger.info("")
+        vcrn = removeSpecies(icrn, list(map(str, fuels)))
+        logger.info("Verification CRN:")
+        [logger.info('    {}'.format(r)) for r in genCRN(vcrn, reversible = True)]
+        logger.info("")
+
+        logger.info("Partial interpretation:")
+        for impl, formal in sorted(interpret.items()):
+            logger.info("    {} => {}".format(impl, ', '.join(formal.elements())))
+        logger.info("")
 
         if args.modular:
-            icrns = map(lambda x: removeSpecies(x, map(str, fuels)), module_crns)
-            if args.verbose:
-                for e, m in enumerate(icrns):
-                    if e < len(fcrm):
-                        logger.info("CRN Module {}:".format(e + 1))
-                        logger.info("--")
-                        map(lambda r: logger.info('    ' + r), genCRN(fcrm[e], reversible = True))
-                    else:
-                        logger.info("CROSSTALK:")
+            icrns = map(lambda x: removeSpecies(x, list(map(str, fuels))), module_crns)
+            for e, m in enumerate(icrns):
+                if e < len(fcrm):
+                    logger.info("CRN Module {}:".format(e + 1))
                     logger.info("--")
-                    map(lambda r: logger.info('    ' + r), genCRN(m, reversible = True))
-                    logger.info("")
+                    [logger.info('    {}'.format(r)) for r in genCRN(fcrm[e], reversible = True)]
+                else:
+                    logger.info("CROSSTALK:")
+                logger.info("--")
+                [logger.info('    {}'.format(r)) for r in genCRN(m, reversible = True)]
+                logger.info("")
 
         for meth in args.verify:
-            if interpret and args.verbose:
-                if 'bisimulation' in meth:
-                    logger.info("Partial interpretation for {}bisimulation:".format(
-                        'modular-' if 'modular-' in meth else ''))
-                    for impl, formal in sorted(interpret.items()):
-                        logger.info("    {} => {}".format(impl, ', '.join(
-                            [x for x in formal.elements()])))
-                    logger.info("")
-                else :
-                    logger.info("Formal species for pathway decomposition:")
-                    logger.info("    {}".format(interpret.keys()))
-
+            logger.info(header("Verification method: {}".format(meth)))
             if 'modular-' in meth:
                 if len(fcrm) > 1:
                     import copy # Temporary to fix a bug in testModules
                     backup = copy.deepcopy(interpret) if interpret else None
-                    v, i = modular_bisimulation(fcrm, icrns, fs, interpret=backup, method=meth[8:], timeout=args.verify_timeout)
+                    v, i = modular_bisimulation(fcrm, icrns, fs, 
+                                                interpret = backup, 
+                                                method = meth[8:], 
+                                                timeout = args.verify_timeout)
                 else :
                     assert fcrn == fcrm[0]
-                    v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:], timeout=args.verify_timeout)
+                    v, i = verify(fcrn, vcrn, fs, 
+                                  interpret = interpret, 
+                                  method = meth[8:], 
+                                  timeout = args.verify_timeout)
             else:
-                v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth, timeout=args.verify_timeout)
+                v, i = verify(fcrn, vcrn, fs, 
+                              interpret = interpret, 
+                              method = meth, 
+                              timeout = args.verify_timeout)
 
+            if i and args.verbose:
+                if not v:
+                    i = i[2 if 'modular-' in meth and len(fcrm) > 1 else 0]
+                logger.info("Returned CRN:")
+                [logger.info('    {}'.format(r)) for r in genCRN(vcrn, 
+                    reversible = True, rates = False, interpretation = i)]
+                logger.info("Returned CRN {}:".format(meth))
+                for impl, formal in sorted(i.items()):
+                    logger.info("    {} => {}".format(impl, ', '.join(formal.elements())))
+
+            logger.info("")
             if v is True:
                 print("Verification result: {} - CRNs are {} equivalent.".format(v, meth))
             elif v is False:
                 print("Verification result: {} - CRNs are not {} equivalent.".format(v, meth))
             elif v is None:
                 print("No verification result: {} verification did not terminate within {} seconds.".format(meth, args.verify_timeout))
-
-            if i and args.verbose:
-                if not v:
-                    i = i[2 if 'modular-' in meth and len(fcrm) > 1 else 0]
-                logger.info("")
-                logger.info("Returned interpretation ['{}']:".format(meth))
-                for impl, formal in sorted(i.items()):
-                    logger.info("    {} => {}".format(
-                        impl, ', '.join([x for x in formal.elements()])))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
