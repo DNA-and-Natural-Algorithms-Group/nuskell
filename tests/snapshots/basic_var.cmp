@@ -63,17 +63,17 @@ Translation scheme          CRN             enumerated pathway bisimulation modu
     cardelli2013_2D_noGC.ts      amp_02.crn      [c]     None   False        False                290                     12                             timeout  
     cardelli2013_2D_noGC.ts      amp_03.crn      [c]    False   False        False                290                     12                               False  
     cardelli2013_2D_noGC.ts      amp_04.crn      [c]    False   False        False                330                     12                               False  
-    cardelli2013_2D_noGC.ts  amp_red_01.crn      [c]     None    None         None                445                     24                             timeout  
-    cardelli2013_2D_noGC.ts  amp_red_02.crn      [c]     None    None         None                485                     24                             timeout  
-    cardelli2013_2D_noGC.ts  amp_red_03.crn      [c]     None    None         None                500                     24                             timeout  
-    cardelli2013_2D_noGC.ts  amp_red_04.crn      [c]    False    None         None                540                     24                             timeout  
+    cardelli2013_2D_noGC.ts  amp_red_01.crn      [c]     None    True         True                445                     24                                True  
+    cardelli2013_2D_noGC.ts  amp_red_02.crn      [c]     None    True         True                485                     24                                True  
+    cardelli2013_2D_noGC.ts  amp_red_03.crn      [c]     None    True         True                500                     24                                True  
+    cardelli2013_2D_noGC.ts  amp_red_04.crn      [c]    False    True         True                540                     24                                True  
     cardelli2013_2D_noGC.ts    basic_01.crn      [c]     True    True         True                210                      8                                True  
     cardelli2013_2D_noGC.ts    basic_02.crn      [c]    False   False        False                270                     10                               False  
     cardelli2013_2D_noGC.ts    basic_03.crn      [c]     None    True         True                230                     10                                True  
     cardelli2013_2D_noGC.ts    basic_04.crn      [c]    False   False        False                270                     10                               False  
     cardelli2013_2D_noGC.ts    basic_05.crn      [c]    False    True         True                440                     18                                True  
     cardelli2013_2D_noGC.ts    basic_06.crn      [c]    False    True         True                440                     18                                True  
-    cardelli2013_2D_noGC.ts    basic_07.crn      [c]     None    None         None                405                     20                             timeout  
+    cardelli2013_2D_noGC.ts    basic_07.crn      [c]     None    True         True                405                     20                                True  
     cardelli2013_2D_noGC.ts    basic_08.crn      [c]    False    True         True                460                     20                                True  
     cardelli2013_2D_noGC.ts      red_01.crn      [c]     None   False        False                250                     12                             timeout  
     cardelli2013_2D_noGC.ts      red_02.crn      [c]     None   False        False                290                     12                             timeout  

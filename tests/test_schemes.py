@@ -67,6 +67,8 @@ class SinlgeSnapshotCMP(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
         self.assertTrue(filecmp.cmp(cmp_file, new_file, shallow=False))
+        os.remove(new_file)
+        os.remove(err_file)
 
     def test_oscillator_01_var(self):
         # Exisiting Data
