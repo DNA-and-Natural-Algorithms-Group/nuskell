@@ -427,7 +427,7 @@ def main(args):
                     assert rxn in all_reactions
                     seen_reactions.add(rxn)
                     logger.info("reaction {}".format(rxn.full_string()))
-                    rxn = Reaction([str(r) for r in rxn.reactions],
+                    rxn = Reaction([str(r) for r in rxn.reactants],
                                    [str(r) for r in rxn.products],
                                    rxn.rate.constant, 0)
                     mcrn.append(rxn)

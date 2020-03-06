@@ -9,32 +9,19 @@ from functools import reduce
 import logging
 log = logging.getLogger(__name__)
 
-import itertools, time, string, copy, math
-# python's collections.Counter is a data type for multisets,
-#  such as states of a CRN or interpretations
-from collections import Counter
+import itertools, copy, math
+from collections import Counter # i.e. multiset (states of a CRN, interpretations, ...)
 
-import nuskell.verifier.basis_finder
+def pretty_crn(crn):
+    for rxn in crn:
+        yield '{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
 
-gprinting = False
-printing = gprinting
-debug = False
-
-def printRxn(rxn):
-    print('{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
-
-def output(intrp):
-    for sp in intrp:
-        print("   ",end='')
-        k = sp
-        try:
-            replace = k[0] == 'impl'
-        except (IndexError, TypeError):
-            replace = False
-        if replace:
-            k = k[1]
-        printRxn([{k: 1}, intrp[sp]])
-    print("")
+def pretty_rxn(rxn, flag_internal = True):
+    R = list(map(lambda r: 'i{{{}}}'.format(r[1]) if isinstance(
+        r, tuple) else '{}'.format(r), rxn[0].elements()))
+    P = list(map(lambda r: 'i{{{}}}'.format(r[1]) if isinstance(
+        r, tuple) else '{}'.format(r), rxn[1].elements()))
+    return '{} -> {}'.format(' + '.join(R), ' + '.join(P))
 
 def deformalize(intrp, fs):
     intr = {}
@@ -43,27 +30,24 @@ def deformalize(intrp, fs):
             intr[('impl', sp)] = intrp[sp]
         else:
             intr[sp] = intrp[sp]
-
     return intr
 
 def formalize(intrp):
     intr = {}
     for sp in intrp:
-        try:
-            replace = sp[0] == 'impl'
-        except (IndexError, TypeError):
-            replace = False
-        if replace:
+        if isinstance(sp, tuple):
+            assert sp[0] == 'impl'
             intr[sp[1]] = intrp[sp]
         else:
             intr[sp] = intrp[sp]
-
     return intr
 
 def solve_contejean_devie(a):
-# Find a non-negative and non-trivial integer solution x of the equation ax=0.
-# Return [] when there is no such solution.
-# (This is the algorithm from Contejean & Devie 1994.
+    """ Algorithm from Contejean & Devie 1994.
+
+    Find a non-negative and non-trivial integer solution x of the equation ax=0.
+    Return [] when there is no such solution.
+    """
     q = len(a[0])
     
     def multi(x, y):
@@ -124,34 +108,15 @@ def solve_contejean_devie(a):
                     f[i] = True
     return []
 
-def solve_domenjoud(a):
-    # THIS METHOD IS A STUB -- DO NOT USE
-    # find a non-negative non-zero integer solution x for ax = 0
-    # algorithm from Domenjoud
-    # where len(a) = m, len(a[i]) = n+1, require x[n] == 1
-    #  (since we're actually solving for a[:,:-1] x = b, and a[:,-1] = b)
-    m = len(a)
-    n = len(a[0])
-    rank = min(m,n)
-    for comb in itertools.combinations(range(n), rank):
-        #
-        asub = [[row[j] for j in comb] for row in a]
-        
-
 def solve(a):
     # wrapper method to solve a system of equations with method of choice
     return solve_contejean_devie(a)
-
-# multiset difference is collections.Counter's '-' operator
-# note: NOT collections.Counter's 'subtract' function
-# symmetric difference is two copies of that
 
 def msleq(x,y):
     # True if (multisets) x <= y (vector comparison)
     for k in x:
         if x[k] > y[k]:
             return False
-
     return True
 
 def mstimes(s, l):
@@ -172,23 +137,28 @@ def msdiv(s, l):
     return c
 
 def subsets(x):
-# generates all subsets of multiset x
-# Python's 'itertools.product' method works almost perfectly, and should
-#  work without duplicates
+    # generates all subsets of multiset x
     ks = list(x.keys())
-    vs = list(map(lambda v: range(v+1), x.values()))
+    vs = list([list(range(v+1)) for v in x.values()])
     for prod in itertools.product(*vs):
         # calls to keys and values with no dictionary modifications in between
         #  should produce the keys and values in the same order,
         #  and product should respect that order (I think)
-        yield Counter(dict(zip(ks, prod))) + Counter()
+        yield Counter(dict(list(zip(ks, prod)))) + Counter()
 
-def enum(n, s, weights=None):
-# partition multiset s into n ordered (possibly empty) parts.  
-# e.g. enum(2, [a, b]) = [ [[],[a,b]], [[a],[b]], [[b],[a]], [[a,b],[]] ]
-# if weights are given, enumerates all lists l of n multisets
-#  such that s = sum(weights[i] * l[i])
-# (if weights are not given, equivalent to weights[i] = 1 for all i)
+def enum(n, s, weights = None):
+    """Partition multiset s into n ordered (possibly empty) parts.  
+
+    For example:
+        enum(2, [a, b]) = [ [[], [a, b]], 
+                            [[a], [b]], 
+                            [[b], [a]], 
+                            [[a, b],[]] ]
+
+    If weights are given, enumerates all lists l of n multisets such that 
+        s = sum(weights[i] * l[i]) 
+    (if weights are not given, equivalent to weights[i] = 1 for all i)
+    """
     if weights is None:
         weights = [1] * n
     if n == 0:
@@ -204,10 +174,11 @@ def enum(n, s, weights=None):
         return
     if n == 1:
         sdivw = msdiv(s, weights[0])
-        if sdivw is not False: yield [sdivw]
+        if sdivw is not False: 
+            yield [sdivw]
         return
-    x = subsets(s)
-    for i in x:
+
+    for i in subsets(s):
         ss = mstimes(i, weights[0])
         if not msleq(ss, s):
             continue
@@ -217,13 +188,11 @@ def enum(n, s, weights=None):
 def interpret(s, intrp):
     # return interpretation of s according to intrp
     ss = s.copy()
-    ks = list(ss.keys())
-    for k in ks:
+    for k in list(s):
         if k in intrp:
             v = ss.pop(k)
             for i in range(v):
                 ss += intrp[k]
-
     return ss
 
 def interleq(x, y, intrp):
@@ -231,12 +200,17 @@ def interleq(x, y, intrp):
     return msleq(interpret(x,intrp),interpret(y,intrp))
 
 def subst(crn, intrp):
-# Substitute implementation species for formal species in CRN according to interpretation.
+    # Substitute implementation species for formal species in CRN according to interpretation.
     return [[interpret(j,intrp) for j in rxn] for rxn in crn]
 
 def checkT(T):
-# checks the table to see if there is a whole row or a whole (non-trivial) column that's all false, so we have to roll back.
-# Returns False if we have to roll back.  (i.e. our partial interpretation fails the delimiting condition)
+    """Check table...
+
+    # checks the table to see if there is a whole row or a whole (non-trivial)
+    # column that's all false, so we have to roll back.  Returns False if we
+    # have to roll back.  (i.e. our partial interpretation fails the delimiting
+    # condition)
+    """
     for i in range(len(T)):
         if True not in T[i]:
             return False
@@ -249,12 +223,15 @@ def checkT(T):
     return True
 
 def update(fcrn, icrn, fs):
-# the um, er, um, completely recalculates the table from scratch.
-# assumes subst has already been applied to implementation icrn
-# This should be logically equivalent to the UpdateTable in the MS thesis for compiled DNA reactions (we think).
-# WARNING:
-# If an implementation CRN has directly catalytic species, the code below may fail (though thesis psuedocode is correct).
-# E.g.  i3 + i7 --> i12 + i7 + i8
+    # the um, er, um, completely recalculates the table from scratch.
+    # assumes subst has already been applied to implementation icrn.
+    # This should be logically equivalent to the UpdateTable in the MS thesis
+    # for compiled DNA reactions (we think).
+
+    # WARNING:
+    # If an implementation CRN has directly catalytic species, the code below
+    # may fail (though thesis psuedocode is correct).  
+    # E.g.  i3 + i7 --> i12 + i7 + i8
     m = len(icrn)
     r = []
     for i in range(len(icrn)):
@@ -288,7 +265,8 @@ def update(fcrn, icrn, fs):
                 rr.append(False)
         t1 = icrn[i][0] - icrn[i][1]
         t2 = icrn[i][1] - icrn[i][0]
-        if (set(t1).isdisjoint(set(fs)) or not set(t2).issubset(set(fs))) and (set(t2).isdisjoint(set(fs)) or not set(t1).issubset(set(fs))):
+        if (set(t1).isdisjoint(set(fs)) or not set(t2).issubset(set(fs))) and \
+                (set(t2).isdisjoint(set(fs)) or not set(t1).issubset(set(fs))):
             rr.append(True)
         else:
             rr.append(False)
@@ -296,13 +274,31 @@ def update(fcrn, icrn, fs):
     return r
 
 def perm(fcrn, icrn, fs, intrp, permcheck, state):
-# check the permissive condition, using the global original formal crn and original implementation crn (without substitutions).
+    """ Check the permissive condition.
+    
+    Uses the original formal CRN  and original implementation CRN
+    (without substitutions).
+
+    Args:
+        fcrn: The original formal CRN
+        icrn: The original implementation CRN
+        fs: The formal species.
+
+    """
     if len(permcheck) == 2:
         permissive_depth = permcheck[1]
         permcheck = permcheck[0]
     else:
         permissive_depth = None
+
     intr, max_depth, permissive_failure = state
+    log.debug('Checking permissive condition:')
+    log.debug('Original formal CRN:')
+    [log.debug('  {}'.format(r)) for r in pretty_crn(fcrn)]
+    log.debug('Original implementation CRN:')
+    [log.debug('  {}'.format(pretty_rxn(r))) for r in icrn]
+    log.debug('Formal species: {}'.format(fs))
+
     tr = []
     fr = []
     hasht = set([])
@@ -310,7 +306,8 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
     T = update(fcrn, crn2, fs)
     if not checkT(T):
         return [False, state]
-    nulls = [k for k in intrp if not len(intrp[k].keys())] # null species
+
+    nulls = [k for k in intrp if not len(list(intrp[k]))] # null species
 
     def cnstr(s):
         # given formal state s, generate minimal set of impl. states which
@@ -422,7 +419,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                     for i in range(len(part) - 2)]):
                 continue # avoid redundancy
 
-            pickups = filter(None,part[:-1])
+            pickups = [_f for _f in part[:-1] if _f is not None]
             check1 = True
             place = start
             ignore = set()
@@ -449,11 +446,12 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         return False if not permissive_depth else None
 
     def allsearch(formal):
-        # check at once whether every implementation of state "formal"
-        #  can implement the given formal reaction
-        #  by storing for each state the list of states it can reach w/o
-        #  null species (except those producible by loops)
-        points = list(map(lambda x: [x,set([]),[]], cnstr(formal)))
+        """Check whether every implementation of state "formal" can implement the given formal reaction.
+
+        This function stores for each state the list of states it can reach.
+         -- w/o null species (except those producible by loops)
+        """
+        points = list([[x,set([]),[]] for x in cnstr(formal)])
         # points[i][0] is the ith implementation state
         # points[i][1] is all null species loopable from that state
         # points[i][2][j] is True if points[j][0] is known to be reachable
@@ -461,7 +459,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
         # exception: points[i][2] is True if a formal reaction is known to
         #  be reachable from state i
         l = len(points) # let's not recalculate this every time...
-        rngl = range(l) # same here...
+        rngl = list(range(l)) # same here...
         for i in rngl:
             points[i][2] = l*[False]
 
@@ -548,11 +546,13 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                 return [False, [intr, max_depth, permissive_failure]]
 
             continue
-        
-        # At this point, "ist" contains an exhaustive and sufficient list of possible initial implementation states 
-        # in which the current formal reaction #i must be able to fire (via a series of trivial reactions),
-        # Note that we will only want to test states in "ist" that interpret to a state in which #i can fire.
-        
+       
+        # At this point, "ist" contains an exhaustive and sufficient list of
+        # possible initial implementation states in which the current formal
+        # reaction #i must be able to fire (via a series of trivial reactions),
+        # Note that we will only want to test states in "ist" that interpret to
+        # a state in which #i can fire.
+
         tested = []  # to avoid testing a superset of some state that's already been tested
         spaceefficient = True # ... but only if we have space to store them
         for j in ist:
@@ -567,8 +567,7 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
                 if t:
                     continue
                 hasht = set([])
-                found = ((permcheck=="loop-search") \
-                         and loopsearch(j,fcrn[i][0])) \
+                found = ((permcheck=="loop-search") and loopsearch(j,fcrn[i][0])) \
                         or ((permcheck=="depth-first") and search(j,0))
                 if not found: # didn't work, but keep track of stuff for user output
                     if max_depth == -2:
@@ -587,9 +586,12 @@ def perm(fcrn, icrn, fs, intrp, permcheck, state):
     return [True, intr]
 
 def moduleCond(module, formCommon, implCommon, intrp):
-    # check whether the modularity condition (every implementation species can turn into common species with the same interpretation) is satisfied
-    # assumes intrp is complete and filtered, so intrp.keys() is a list of all implementation species in this module (and no others)
-    # algorithm is basically the wholegraph algorithm from perm, where all "minimal states" are each exactly one implementation species
+    # check whether the modularity condition (every implementation species can
+    # turn into common species with the same interpretation) is satisfied
+    # assumes intrp is complete and filtered, so intrp.keys() is a list of all
+    # implementation species in this module (and no others) algorithm is
+    # basically the whole-graph algorithm from perm, where all "minimal states"
+    # are each exactly one implementation species
 
     # canBreak[k] is:
     #   True if species k is known to decompose (via trivial reactions) into
@@ -653,11 +655,13 @@ def moduleCond(module, formCommon, implCommon, intrp):
     return all([canBreak[k] is True for k in canBreak])
 
 def equations(fcrn, icrn, fs, intrp, permcheck, state):
-    # All unknown implementation reactions (i.e. those with some unknown species) must be trivial.
-    # Build the matrix for the the "solve" function, to see whether the interpretation can be completed as required.
-    # Also note that "unknow" is not used; the unknown species are recalculated here
-    #  because "unknow" contains only those implementation reactions that have not been solved by the row search,
-    #  but other rows (i.e. implementation reactions) may be implicitly solved by the partial interpretation.
+    # All unknown implementation reactions (i.e. those with some unknown
+    # species) must be trivial.  Build the matrix for the the "solve" function,
+    # to see whether the interpretation can be completed as required.  Also
+    # note that "unknow" is not used; the unknown species are recalculated here
+    # because "unknow" contains only those implementation reactions that have
+    # not been solved by the row search, but other rows (i.e. implementation
+    # reactions) may be implicitly solved by the partial interpretation.
     unknown = []
     ust = set([])
     sicrn = subst(icrn, intrp)
@@ -666,7 +670,7 @@ def equations(fcrn, icrn, fs, intrp, permcheck, state):
         tmp |= set(sicrn[i][1])-set(fs)
         ust |= tmp
         if tmp != set([]):
-            unknown.append(i)  # "unknown" is the list of implementation reactions with an unknown species
+            unknown.append(i)  # list of implementation reactions with an unknown species
     us = list(ust)  # all species that remain unknown in current (partial) interpretation
     
     # check atomic condition
@@ -747,7 +751,9 @@ def equations(fcrn, icrn, fs, intrp, permcheck, state):
     return [False, state]
 
 def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
-# Row search.  I.e. make sure every implementation reaction can interpret to a formal reaction (or be trivial).
+    """ Row search: every implementation reaction must interpret to a formal reaction 
+        (or be trivial).
+    """
     intr, max_depth = state[0:2]
     sicrn = subst(icrn, intrp)
     T = update(fcrn, sicrn, fs)
@@ -836,9 +842,9 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
             tmpr = enum(nr, sr, vr)
             for (i,j) in itertools.product(tmpl, tmpr):
             # for i in tmpl:
-                intrpleft = dict(zip(kl, i))
+                intrpleft = dict(list(zip(kl, i)))
                 # for j in tmpr:
-                intrpright = dict(zip(kr, j))
+                intrpright = dict(list(zip(kr, j)))
                 checkCompatible = True
                 for key in intrpleft:
                     if key in intrpright and \
@@ -869,8 +875,17 @@ def searchr(fcrn, icrn, fs, unknown, intrp, d, permcheck, state, nontriv=False):
         yield [intr, max_depth] + state[2:]
     return
 
-def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
+def searchc(fcrn, icrn, fs, unknown, intrp, depth, permcheck, state):
     # Search column.  I.e. make sure every formal reaction can be implemented.
+
+    log.debug('Searching column ...')
+    log.debug('State: {}'.format(state))
+    #log.debug('Original formal CRN:')
+    #[log.debug('  {}'.format(r)) for r in pretty_crn(fcrn)]
+    #log.debug('Original implementation CRN:')
+    #[log.debug('  {}'.format(pretty_rxn(r))) for r in icrn]
+    #log.debug('Formal species: {}'.format(fs))
+
     intr, max_depth = state[0:2]
     sicrn = subst(icrn, intrp)
     T = update(fcrn, sicrn, fs)
@@ -878,9 +893,9 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
         yield False
         yield state
         return
-    if max_depth >= 0 and d > max_depth:
+    if max_depth >= 0 and depth > max_depth:
         intr = intrp.copy()
-        max_depth = d
+        max_depth = depth
     min = len(icrn)+1
     c = -1  # this will be the next column to solve, if possible
     found = False
@@ -892,13 +907,14 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
         if tmp < min:
             min = tmp
             c = i
+
     if c < 0:  # done with column search.  transition to row search!
         untmp = []
         for i in range(len(icrn)):
             if not (set(sicrn[i][0])-set(fs) == set([]) and \
                     set(sicrn[i][1])-set(fs) == set([])):
                 untmp.append(i)
-        out = searchr(fcrn, icrn, fs, untmp, intrp, d, permcheck,
+        out = searchr(fcrn, icrn, fs, untmp, intrp, depth, permcheck,
                       [intr, max_depth] + state[2:])
         if next(out):
             yield True
@@ -929,8 +945,8 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
                 tmpr = enum(nr, sr, vr)
                 for (i,j) in itertools.product(tmpl, tmpr):
                     n += 1
-                    intrpleft = dict(zip(kl, i))
-                    intrpright = dict(zip(kr, j))
+                    intrpleft = dict(list(zip(kl, i)))
+                    intrpright = dict(list(zip(kr, j)))
 
                     checkCompatible = True
                     for key in intrpleft:
@@ -946,7 +962,7 @@ def searchc(fcrn, icrn, fs, unknown, intrp, d, permcheck, state):
                     itmp = intrp.copy()
                     itmp.update(intrpleft)
                     itmp.update(intrpright)
-                    out = searchc(fcrn, icrn, fs, untmp, itmp, d+1,
+                    out = searchc(fcrn, icrn, fs, untmp, itmp, depth+1,
                                   permcheck, [intr, max_depth] + state[2:])
                     if next(out):
                         if not found:
@@ -967,137 +983,147 @@ def test_iter(fcrn, ic, fs, interpretation=None, permissive='whole-graph',
     '''Check whether an interpretation which is a bisimulation exists.
 
     Arguments:
-    fcrn, ic: formal and implementation CRN, respectively (Counter format)
-      format: [ [reactants, products]* ]
-        reactants, products each = Counter({('species_name': count)*})
-    fs: list of all formal species in fcrn
-    interpretation: partial interpretation which output must respect
-      format: {('implementation_species_name': formal_multiset)*}
-        where formal_multiset := Counter({('formal_species_name': count)*})
-      default None: initial partial interpretation is empty
-      semi-default True: function will find each formal species for which a species of the same name appears in ic, and set the initial partial interpretation of that implementation species to one copy of its counterpart
-    permissive: method to check the permissive condition
-      'whole-graph': construct a reachability graph for each formal reaction.  Uses poly(n^k) space and time, where n is size of CRN and k is number of reactants in formal reaction.
-      'loop-search': search for productive loops with space-efficient algorithm.  Uses poly(n,k) space and poly(2^n,2^k) time.
-      'depth-first': depth-first search for a path to implement each formal reaction.  Space and time bounds not known, but probably worse.
-    permissive_depth: a bound on a quantity which is approximately the length of a path to search for, depending on which algorithm is used.
+        fcrn, ic: formal and implementation CRN, respectively (Counter format)
+            format: [ [reactants, products]* ]
+            reactants, products each = Counter({('species_name': count)*})
+        fs: list of all formal species in fcrn
+        interpretation: partial interpretation which output must respect
+            format: {('implementation_species_name': formal_multiset)*}
+            where formal_multiset := Counter({('formal_species_name': count)*})
+
+            default None: initial partial interpretation is empty
+
+            semi-default True: function will find each formal species for which
+            a species of the same name appears in ic, and set the initial
+            partial interpretation of that implementation species to one copy
+            of its counterpart
+        permissive: method to check the permissive condition
+            'whole-graph': construct a reachability graph for each formal
+                reaction.  Uses poly(n^k) space and time, where n is size of
+                CRN and k is number of reactants in formal reaction.
+            'loop-search': search for productive loops with space-efficient
+                algorithm.  Uses poly(n,k) space and poly(2^n,2^k) time.
+            'depth-first': depth-first search for a path to implement each
+                formal reaction.  Space and time bounds not known, but probably worse.
+        permissive_depth: a bound on a quantity which is approximately the
+            length of a path to search for, depending on which algorithm is used.
 
     Outputs:
-    if implementation is correct, yield True, then yield correct interpretations
-    otherwise, yield False, then yield [intrp, max_depth, permissive_failure]
-      intrp: "best" incorrect interpretation
-      max_depth: if > 0, search depth in Qing's algorithm at which intrp was found
+        if implementation is correct, yield True, then yield correct interpretations
+        otherwise, yield False, then yield [intrp, max_depth, permissive_failure]
+        intrp: "best" incorrect interpretation
+        max_depth: if > 0, search depth in Qing's algorithm at which intrp was found
                  if -1, permissive condition was proven false for intrp
-                 if -2, permissive condition could not be proven true for intrp with specified permissive_depth
-      permissive_failure: if max_depth < 0, permissive_failure[0] is formal reaction for which permissive condition failed
-                          if so and method was not 'whole-graph', permissive_failure[1] is implementation state which could not implement the reaction
+                 if -2, permissive condition could not be proven true for intrp
+                 with specified permissive_depth
+        permissive_failure: if max_depth < 0, permissive_failure[0] is formal
+            reaction for which permissive condition failed if so and method was
+            not 'whole-graph', permissive_failure[1] is implementation state
+            which could not implement the reaction 
     '''
 
-    global printing, gprinting, debug
-    printing = gprinting and (verbose or debug)
+    log.debug('Testing:')
+    log.debug('Original formal CRN:')
+    [log.debug('  {}'.format(r)) for r in pretty_crn(fcrn)]
+    log.debug('Original implementation CRN:')
+    [log.debug('  {}'.format(pretty_rxn(r))) for r in ic]
+    log.debug('Formal species: {}'.format(fs))
 
     if permissive not in ['whole-graph', 'loop-search', 'depth-first']:
         raise ValueError('permissive test should be "whole-graph", "loop-search", or "depth-first"')
 
-    icrn = copy.deepcopy(ic)
-    for rxn in icrn:
-        for k in rxn[0]:
-            if k in fs:
-                v = rxn[0].pop(k)
-                rxn[0][('impl',k)] = v
-        for k in rxn[1]:
-            if k in fs:
-                v = rxn[1].pop(k)
-                rxn[1][('impl',k)] = v
+    def rimpl(k): # Do not confuse formal species with same-named species in the implementation ...
+        return ('impl', k) if k in fs else k
 
-    if interpretation is None: # default 1: no interpretation information
+    icrn = []
+    for [r, p] in ic:
+        nr = Counter({rimpl(k): v for (k, v) in r.items()})
+        np = Counter({rimpl(k): v for (k, v) in p.items()})
+        icrn.append([nr, np])
+
+    log.debug('Internal implementation CRN:')
+    [log.debug('  {}'.format(pretty_rxn(r))) for r in icrn]
+
+    if interpretation is None: # default: no interpretation information
         intrp = {}
-    elif interpretation is True: # default 2: each fsp has a canonical implementation
-        intrp = {('impl',fsp): Counter({fsp: 1}) for fsp in fs
-                 if any([('impl',fsp) in rxn[0] or ('impl',fsp) in rxn[1]
-                         for rxn in icrn])}
+    elif interpretation is True: # special case: each fsp has a canonical implementation
+        intrp = {('impl', fsp): Counter({fsp: 1}) for fsp in fs
+                if any([('impl', fsp) in rxn[0] or ('impl', fsp) in rxn[1] for rxn in icrn])}
     else:
         intrp = deformalize(interpretation, fs)
 
+    log.debug('Internal interpretation:')
+    [log.debug('  {}: {}'.format(k,v)) for (k, v) in intrp.items()]
+
     if permissive_depth:
         permissive = [permissive, permissive_depth]
+    log.debug('Permissive argument: {}'.format(permissive))
 
-    if verbose:
-        print("Original CRN:")
-        for rxn in fcrn:
-            print("   ",end='')
-            printRxn(rxn)
-        print()
-        if ic == []:
-            print("Compiled CRN is empty")
-            print()
-            good = fcrn == []
-            yield good
-            if good:
-                yield {}
-            else:
-                yield [{},0,[[],[]]]
-        print("Compiled CRN:")
-        for rxn in ic:
-            print("   ",end='')
-            printRxn(rxn)
-        print()
-    elif ic == []:
-        good = fcrn == []
-        if good:
-            yield {}
-        else:
-            yield [{},0,[[],[]]]
+    if ic == []: # Empty implementation CRN!
+        yield {} if fcrn == [] else [{},0,[[],[]]]
+
     unknown = [i for i in range(len(fcrn))]
     out = searchc(fcrn, icrn, fs, unknown, intrp, 0, permissive,
                   [{}, 0, [[Counter(),Counter()],Counter()]])
+
     correct = next(out)
-    if verbose:
-        if correct:
-            intrpout1 = next(out)
-            print("Valid interpretation:")
-            output(intrpout1)
-            yield True
-            yield formalize(intrpout1)
-            for intrpout in out:
-                yield formalize(intrpout)
-                
-        else:
-            intr, max_depth, permissive_failure = next(out)
-            if max_depth >= 0:
-                print("Delimiting condition cannot be satisfied.")
-                if max_depth >= len(fcrn):
-                    print("There is implementation reaction not in formal CRN.")
-                else:
-                    print("There is formal reaction not implemented.")
-                print("Max search depth reached:", max_depth)
-                print("with interpretation:")
-                output(intr)
+    if correct:
+        yield True
+        for intrpout in out:
+            finter = formalize(intrpout)
+            log.info("Valid interpretation:")
+            [log.info('  {:s} -> {}'.format(k, 
+                ' + '.join(v.elements()))) for (k, v) in finter.items()]
+            yield finter
+
+    elif verbose: #DEPRECATED, but useful information for now...
+
+        def printRxn(rxn):
+            print('{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
+        
+        def output(intrp):
+            for sp in intrp:
+                print("   ", end='')
+                k = sp
+                if isinstance(sp, tuple):
+                    k = k[1]
+                printRxn([{k: 1}, intrp[sp]])
+            print("")
+
+        intr, max_depth, permissive_failure = next(out)
+        if max_depth >= 0:
+            print("Delimiting condition cannot be satisfied.")
+            if max_depth >= len(fcrn):
+                print("There is implementation reaction not in formal CRN.")
             else:
-                print("Fail in permissive test with interpretation:")
-                output(intr)
-                print("for formal reaction:", end='')
-                printRxn(permissive_failure[0])
-                print("from implementation state:", permissive_failure[1])
-                if max_depth == -2:
-                    print("with max trivial reaction chain length", permissive_depth, "reached.")
-            print()
-
-            yield False
-            yield [formalize(intr), max_depth, permissive_failure]
-            return
-    else:
-        if correct:
-            yield True
-            for intrpout in out:
-                yield formalize(intrpout)
+                print("There is formal reaction not implemented.")
+            print("Max search depth reached:", max_depth)
+            print("with interpretation:")
+            output(intr)
         else:
-            yield False
-            intr, max_depth, permissive_failure = next(out)
-            yield [formalize(intr), max_depth, permissive_failure]
+            print("Fail in permissive test with interpretation:")
+            output(intr)
+            print("for formal reaction:", end='')
+            printRxn(permissive_failure[0])
+            print("from implementation state:", permissive_failure[1])
+            if max_depth == -2:
+                print("with max trivial reaction chain length", permissive_depth, "reached.")
+        print()
 
-def test(fcrn, icrn, fs, interpretation=None, permissive='whole-graph',
-         permissive_depth=None, verbose=False, iterate=False):
+        yield False
+        yield [formalize(intr), max_depth, permissive_failure]
+        return
+    else:
+        intr, max_depth, permissive_failure = next(out)
+        fintr = formalize(intr)
+        #log.info("Invalid interpretation:")
+        #[log.info('  {:s} -> {}'.format(k, 
+        #    ' + '.join(v.elements()))) for (k, v) in finter.items()]
+        yield False
+        yield [fintr, max_depth, permissive_failure]
+
+def test(fcrn, icrn, fs, interpretation = None, permissive = 'whole-graph',
+         permissive_depth = None, verbose = False, iterate = False):
     # wrapper function for the new test_iter; should be backwards-compatible
     # if iterate=False, should behave exactly like old test
     # if iterate=True, just return test_iter (the iterator)
@@ -1112,7 +1138,7 @@ def test(fcrn, icrn, fs, interpretation=None, permissive='whole-graph',
 
 def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
                 permissive='whole-graph', permissive_depth=None,
-                verbose=False, iterate=False):
+                verbose=False, iterate = False):
     '''Check whether an interpretation which is a modular bisimulation exists.
 
     Arguments:
@@ -1137,7 +1163,7 @@ def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
     if ispCommon is None:
         ispList = [reduce(lambda x,y: x | y, [set(rxn[0]) | set(rxn[1]) for rxn in icrn]) for icrn in icrns]
         ispCommon = reduce(lambda x,y: x & y, ispList)
-        ispCommon = ispCommon.union(interpretation.keys()) # FIXME: this line is a hack
+        ispCommon = ispCommon.union(list(interpretation.keys())) # FIXME: this line is a hack
 
     if not all([k in interpretation for k in ispCommon]):
         #raise NotImplementedError('Modular test not yet implemented when interpretation of common species not provided.')
@@ -1163,7 +1189,7 @@ def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
             if good(intrp):
                 if iterate:
                     outs[i] = itertools.chain([intrp],
-                                              itertools.ifilter(good, out))
+                                              filter(good, out))
                     found = True
                 else:
                     interpretation.update(intrp)
@@ -1182,16 +1208,79 @@ def testModules(fcrns, icrns, fs, interpretation, ispCommon=None,
         return [True, interpretation]
 
 if __name__ == "__main__":
-    # The name of the program
-    program_name = "test"
-    fcrn = [[['a'],['b']]]
-    fs1 = []
-    cs1 = []
-    icrn = [[['a1'],['b1']],[['x'],['a1']],[['x'],['b1']],[['y'],['b1']],[['y'],['a1']],[['x'],['a0']],[['a0'],['a1']]]
-    fs2 = ['a','b']
-    cs2 = []
-    v = test(fcrn, icrn, fs2)
-    if v[0]:
-        print("verify: compilation was correct.")
-    else:
-        print("verify: compilation was incorrect.")
+    import sys
+    import argparse
+    from nuskell import __version__
+    from dsdobjects.utils import natural_sort
+    from nuskell.crnutils import parse_crn_file, parse_crn_string
+    from nuskell.crnutils import split_reversible_reactions, genCRN
+
+    parser = argparse.ArgumentParser(
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+    parser.add_argument("-v", "--verbose", action = 'count', default = 0,
+            help="print verbose output. -vv increases verbosity level.")
+    parser.add_argument("--formal-crn", action='store', metavar='</path/to/file>',
+            help="""Read a formal CRN from a file.""")
+    parser.add_argument("--implementation-crn", action='store', metavar='</path/to/file>',
+            help="""Read an implementation CRN from a file.""")
+    parser.add_argument("--interpretation", action='store', metavar='</path/to/file>',
+            help="""Read an interpretation (CRN format) from a file.""")
+    args = parser.parse_args()
+
+    log.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(levelname)s %(message)s')
+    ch.setFormatter(formatter)
+    if args.verbose == 0:
+        ch.setLevel(logging.WARNING)
+    elif args.verbose == 1:
+        ch.setLevel(logging.INFO)
+    elif args.verbose == 2:
+        ch.setLevel(logging.DEBUG)
+    elif args.verbose >= 3:
+        ch.setLevel(logging.NOTSET)
+    log.addHandler(ch)
+
+    log.info('Input formal CRN:')
+    fcrn, fs = parse_crn_file(args.formal_crn)
+    [log.info('    ' + r) for r in genCRN(fcrn, rates = False)]
+    log.info('... with formal species: {}'.format(natural_sort(fs)))
+
+    log.info('Input interpretation CRN:')
+    icrn, _ = parse_crn_file(args.implementation_crn)
+    [log.info('    ' + r) for r in genCRN(icrn, rates = False)]
+
+    ## Previous __main__ example:
+    #fcrn, fs = parse_crn_string("a -> b")
+    #icrn, _ = parse_crn_string("""
+    #                           a1 -> b1
+    #                           x -> a1
+    #                           x -> b1
+    #                           y -> b1
+    #                           y -> a1
+    #                           x -> a0
+    #                           a0 -> a1
+    #                           """)
+
+    inter = None
+    if args.interpretation:
+        log.info('Input interpretation:')
+        inte, _ = parse_crn_file(args.interpretation)
+        inter = dict()
+        for rxn in inte:
+            assert len(rxn[0]) == 1
+            inter[rxn[0][0]] = Counter(rxn[1])
+        [log.info('  {}: {}'.format(k,v)) for (k, v) in natural_sort(inter.items())]
+
+    # Preprocessing
+    fcrn = split_reversible_reactions(fcrn)
+    fcrn = [[Counter(part) for part in rxn[:2]] for rxn in fcrn]
+    icrn = split_reversible_reactions(icrn)
+    icrn = [[Counter(part) for part in rxn[:2]] for rxn in icrn]
+
+    v, i = test(fcrn, icrn, set(fs), 
+                interpretation = inter, 
+                permissive = 'whole-graph')
+
+    print('equivalent', v, i)
