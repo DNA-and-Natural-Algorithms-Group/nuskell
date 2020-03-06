@@ -468,7 +468,7 @@ def main(args):
         logger.info("")
 
         if args.modular:
-            icrns = map(lambda x: removeSpecies(x, list(map(str, fuels))), module_crns)
+            icrns = list(map(lambda x: removeSpecies(x, list(map(str, fuels))), module_crns))
             for e, m in enumerate(icrns):
                 if e < len(fcrm):
                     logger.info("CRN Module {}:".format(e + 1))
