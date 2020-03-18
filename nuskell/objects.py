@@ -11,8 +11,8 @@ log = logging.getLogger(__name__)
 import networkx as nx
 from collections import Counter
 from dsdobjects import clear_memory
-from dsdobjects import DL_Domain, DSD_Complex, DSD_Reaction, DSD_Macrostate
 from dsdobjects import DSDObjectsError, DSDDuplicationError
+from dsdobjects.core import DL_Domain, DSD_Complex, DSD_Reaction, DSD_Macrostate
 from dsdobjects.utils import natural_sort
 from dsdobjects.prototypes import Reaction as NuskellReaction
 from dsdobjects.prototypes import Complex as NuskellComplex

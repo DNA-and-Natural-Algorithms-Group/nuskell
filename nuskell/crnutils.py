@@ -8,7 +8,7 @@ from builtins import map, dict
 import logging
 log = logging.getLogger(__name__)
 
-from collections import namedtuple
+from collections import namedtuple, Counter
 from crnsimulator import parse_crn_string as pcs
 from crnsimulator import parse_crn_file as pcf
 from crnsimulator.crn_parser import CRNParseError
@@ -80,6 +80,63 @@ def post_process(crn, defaultrate = None, defaultmode = 'initial', defaultconc =
                 species[s] = (defaultmode, defaultconc)
     return new, species
 
+def crn_to_standard(crn):
+    """
+    At the moment, nuskell is not consistent about what format to use for
+    representing a reaction. This is supposed to change, but in the meantime,
+    if you want to stick to your standard, use this function for conversion
+    *before* using crnutils, and then convert back if you must ...
+    """
+    new = []
+    for rxn in crn:
+        if isinstance(rxn, Reaction):
+            nrxn = rxn
+        else:
+            log.debug('Reaction: {}'.format(rxn))
+            # Unify reactants and products.
+            if isinstance(rxn[0], Counter):
+                assert isinstance(rxn[1], Counter)
+                reactants = rxn[0].elements()
+                products = rxn[1].elements()
+            else:
+                assert isinstance(rxn[0], list)
+                assert isinstance(rxn[1], list)
+                reactants = rxn[0]
+                products = rxn[1]
+
+            # Unify reaction rates.
+            if len(rxn) == 2: # irreversible, no rates specified.
+                nrxn = Reaction(reactants, products, 1, 0)
+            elif len(rxn) == 3: # rates specified
+                if isinstance(rxn[2], list) and len(rxn[2]) == 2: # reversible
+                    if rxn[2][0] is None:
+                        kf = 1
+                    else:
+                        assert isinstance(rxn[2][0], (float, int)) and rxn[2][0]
+                        kf = rxn[2][0] 
+                    if rxn[2][1] is None:
+                        kr = 1
+                    else:
+                        assert isinstance(rxn[2][1], (float, int))
+                        kr = rxn[2][1] 
+                elif isinstance(rxn[2], list) and len(rxn[2]) == 1: # irreversible
+                    if rxn[2][0] is None:
+                        kf = 1
+                    else:
+                        assert isinstance(rxn[2][0], (float, int)) and rxn[2][0]
+                        kf = rxn[2][0] 
+                    kr = 0
+                else:
+                    if rxn[2] is None:
+                        kf = 1
+                    else:
+                        assert isinstance(rxn[2], (float, int)) and rxn[2]
+                        kf = rxn[2]
+                    kr = 0
+                nrxn = Reaction(reactants, products, kf, kr)
+        new.append(nrxn)
+    return new
+
 def genCON(species):
     for sp, data in natural_sort(species.items()):
         if None in data: continue
@@ -98,18 +155,19 @@ def genCRN(crn, reversible = True, rates = True, interpretation = None):
       Order of reactants/products may differ from the order in the crn argument.
     """
     if reversible:
-        pcrn = combine_reversible_reactions(crn, rates)
-    elif rates:
+        try:
+            pcrn = combine_reversible_reactions(crn)
+        except ValueError as err:
+            crn = crn_to_standard(crn)
+            pcrn = combine_reversible_reactions(crn)
+    else:
         pcrn = split_reversible_reactions(crn)
-    else: # it must be a list of irreversible reactions.
-        pcrn = [Reaction(r, p, 1, 0) for rxn[:2] in crn]
 
     def inter(l):
         l2 = []
         for x in l:
             l2 += interpretation.get(x, [x])
         return l2
-
 
     if interpretation:
         icrn = []
@@ -144,18 +202,18 @@ def split_reversible_reactions(crn):
             new.append(Reaction(p, r, kr, 0))
     return new
 
-def combine_reversible_reactions(crn, rates = True):
+def combine_reversible_reactions(crn):
     """Condense two irreversible reactions into the corresponding reversible reactions. """
     new_crn = []
     removed = []
     for rxn in crn:
         if rxn in removed:
             continue
-        [r, p, kf, kr] = rxn if rates or len(rxn) == 4 else rxn + [1, 0]
+        [r, p, kf, kr] = rxn
         assert isinstance(r, list) and isinstance(p, list)
 
         for rxn2 in crn:
-            [r2, p2, kf2, kr2] = rxn2 if rates or len(rxn) == 4 else rxn2 + [1, 0]
+            [r2, p2, kf2, kr2] = rxn2
             if sorted(r) == sorted(p2) and sorted(p) == sorted(r2):
                 if kr or kr2:
                     raise ValueError('Reaction specified twice!')

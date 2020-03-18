@@ -84,8 +84,8 @@ setup(
         'seaborn', # nuskellCMP
         'pandas', # nuskellCMP
         'numpy',  # nuskellCMP
-        'peppercornenumerator>=0.7.1',
-        'dsdobjects>=0.7',
+        'peppercornenumerator>=0.8',
+        'dsdobjects>=0.7.1',
         'crnsimulator>=0.6'],
     dependency_links=[
         'https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator/archive/v0.7.1.tar.gz#egg=peppercornenumerator-0.7.1'],
