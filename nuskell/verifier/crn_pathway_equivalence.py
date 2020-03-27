@@ -12,61 +12,64 @@ from builtins import map
 import logging
 log = logging.getLogger(__name__)
 
-import time
-import string
+from collections import Counter
 
-from nuskell.verifier.basis_finder import find_basis
+from nuskell.verifier.basis_finder import find_basis, remove_duplicates, NoFormalBasisError
 from nuskell.crnutils import genCRN, find_wastes
 
 def pretty_crn(crn):
     for rxn in crn:
         yield '{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
 
-def printRxn(rxn, inter = {}):
-    first = True
-    for x in rxn[0]:
-        if x[0] not in string.letters:
-            if x in inter.keys() and inter[x]==[]:
-                x = "w" + x
-            else:
-                x = "i" + x
-        if not first:
-            print("+",end='')
-        else:
-            first = False
-        print(x,end='')
-    print("->",end='')
-    first = True
-    for x in rxn[1]:
-        if x[0] not in string.letters:
-            if x in inter.keys() and inter[x]==[]:
-                x = "w" + x
-            else:
-                x = "i" + x
-        if not first:
-            print("+",end='')
-        else:
-            first = False
-        print(x,end='')
-    print()
-
-def remove_duplicates(l):
-    r = []
-    if len(l) == 0: return []
-    l.sort()
-    while len(l) > 1:
-        if l[0] != l[1]:
-            r.append(l[0])
-        l = l[1:]
-    r.append(l[0])
-    return r
-
 def passes_atomic_condition():
+    # JDW (2019):
+    # For every formal species A, there exists an implementation species a
+    # s.t. m(a) = {| A |}
     pass
 
-def passes_permissive_condition(fbasis, fbasis2, fbasis_raw, inter):
-    # Every (formal) initial state can yield the same (formal) next state...
+def passes_delimiting_condition(fcrn, icrn):
+    """Checks delimiting condition. 
 
+    Note: requires sorted reactants and products (see cleanup function).
+    """
+    # JDW (2019): 
+    # The interpretation of any implementation reaction is either trivial or a
+    # valid formal reaction.
+    def trivial(rxn):
+        return Counter(rxn[0]) == Counter(rxn[1])
+
+    # Every formal reaction must also be possible in the implementation CRN
+    # Every implementation reaction must also be possible in the formal CRN
+    flag = True
+    for rxn in fcrn:
+        if rxn not in icrn:
+            if not trivial(rxn):
+                log.info("Delimiting condition failed: The formal reaction ...")
+                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
+                log.info("... is in the input CRN but not in the compiled CRN.")
+                flag = False
+
+    for rxn in icrn:
+        if rxn not in fcrn:
+            if not trivial(rxn):
+                log.info("Delimiting condition failed: The formal reaction ...")
+                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
+                log.info("... is in the compiled CRN but not in the input CRN.")
+                flag = False
+
+    return flag
+
+def passes_permissive_condition(fcrn, icrn, inter):
+    """Checks permissive condition. 
+
+    Note: requires sorted reactants and products (see cleanup function).
+
+    """
+    # JDW (2019):
+    # If there exists a formal reaction r out of formal state S and an interpretation m(S') = S:
+    # there exists an implementation reaction r' s.t. m(r') = r and r' must be possible in S'.
+
+    # Every (formal) initial state can yield the same (formal) next state...
     def cartesian_product(l):
         if len(l) == 0:
             return []
@@ -86,16 +89,14 @@ def passes_permissive_condition(fbasis, fbasis2, fbasis_raw, inter):
             else:
                 interrev[y].append([x])
 
-    for rxn in fbasis:
+    for rxn in fcrn:
         initial_states = cartesian_product(list(map(lambda x: interrev[x], rxn[0])))
         for initial in initial_states:
             initial = sorted(initial)
-            flag = False
-            for r in fbasis2:
-                if r[0] == initial and r[1] == rxn[1]:
-                    flag = True
+            for [iR, iP] in icrn:
+                if iR == initial and iP == rxn[1]:
                     break
-            if not flag:
+            else: # didn't find a matching reaction ...
                 log.info("Permissive test failed:")
                 log.info("  Cannot get from {} to {}".format(initial, rxn[1]))
                 log.info("Formal basis:")
@@ -103,66 +104,32 @@ def passes_permissive_condition(fbasis, fbasis2, fbasis_raw, inter):
                 return False
     return True
 
-def passes_delimiting_condition(crn1, basis):
-    # Every formal pathway must also be possible in the compiled CRN
-    # Every compiled pathway must also be possible in the formal CRN
-    flag = True
-    for rxn in crn1:
-        if rxn not in basis:
-            reactants = {}
-            for x in rxn[0]:
-                if x in reactants:
-                    reactants[x] += 1
-                else:
-                    reactants[x] = 1
-            products = {}
-            for x in rxn[1]:
-                if x in products:
-                    products[x] += 1
-                else:
-                    products[x] = 1
-            if reactants != products:
-                log.info("Delimiting condition failed: The formal reaction ...")
-                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
-                log.info("... is in the input CRN but not in the compiled CRN.")
-                flag = False
+def cleanup(basis):
+    for i in range(len(basis)):
+        basis[i][0].sort()
+        basis[i][1].sort()
+    return remove_duplicates(basis)
 
-    for rxn in basis:
-        if rxn not in crn1:
-            reactants = {}
-            for x in rxn[0]:
-                if x in reactants:
-                    reactants[x] += 1
-                else:
-                    reactants[x] = 1
-            products = {}
-            for x in rxn[1]:
-                if x in products:
-                    products[x] += 1
-                else:
-                    products[x] = 1
-            if reactants != products:
-                log.info("Delimiting condition failed: The formal reaction ...")
-                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
-                log.info("... is in the compiled CRN but not in the input CRN.")
-                flag = False
-
-    return flag
-
-def test(c1, c2, inter, integrated = False):
+def test(c1, c2, inter = None, integrated = False):
     """Test two CRNs for pathway equivalence.
 
     Args:
         c1: Tuple of formal CRN and formal species
-        c2: Tuple of implementation CRN and formal species
+        c2: Tuple of implementation CRN and species corresponding to formal species
         inter: partial interpretation of species
-        integrated: Use integrated hybrid notion
+        integrated (bool, optional): Use integrated hybrid notion (True) 
+                    or compositional hybrid notion (False). Defaults to False.
+
     """
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     crn1 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn1]
     crn2 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn2]
     crn2.sort()
+
+    if inter is None:
+        #TODO inter should contain at least a mapping between fs1 and fs2 no?
+        inter = dict()
 
     # Interpret waste species as nothing.
     wastes = find_wastes(crn2, fs2)
@@ -187,76 +154,50 @@ def test(c1, c2, inter, integrated = False):
     [log.info('    {}'.format(r)) for r in genCRN(crn2, interpretation = inter, rates = False)]
     log.info("")
 
-    t1 = time.time()
     log.debug('Formal species to find basis: {}'.format(fs2))
-    basis = find_basis(crn2, fs2, True, inter if integrated else None)
 
-    if basis == None: # irregular or nontidy
-        log.info("Pathway equivalence: could not find formal basis.")
+    try:
+        fbasis_raw, fbasis_int = find_basis(crn2, fs2, 
+                                        optimize = True, 
+                                        interpretation = inter if integrated else None)
+        fbasis_raw = cleanup(fbasis_raw)
+        fbasis_int = cleanup(fbasis_int)
+    except NoFormalBasisError as err:
+        log.info("Could not find formal basis: {}".format(err))
         return False
 
+    def collapse(l):
+        l2 = []
+        for x in l:
+            l2 += inter.get(x, [x])
+        return l2
+ 
     if integrated: # integrated hybrid
-        (fbasis_raw, fbasis) = basis 
-
-        for i in range(len(fbasis_raw)):
-            fbasis_raw[i][0].sort()
-            fbasis_raw[i][1].sort()
-        fbasis_raw = remove_duplicates(fbasis_raw)
-        for i in range(len(fbasis)):
-            fbasis[i][0].sort()
-            fbasis[i][1].sort()
-        fbasis = remove_duplicates(fbasis)
-
-        # bisimulation test
         fbasis2 = []
         for [initial, final] in fbasis_raw:
-            def collapse(l):
-                l2 = []
-                for x in l:
-                    if x in inter.keys():
-                        y = inter[x]
-                    else:
-                        y = [x]
-                    l2 += y
-                return l2
             r = [sorted(initial), sorted(collapse(final))]
             fbasis2.append(r)
     else: # compositional hybrid
-        fbasis_raw = basis
-
-        for i in range(len(fbasis_raw)):
-            fbasis_raw[i][0].sort()
-            fbasis_raw[i][1].sort()
-        fbasis_raw = remove_duplicates(fbasis_raw)
-
-        # bisimulation test
+        assert fbasis_int == []
         fbasis2 = []
-        fbasis = []
         for [initial, final] in fbasis_raw:
-            def collapse(l):
-                l2 = []
-                for x in l:
-                    l2 += inter.get(x, [x])
-                return l2
             r = [sorted(initial), sorted(collapse(final))]
             fbasis2.append(r)
             r = [sorted(collapse(initial)), sorted(collapse(final))]
-            fbasis.append(r)
-        fbasis = remove_duplicates(fbasis)
+            fbasis_int.append(r)
+        fbasis_int = remove_duplicates(fbasis_int)
 
-    # TODO : the following is not strictly correct because it tests for
-    #        strong bisimulation instead of weak bisimulation.
-    if passes_permissive_condition(fbasis, fbasis2, fbasis_raw, inter):
-        pass
+    #
+    # TODO: the following tests are for strong bisimulation instead of weak bisimulation.
+    #
 
-    flag = passes_delimiting_condition(crn1, fbasis)
+    if not passes_delimiting_condition(crn1, fbasis_int):
+        return False
 
-    log.info("Basis of the compiled CRN:")
-    [log.info('    {}'.format(r)) for r in pretty_crn(fbasis)]
+    if not passes_permissive_condition(fbasis_int, fbasis2, inter):
+        return False
 
-    t2 = time.time()
-    log.debug("Elapsed time: {}".format(t2-t1))
-    return flag
+    return True
 
 if __name__ == "__main__":
     import sys

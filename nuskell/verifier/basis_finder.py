@@ -13,13 +13,26 @@ from builtins import map, filter
 import logging
 log = logging.getLogger(__name__)
 
+from collections import Counter
+
 from nuskell.crnutils import genCRN
 
-signatures = []
+class NoFormalBasisError(Exception):
+    pass
+
+class BasisFinderError(Exception):
+    pass
 
 def pretty_crn(crn):
     for rxn in crn:
         yield '{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
+
+def collapse(l):
+    global inter
+    l2 = []
+    for x in l:
+        l2 += inter.get(x, [x])
+    return l2
 
 def formal(s, fs):
   """Returns all formal species in the initial state S. """
@@ -51,28 +64,28 @@ def minimal_initial_state(pathway):
     return sorted(initial)
 
 def contained(a, b):
-  """True if list a is contained in list b, False otherwise.
+    """True if list a is contained in list b, False otherwise.
 
-  Args: 
-    a (List[str]): A list of elements, eg. reactands
-    b (List[str]): A list of elements, eg. an initial state
+    Args: 
+      a (List[str]): A list of elements, eg. reactands
+      b (List[str]): A list of elements, eg. an initial state
 
-  Returns:
-    True/False
-  """
-  def contained_helper(a, b):
-    if len(a) == 0:
-      return True
-    if len(b) < len(a):
-      return False
-    if a[0] == b[0]:
-      return contained_helper(a[1:], b[1:])
-    else:
-      return contained_helper(a, b[1:])
+    Returns:
+      True/False
+    """
+    def contained_helper(a, b):
+      if len(a) == 0:
+        return True
+      if len(b) < len(a):
+        return False
+      if a[0] == b[0]:
+        return contained_helper(a[1:], b[1:])
+      else:
+        return contained_helper(a, b[1:])
 
-  a = sorted(a)
-  b = sorted(b)
-  return contained_helper(a, b)
+    a = sorted(a)
+    b = sorted(b)
+    return contained_helper(a, b)
 
 def final_state(p, S):
     c = S[:]
@@ -126,7 +139,7 @@ def remove_duplicates(l):
     return r
 
 def formal_state(S, fs):
-  return len(formal(S, fs)) == len(S)
+    return len(formal(S, fs)) == len(S)
 
 def decompose(path, fs):
     def helper(p1, p2, remaining, fs):
@@ -150,6 +163,7 @@ def formal_closure(p, fs):
     initial = minimal_initial_state(p)
     S = initial[:]
     T = formal(S, fs)
+    assert len(S) == len(T) # STB: only defined for semiformal paths!
     for r in p:
         S = next_state(S, r)
         f = formal(S, fs)
@@ -198,10 +212,7 @@ def enumerate_pathways(p, w_max, i_max, crn, fs, nonw = None):
         p = path
     """
     global inter # Integrated hybrid stuff ...
-    global ret, ccheck, ebasis, done
-
-    if done: 
-        return
+    global ret, ccheck, ebasis
 
     w_p = width(p)
     if w_p > w_max: 
@@ -242,39 +253,25 @@ def enumerate_pathways(p, w_max, i_max, crn, fs, nonw = None):
                 log.info("The given system is not tidy.")
                 log.info(" - from initial state: {}".format(initial))
                 [log.info('    ' + r) for r in pretty_crn(p)]
-                done = 1
-                return
+                raise NoFormalBasisError("The given system is not tidy.")
         if len(p) > 0 and formal_state(final, fs):
             if inter: # integrated hybrid theory
-                def collapse(l):
-                    l2 = []
-                    for x in l:
-                        if x in inter.keys():
-                            y = inter[x]
-                        else:
-                            y = [x]
-                        l2 += y
-                    return l2
                 p1 = list(map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p))
                 fsp = collapse(fs)
                 initial1 = minimal_initial_state(p1)
                 final1 = final_state(p1, initial1)
                 RFS1 = regular_final_state(p1, fsp)
-                ebasis.append(p)
                 if final1 not in RFS1:
                     log.info("The given system is not regular.")
                     log.info(" - from initial state: {}".format(initial))
                     [log.info('    ' + r) for r in pretty_crn(p)]
-                    done = 1
-                    return
-            else: # compositional hybrid theory
-                ebasis.append(p)
-                if final not in RFS:
-                    log.info("The given system is not regular.")
-                    log.info(" - from initial state: {}".format(initial))
-                    [log.info('    ' + r) for r in pretty_crn(p)]
-                    done = 1
-                    return
+                    raise NoFormalBasisError("The given system is not regular.")
+            elif final not in RFS:
+                log.info("The given system is not regular.")
+                log.info(" - from initial state: {}".format(initial))
+                [log.info('    ' + r) for r in pretty_crn(p)]
+                raise NoFormalBasisError("The given system is not regular.")
+            ebasis.append(p)
 
     perm = False # turn on if you want a randomized/shuffled search
     if perm:
@@ -328,6 +325,7 @@ def tidy(S, crn, fs):
                     queue.append(nS)
     return False
 
+signatures = []
 def enumerate_basis(crn, fs, nonw = None):
     """
     The width is the maximum number of species present at any timepoint during
@@ -339,24 +337,23 @@ def enumerate_basis(crn, fs, nonw = None):
         nonw: Reactants that are not formal species ("non-wastes') and which
             are supposed to pass the linearcheck: There is at most one
             non-waste in reactants and products for every reaction.
+    """
 
     # Different branching factors are for optimizations 
     #   (and explained in 5.6 of SWS's Master's thesis)
     # b: the branching factor
     # bf: max over |intermediate(R)| of (R,P) in crn
     # br = [] # set of (|formal(R)|,|intermediate(R)|)
-    """
     b  = max(max(len(r),len(p)) for [r,p] in crn)
     bf = max(len(intermediate(r,fs)) for [r,p] in crn)
     br = [[len(formal(r,fs)), len(intermediate(r,fs))] for [r,p] in crn]
     br = remove_duplicates(br)
     log.debug('Branching Factors: b = {}, bf = {}, br = {}'.format(b, bf, br))
 
-    global ret, ccheck, ebasis, done
-    done = 0 # A Flag that indicates that formal basis cannot be found.
+    global ret, ccheck, ebasis
     ccheck = [] # A cache to look-up which final states are tidy
     w_max, i_max = 0, 0
-    while not done:
+    while True:
         log.debug("Current bounds: w_max = {} i_max = {}".format(w_max, i_max))
         ret = []
         ebasis = []
@@ -365,7 +362,6 @@ def enumerate_basis(crn, fs, nonw = None):
         #  - ebasis: enumerated bases (if sucessfull)
         #  - ret: A list of signatures
         enumerate_pathways([], w_max, i_max, crn, fs, nonw = nonw)
-        log.debug('After enumation of pathways: Done = {}'.format(done))
         log.debug('After enumation of pathways: basis = {}'.format(ebasis))
 
         signatures = ret
@@ -388,30 +384,24 @@ def enumerate_basis(crn, fs, nonw = None):
         w_max = w_t
         i_max = i_t
     
-    if done or len(ebasis) == 0: 
-        return None
-
-    fbasis = [] # interpretation
     fbasis_raw = []
+    fbasis_int = [] # interpretation
     for p in ebasis:
         initial = minimal_initial_state(p)
         final = final_state(p, initial)
         r = [sorted(initial), sorted(final)]
         fbasis_raw.append(r)
+
         if inter: # integrated hybrid theory
-            def collapse(l):
-                l2 = []
-                for x in l:
-                    l2 += inter.get(x, [x])
-                return l2
             p1 = list(map(lambda rxn: [collapse(rxn[0]), collapse(rxn[1])], p))
             initial = minimal_initial_state(p1)
             final = final_state(p1, initial)
             r = [sorted(initial), sorted(final)]
-            fbasis.append(r)
-    fbasis = remove_duplicates(sorted(fbasis))
+            fbasis_int.append(r)
+
+    fbasis_int = remove_duplicates(sorted(fbasis_int))
     fbasis_raw = remove_duplicates(sorted(fbasis_raw))
-    return (fbasis_raw, fbasis)
+    return fbasis_raw, fbasis_int
 
 def find_modules(crn, intermediates):
     # STW: Namely, we can partition the CRN into disjoint subsets that do
@@ -449,7 +439,7 @@ def find_modules(crn, intermediates):
     return list(filter(lambda x: len(x) > 0, division.values()))
 
 
-def find_basis(crn, fs, optimize = True, inter2 = None):
+def find_basis(crn, fs, optimize = True, interpretation = None):
     """Finds all formal reactions in a CRN.
     
     STW_16 - Def12: The set of prime pathways in a given CRN is called elementary
@@ -461,12 +451,16 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
       fs (List[str]): a list of formal species in the CRN
       optimize (bool): Chop the CRN into modules and then find the basis 
                        separately for each of those modules.
-      inter2 (?): A second interpretation crn, *only* used in the "integrated
+      interpretation (?): A second interpretation crn, *only* used in the "integrated
                   hybrid" approach
+
+    Returns:
+        basis_raw, basis_int: The formal basis found without and with an 
+            interpretation dictionary. If the dictionary is None, 
 
     """
     global inter 
-    inter = inter2 # inter is accessed by enumerate_pathways ...
+    inter = interpretation if interpretation is not None else dict()
 
     if optimize:
         # Optimization needs to identify non-waste species 
@@ -477,8 +471,8 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
         divs = find_modules(crn, intermediates)
         log.info("Divided the implementation CRN into {} modules.".format(len(divs)))
 
-        basis = []
         basis_raw = []
+        basis_int = []
         for e, mod in enumerate(divs, 1):
             log.info("Verifying module {}:".format(e))
             [log.info('    {}'.format(r)) for r in genCRN(mod, rates = False)]
@@ -496,29 +490,19 @@ def find_basis(crn, fs, optimize = True, inter2 = None):
                     linear = False
                     break
             log.debug('Found monomolecular substructre: {}'.format(linear))
-            b = enumerate_basis(mod, fs, nonw = nonwastes if linear else None)
-            if b == None: # irregular or nontidy
-                log.info("Could not find formal basis.")
-                return None
-            (b1, b2) = b
+            b_raw, b_int = enumerate_basis(mod, fs, nonw = nonwastes if linear else None)
 
             log.debug("Formal basis of the current module:")
-            [log.debug('    {}'.format(r)) for r in pretty_crn(b1)]
+            [log.debug('    {}'.format(r)) for r in pretty_crn(b_raw)]
             log.debug("Formal basis of the current module (interpreted):")
-            [log.debug('    {}'.format(r)) for r in pretty_crn(b2)]
+            [log.debug('    {}'.format(r)) for r in pretty_crn(b_int)]
             log.info('')
-
-            basis += b1
-            basis_raw += b2
+            basis_raw += b_raw
+            basis_int += b_int
     else:
-        b = enumerate_basis(crn, fs)
-        if b == None: # irregular or nontidy
-            return None
-        (basis, basis_raw) = b
-    if inter: 
-        return (basis, basis_raw)
+        basis_raw, basis_int = enumerate_basis(crn, fs)
 
-    return basis
+    return basis_raw, basis_int
 
 if __name__ == "__main__":
     import sys
@@ -541,6 +525,8 @@ if __name__ == "__main__":
             help="""List fuel species in the CRN.""")
     parser.add_argument("--non-modular", action = 'store_true',
             help="""Do not optimize using CRN modules.""")
+    parser.add_argument("--integrated", action = 'store_true',
+            help="""Use interpretation when finding formal basis.""")
     args = parser.parse_args()
 
     def remove_const(crn, const):
@@ -586,21 +572,27 @@ if __name__ == "__main__":
     wastes = find_wastes(crn, fs)
     log.info('{} waste species are treated as formal. ({})'.format(len(wastes), ' '.join(wastes)))
 
+    linter = {} # local inter (do not use global inter)
+    for x in fs: linter[x] = [x]
+    for x in wastes: linter[x] = []
+
     # TODO: Waste species have to be part of the formal species, otherwise the
     # algorithm cannot find the formal base.
-    basis = find_basis(crn, fs | wastes, optimize = not args.non_modular)
+    try:
+        basis_raw, basis_int = find_basis(crn, fs | wastes, 
+                                optimize = not args.non_modular,
+                                interpretation = linter if args.integrated else None)
+    except NoFormalBasisError as err:
+        print("Could not find formal basis: {}".format(err))
+        raise SystemExit
 
-    inter = {}
-    for x in fs: inter[x] = [x]
-    for x in wastes: inter[x] = []
-
-
-    if basis != None:
-        print("Formal basis:")
-        for r in pretty_crn(basis):
+    print("Formal basis:")
+    for r in pretty_crn(basis_raw):
+        print(r)
+    print("Interpretation of formal basis:")
+    for r in genCRN(basis_raw, rates = False, interpretation = linter):
+        print(r)
+    if args.integrated:
+        print("Integrated hybrid basis:")
+        for r in pretty_crn(basis_int):
             print(r)
-        print("Interpretation of formal basis:")
-        for r in genCRN(basis, rates = False, interpretation = inter):
-            print(r)
-    else:
-        print("Could not find formal basis.")

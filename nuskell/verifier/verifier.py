@@ -83,7 +83,9 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
                 for k, v in interpret.items():
                     pinter[k] = sorted(v.elements())
             v = nuskell.verifier.crn_pathway_equivalence.test((formal_crn, formals),
-                                             (impl_crn, pinter.keys()), pinter, False)
+                                                              (impl_crn, pinter.keys()), 
+                                                              inter = pinter if interpret else None, 
+                                                              integrated = False)
         elif method == 'integrated':
             # TODO: integrated-hybrid -> first consider some species as formal for
             # pathway decomposition, then do bisimulation. This is necessary for
@@ -97,7 +99,9 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
                 for k, v in interpret.items():
                     pinter[k] = sorted(v.elements())
             v = nuskell.verifier.crn_pathway_equivalence.test((formal_crn, formals),
-                                             (impl_crn, pinter.keys()), pinter, True)
+                                                              (impl_crn, pinter.keys()), 
+                                                              inter = pinter if interpret else None, 
+                                                              integrated = True)
         else:
             raise RuntimeError('Unknown verification method.')
     except TimeoutError:
