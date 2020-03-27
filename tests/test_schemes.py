@@ -31,7 +31,7 @@ class SinlgeSnapshotCMP(unittest.TestCase):
 
         self.call = [self.exe]
         self.call.extend(['--verbose'])
-        self.call.extend(['--verify', 'pathway', 'bisimulation', 'modular-bisimulation'])
+        self.call.extend(['--verify', 'pathway', 'integrated', 'bisimulation', 'modular-bisimulation'])
         self.call.extend(['--verify-timeout',  str(30)])
 
     def test_oscillator_01_lit(self):
@@ -331,7 +331,7 @@ class MultiSnapshotCMP(unittest.TestCase):
 
         self.call = [self.exe]
         self.call.extend(['--verbose'])
-        self.call.extend(['--verify', 'pathway', 'bisimulation', 'modular-bisimulation'])
+        self.call.extend(['--verify', 'pathway', 'integrated', 'bisimulation', 'modular-bisimulation'])
         self.call.extend(['--verify-timeout',  str(30)])
 
     def test_directory_bimolecular_lit(self):
