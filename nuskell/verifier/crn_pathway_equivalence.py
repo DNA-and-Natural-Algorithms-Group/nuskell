@@ -14,8 +14,8 @@ log = logging.getLogger(__name__)
 
 from collections import Counter
 
-from nuskell.verifier.basis_finder import find_basis, remove_duplicates, NoFormalBasisError
-from nuskell.crnutils import genCRN, find_wastes
+from nuskell.verifier.basis_finder import find_basis, NoFormalBasisError
+from nuskell.crnutils import genCRN, assign_crn_species
 
 def pretty_crn(crn):
     for rxn in crn:
@@ -26,6 +26,17 @@ def passes_atomic_condition():
     # For every formal species A, there exists an implementation species a
     # s.t. m(a) = {| A |}
     pass
+
+def remove_duplicates(l):
+    r = []
+    if len(l) == 0: return []
+    l.sort()
+    while len(l) > 1:
+        if l[0] != l[1]:
+            r.append(l[0])
+        l = l[1:]
+    r.append(l[0])
+    return r
 
 def passes_delimiting_condition(fcrn, icrn):
     """Checks delimiting condition. 
@@ -110,7 +121,7 @@ def cleanup(basis):
         basis[i][1].sort()
     return remove_duplicates(basis)
 
-def test(c1, c2, inter = None, integrated = False):
+def test(c1, c2, inter, integrated = False):
     """Test two CRNs for pathway equivalence.
 
     Args:
@@ -121,19 +132,18 @@ def test(c1, c2, inter = None, integrated = False):
                     or compositional hybrid notion (False). Defaults to False.
 
     """
+    assert isinstance(inter, dict)
+
     (crn1, fs1) = c1
     (crn2, fs2) = c2
     crn1 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn1]
     crn2 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn2]
     crn2.sort()
 
-    if inter is None:
-        #TODO inter should contain at least a mapping between fs1 and fs2 no?
-        inter = dict()
-
+    fs2 = set(fs2)
     # Interpret waste species as nothing.
-    wastes = find_wastes(crn2, fs2)
-    fs2 = set(fs2) | wastes
+    i, wastes, nw = assign_crn_species(crn2, fs2)
+    fs2 = fs2 | wastes
     for x in wastes: 
         inter[x] = []
 
@@ -145,21 +155,19 @@ def test(c1, c2, inter = None, integrated = False):
     for r in remove_target:
         crn2.remove(r)
 
-    species = set().union(*[set().union(*rxn) for rxn in crn2])
 
     log.info("Original CRN:")
     [log.info('    {}'.format(r)) for r in genCRN(crn1, rates = False)]
     log.info("")
-    log.info("Compiled CRN with partial interpretation of ({}) species:".format(len(species)))
-    [log.info('    {}'.format(r)) for r in genCRN(crn2, interpretation = inter, rates = False)]
+    log.info("Compiled CRN with {} species. After partial interpretation:".format(len(set().union(*[set().union(*rxn) for rxn in crn2]))))
+    [log.info(f'    {r}') for r in genCRN(crn2, interpretation = inter, rates = False)]
     log.info("")
 
-    log.debug('Formal species to find basis: {}'.format(fs2))
-
     try:
+        log.debug('Formal species to find basis: {}'.format(fs2))
         fbasis_raw, fbasis_int = find_basis(crn2, fs2, 
-                                        optimize = True, 
-                                        interpretation = inter if integrated else None)
+                                           modular = True,
+                                           interpretation = inter if integrated else None)
         fbasis_raw = cleanup(fbasis_raw)
         fbasis_int = cleanup(fbasis_int)
     except NoFormalBasisError as err:
@@ -190,7 +198,6 @@ def test(c1, c2, inter = None, integrated = False):
     #
     # TODO: the following tests are for strong bisimulation instead of weak bisimulation.
     #
-
     if not passes_delimiting_condition(crn1, fbasis_int):
         return False
 
@@ -203,7 +210,7 @@ if __name__ == "__main__":
     import sys
     import argparse
     from nuskell import __version__
-    from nuskell.crnutils import parse_crn_file, split_reversible_reactions, find_wastes, genCRN
+    from nuskell.crnutils import parse_crn_file, split_reversible_reactions, genCRN
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter)

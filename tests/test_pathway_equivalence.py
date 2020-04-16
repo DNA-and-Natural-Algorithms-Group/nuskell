@@ -7,11 +7,107 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import unittest
+from collections import Counter
+from nuskell.crnutils import genCRN, assign_crn_species
 
-from nuskell.crnutils import parse_crn_string, parse_crn_file, split_reversible_reactions
+from nuskell.verifier.basis_finder import my_parse_crn
+from nuskell.verifier.basis_finder import BasisFinderError, NoFormalBasisError
+
 import nuskell.verifier.crn_pathway_equivalence as pathway_equivalence
+import nuskell.verifier.basis_finder as basis_finder
 
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
+SKIP = False
+
+def remove_const(crn, const):
+    for rxn in crn:
+        for x in const:
+            while x in rxn[0]:
+                rxn[0].remove(x)
+            while x in rxn[1]:
+                rxn[1].remove(x)
+    return crn
+
+@unittest.skipIf(SKIP, "skipping tests")
+class BisimulationTests(unittest.TestCase):
+    def test_crn_STW2019_text01(self):
+        crn1 = "A + B -> C"
+        crn2 = """
+            A <=> i # note this is different from paper, which says A -> i
+            i + B1 <=> j1
+            i + B2 <=> j2
+            j1 -> C
+            j2 -> C
+            """
+        fcrn, fs = my_parse_crn(crn1)
+        icrn, _ = my_parse_crn(crn2)
+        i, wastes, nw = assign_crn_species(icrn, fs)
+
+        print(fs)
+        print(wastes)
+
+        ifs  = set(['A', 'B1', 'B2', 'C'])#, 'i': ['A']}
+
+        inter = {'A' : ['A'], 'B1': ['B'], 'B2': ['B'], 'C': ['C']}#, 'i': ['A']}
+
+        for r in genCRN(icrn, rates = False, interpretation = inter):
+            print(r)
+
+        basis_raw, basis_int = basis_finder.find_basis(icrn, ifs, interpretation = inter)
+
+    def test_crn_JDW2019_F5(self):
+        crn1 = "A + B -> C + D"
+        crn2 = "A + B <=> C + D"
+        crn3 = """
+        A + f_ABCD <=> i_A_BCD + f_A
+        B + i_A_BCD <=> i_AB_CD + f_B
+        i_AB_CD + f_C <=> i_ABC_D + C
+        i_ABC_D + f_D <=> i_ABCD_ + D
+        i_ABCD_ + fi -> w_ABCD
+        """
+
+        fcrn, fs = my_parse_crn(crn2)
+        icrn, _ = my_parse_crn(crn3)
+        icrn = remove_const(icrn, ['f_ABCD', 'f_A', 'f_B', 'f_C', 'f_D'])
+
+        i, wastes, nw = assign_crn_species(icrn, fs)
+
+        #basis_raw, basis_int = basis_finder.find_basis(icrn, fs | wastes)
+
+        print(fcrn)
+        print(icrn)
+        print(wastes)
+
+    def test_passes_permissive(self):
+        crn1 = "A+B->C+D; C+A->C+C"
+        #crn2 = "A<=>i; i+B<=>j; i+j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
+        crn2 = "A<=>i; i+B<=>j; j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
+
+        fcrn, fs = my_parse_crn(crn1)
+        icrn, _ = my_parse_crn(crn2)
+
+        i, wastes, nw = assign_crn_species(icrn, fs)
+
+        basis_raw, basis_int = basis_finder.find_basis(icrn, fs | wastes)
+
+        print(basis_raw)
+        b_int = [[['A', 'C'], ['A', 'C']], 
+                [['A', 'C'], ['C', 'C']], 
+                [['A'], ['A']], 
+                [['A', 'B'], ['A', 'B']], 
+                [['A', 'B'], ['C', 'D']], 
+                [['D'], ['D']]]
+
+        print(fcrn)
+        print(basis_raw)
+        fcrn = pathway_equivalence.cleanup(fcrn)
+        b_int = pathway_equivalence.cleanup(b_int)
+        assert pathway_equivalence.passes_delimiting_condition(fcrn, b_int)
+
+@unittest.skipIf(SKIP, "skipping tests")
 class PathwayEquivalenceTests(unittest.TestCase):
     """Pathway decomposition Testing Class:
 
@@ -23,28 +119,6 @@ class PathwayEquivalenceTests(unittest.TestCase):
           sense for reproducability.
     """
 
-    def setUp(self):
-        # Skip slow unittests unless you have a lot of time.
-        self.skip_slow = True
-
-    def tearDown(self):
-        # clean up even if unittests failed
-        pass
-
-    def _parse_crn_file(self, filename):
-        # Load data from filename into the proper bisimulation format
-        if not os.path.isfile(filename):
-            raise Exception(
-                "File for unittest is missing: {}".format(filename))
-        crn, formal = parse_crn_file(filename)
-        crn = split_reversible_reactions(crn)
-        return ([[Counter(part) for part in rxn] for rxn in crn], formal)
-
-    def _parse_crn_string(self, string):
-        crn, formal = parse_crn_string(string)
-        crn = split_reversible_reactions(crn)
-        return (crn, formal)
-
     def test_STW17_intro(self):
         crn1 = "A+B -> C+D; C+A -> C+C"
         crn2 = "A<=>i; i+B<=>j; i+j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
@@ -53,34 +127,21 @@ class PathwayEquivalenceTests(unittest.TestCase):
         crn5 = "A<=>i; i+B<=>j; j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
         crn6 = "A+g1<=>i+g2; i+B<=>j+g3; g4+j->C+k+w1; g5+k<=>D+w2; C+A<=>m+n; g6+m+n->C+C+w3"
 
-        (crn1, fs) = self._parse_crn_string(crn1)
-        (crn2, _) = self._parse_crn_string(crn2)
-        (crn3, _) = self._parse_crn_string(crn3)
-        (crn4, _) = self._parse_crn_string(crn4)
-        (crn5, _) = self._parse_crn_string(crn5)
-        (crn6, _) = self._parse_crn_string(crn6)
+        (crn1, fs) = my_parse_crn(crn1)
+        (crn2, _) = my_parse_crn(crn2)
+        (crn3, _) = my_parse_crn(crn3)
+        (crn4, _) = my_parse_crn(crn4)
+        (crn5, _) = my_parse_crn(crn5)
+        (crn6, _) = my_parse_crn(crn6)
 
         inter = {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D'}
 
-        self.assertFalse(
-            pathway_equivalence.test(
-                (crn1, fs), (crn2, fs), inter))
-        self.assertFalse(
-            pathway_equivalence.test(
-                (crn1, fs), (crn3, fs), inter))
-        self.assertFalse(
-            pathway_equivalence.test(
-                (crn1, fs), (crn4, fs), inter))
-        self.assertTrue(
-            pathway_equivalence.test(
-                (crn1, fs), (crn5, fs), inter))
-        self.assertFalse(
-            pathway_equivalence.test(
-                (crn1, fs), (crn6, fs), inter))
-
-    def test_STW17_ex1(self):
-        pass
-
+        self.assertFalse(pathway_equivalence.test((crn1, fs), (crn2, fs), inter))
+        self.assertFalse(pathway_equivalence.test((crn1, fs), (crn3, fs), inter))
+        self.assertFalse(pathway_equivalence.test((crn1, fs), (crn4, fs), inter))
+        self.assertTrue( pathway_equivalence.test((crn1, fs), (crn5, fs), inter))
+        self.assertFalse(pathway_equivalence.test((crn1, fs), (crn6, fs), inter))
 
 if __name__ == '__main__':
     unittest.main()
+

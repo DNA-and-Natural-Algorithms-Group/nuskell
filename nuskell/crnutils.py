@@ -235,29 +235,41 @@ def removeSpecies(crn, fuel):
                     rxn.k_fwd, rxn.k_rev) for rxn in crn]
     return crn
 
-def find_wastes(crn, formal):
-    """Returns waste species of a CRN.
+def assign_crn_species(crn, fs):
+    """ Returns a bunch of properties for a given CRN.
 
     Waste species are all non-formal species that are only products, but never
     react. A non-waste is a formal species, or a species that is involved as a
     reactant in a reaction that involves a non-waste species.
+
+    Return:
+        set(): intermediates
+        set(): wastes
+        set(): nonwastes
     """
+    assert isinstance(fs, set)
     species = set().union(*[set().union(*rxn[:2]) for rxn in crn])
-    nonwastes = set(formal)
+    nonwastes = fs.copy()
+    wastes = set()
     while True:
         # Add x to non-waste if in any reaction x is an reactant while there
-        # are non-wastes in the reaction. Reset the outer loop if you found a
-        # new non-waste species.
+        # are non-wastes taking part in the reaction. Reset the outer loop if 
+        # a new non-waste species is found.
         flag = False
         for x in species:
-            if x in nonwastes: 
+            if x in nonwastes:
                 continue
-            for rxn in crn:
-                if x in rxn[0] and len(nonwastes & set(rxn[1] + rxn[0])) > 0:
+            for [R, P] in crn:
+                if x in R and len(nonwastes & set(R + P)):
                     nonwastes.add(x)
                     flag = True
                     break
         if not flag: 
             break
-    return species - nonwastes
-
+    # A formal species cannot be considered waste.
+    wastes = species - nonwastes
+    # A non-formal waste species
+    nonwastes -= fs
+    # An interemdiate species 
+    intermediates = species - fs - wastes
+    return intermediates, wastes, nonwastes
