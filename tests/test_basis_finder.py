@@ -19,38 +19,139 @@ SKIP = False
 
 @unittest.skipIf(SKIP, "skipping tests")
 class TestPathProperties(unittest.TestCase):
-    def test_max_width_examples(self):
-        #
-        # TODO: find an example where (w + 1) * b = w_max
-        #
+    def test_wmax_examples(self):
         fs = set(['A', 'B', 'C', 'X', 'Y', 'Z'])
 
-        w, b, wmax = 1, 2, 4
-        p0 = 'A -> i; i -> j'
-        path0 = Path(my_parse_crn(p0)[0], fs)
-        # Any reaction with b == 2 that yields an undecomposable pathway can at
-        # most increase the width to 2
-        rxn1 = 'X + j -> l'
-        #rxn1 = 'j -> l + k'
-        path1 = Path(my_parse_crn(rxn1)[0], fs)
-        path01 = path0 + path1
-        assert path0.width == w
-        assert path1.width == b
-        assert path01.width == 2
-        assert path01.width <= wmax
-
-        w, b, wmax = 3, 4, 16
-        p1 = 'A -> i; B -> j; B -> j; 2j + i -> k'
+        w, b, iR, fR = 0, 2, 0, 1
+        wmax = w * iR + b
+        assert wmax == 2
+        p1 = 'C -> A + i'
+        path0 = Path([], fs)
         path1 = Path(my_parse_crn(p1)[0], fs)
-        rxn = '4k -> C' # yields w = 12
-        rxn = Path(my_parse_crn(rxn)[0], fs)
-        path = path1 + path1 + path1 + path1 + rxn
-        # rxn = '3X + k-> C'
-        # rxn = Path(my_parse_crn(rxn)[0], fs)
-        # path = path1 + rxn # yields w = 6
-        assert path1.width == w
-        assert rxn.width == b
-        assert path.width <= wmax # 12!
+        pathC = path0 + path1
+        assert pathC.is_prime
+        assert pathC.width == 2 <= wmax
+
+        w, b, iR, fR = 2, 4, 3, 1
+        assert iR + fR == b
+        wmax = w * iR + b
+        assert wmax == 10 
+        p0 = 'A -> A + i'
+        p1 = 'A + 3i -> 3i + B'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path1
+        assert pathC.is_prime
+        assert pathC.width == 4 <= wmax
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime
+
+        w, b, iR, fR = 2, 4, 3, 1
+        assert iR + fR == b
+        wmax = w * iR + b
+        assert wmax == 10 
+        p0 = 'C -> A + i'
+        p1 = 'A + 3i -> 3i + B'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path1
+        assert pathC.is_prime
+        assert pathC.width == 6 <= wmax
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime
+
+        w, b, iR, fR = 1, 2, 1, 1
+        wmax = w * iR + b
+        assert wmax == 3
+        p0 = 'A -> i'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        assert path0.width == w
+        p1 = 'X + i -> l'
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path1
+        assert pathC.is_prime 
+        assert pathC.width == 2 <= wmax
+        rxn1 = 'i -> l + k'
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path1
+        assert pathC.is_prime 
+        assert pathC.width == 2 <= wmax
+
+        w, b, iR, fR = 3, 4, 4, None
+        wmax = w * iR + b
+        assert wmax == 16
+        p0 = 'A -> i; B -> j; B -> j; 2j + i -> k'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        assert path0.width == w
+        p1 = '4k -> C'
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert pathC.is_prime 
+        assert pathC.width == 12 <= wmax 
+        p1 = '3X + k -> C'
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime 
+
+    def test_imax_examples(self):
+        fs = set(['A', 'B', 'C', 'X', 'Y', 'Z'])
+
+        i, b, iR, fR = 1, 4, 3, 1 
+        assert iR + fR == b
+        imax = i * iR + fR
+        assert imax == 4
+        p0 = 'A -> A + i'
+        p1 = 'A + 3i -> 3i + B'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path1
+        assert pathC.is_prime
+        assert len(pathC.S0) == 1 <= imax
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime
+
+        i, b, iR, fR = 1, 4, 3, 1 
+        assert iR + fR == b
+        imax = i * iR + fR
+        assert imax == 4
+        p0 = 'C -> A + i'
+        p1 = 'A + 3i -> 3i + B'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path1
+        assert pathC.is_prime
+        assert len(pathC.S0) == 3 <= imax
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime
+
+        i, b, iR, fR = 1, 4, 3, 1 
+        assert iR + fR == b
+        imax = i * iR + fR
+        assert imax == 4
+        p0 = 'C -> A + i'
+        p1 = 'X + 3i -> 3i + Y'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path1
+        assert pathC.is_prime
+        assert len(pathC.S0) == 4 <= imax
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime
+
+        i, b, iR, fR = 2, 5, 3, 2 
+        assert iR + fR == b
+        imax = i * iR + fR
+        assert imax == 8
+        p0 = 'B + C -> A + i'
+        p1 = 'X + Y + 3i -> 3i + Z'
+        path0 = Path(my_parse_crn(p0)[0], fs)
+        path1 = Path(my_parse_crn(p1)[0], fs)
+        pathC = path0 + path0 + path0 + path1
+        assert pathC.is_prime
+        assert len(pathC.S0) == 8 <= imax
+        pathC = path0 + path0 + path0 + path0 + path1
+        assert not pathC.is_prime
+
 
     def test_utilities(self):
         fs = ['A', 'B', 'X']
@@ -87,7 +188,7 @@ class TestPathProperties(unittest.TestCase):
         assert path.final_state == Counter({'A': 1, 'l': 1})
         assert path.width == 5
         assert path.formal_closure == Counter({'X': 1, 'A': 1})
-        assert path.rfs == frozenset({frozenset({('A', 1)})})
+        assert path.rfs == set({('A',)})
         with self.assertRaises(BasisFinderError) as e:
             path.dfs
 
@@ -103,7 +204,6 @@ class TestPathProperties(unittest.TestCase):
                  [['l'],['A']]]
         path = Path(lpath, fs)
         RFS = set([('A', 'A', 'B', 'X'),])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         with self.assertRaises(BasisFinderError) as e:
             path.dfs
@@ -118,7 +218,6 @@ class TestPathProperties(unittest.TestCase):
                 [['i', 'i'], ['C']]]
         path = Path(lpath, fs)
         RFS = set([('B', 'C')])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         with self.assertRaises(BasisFinderError) as e:
             path.dfs
@@ -261,46 +360,87 @@ class TestPathProperties(unittest.TestCase):
         fs = set('ABCXY')
         pX = 'A -> i; B + i -> j; j -> B + i; i + B -> C'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.rfs == frozenset({frozenset({('C', 1)}), frozenset({('B', 1), ('C', 1)})})
+        assert pathX.rfs == frozenset({('C', ), ('B', 'C')})
 
         pX = 'A -> i; B + i -> j; j -> X + k'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.rfs == frozenset({frozenset({('X', 1)})})
+        assert pathX.rfs == frozenset({('X',)})
 
         pX = 'A -> i; i -> B + j; B + j -> k'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.rfs == frozenset({frozenset({('B', 1)})})
+        assert pathX.rfs == frozenset({('B',)})
 
         pX = 'A -> m; m -> i; i -> A + j; j -> p; p -> j; A + j -> k; k -> l; l -> B'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.rfs == frozenset({frozenset({('A', 1), ('B', 1)}), frozenset({('B', 1)})})
+        assert pathX.rfs == frozenset({('A', 'B'), ('B',)})
 
         pX = 'A -> i; i -> A + j; j -> p; p -> j; A + j -> B'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.rfs == frozenset({frozenset({('A', 1), ('B', 1)}), frozenset({('B', 1)})})
+        assert pathX.rfs == frozenset({('A', 'B'), ('B',)})
 
         pX = 'A -> i; B + i -> j; j -> B + i; B + i -> j; j -> C + k; C + k -> j; j -> B + i; i -> A'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.rfs == frozenset({frozenset({('A', 1), ('C', 1), ('B', 1)})})
+        assert pathX.rfs == frozenset({('A', 'B', 'C')})
 
         # Temporarily non-regular (1/2)
         p0 = 'A -> i; B -> j; i + j -> k; k -> X + l; X -> m'
         path0 = Path(my_parse_crn(p0)[0], fs)
-        assert path0.rfs == frozenset({frozenset({('X', 1)})})
+        assert path0.rfs == frozenset({('X',)})
         # Temporarily non-regular (2/2)
         p0 = 'A -> i; B -> j; i + j -> k; k -> X + l; X -> m; m + l -> X + Y'
         path0 = Path(my_parse_crn(p0)[0], fs)
-        assert path0.rfs == frozenset({frozenset({('X', 1), ('Y', 1)})})
+        assert path0.rfs == frozenset({('X','Y')})
 
         # Two turning points, same result ...
         p0 = 'B -> i; A + i -> j + A; j -> k; A + k -> A + C'
         path0 = Path(my_parse_crn(p0)[0], fs)
-        assert path0.rfs == frozenset({frozenset({('C', 1), ('A', 1)})})
+        assert path0.rfs == frozenset({('A','C')})
 
         # No turning point ...
         p0 = 'X -> i; B -> B + j; A -> A + p; i + j + p + B -> B + Y'
         path0 = Path(my_parse_crn(p0)[0], fs)
         assert path0.rfs == frozenset()
+
+    def dont_test_extended_path_properties(self):
+        # NOTE: Potential extensions for the path object. 
+        # Most of these properties do not exist, but 
+        # they may become useful ...
+        fs = set('ABCXYZ')
+
+        p0 = 'i -> j + B; j -> C'
+        path = Path(my_parse_crn(p0)[0], fs)
+        assert path.is_prime
+        assert not path.is_formal
+        assert path.is_intermediate
+        assert path.is_closing
+
+        p0 = 'i -> j + B; j + B -> C'
+        path = Path(my_parse_crn(p0)[0], fs)
+        assert path.is_prime
+        assert not path.is_formal
+        assert path.is_intermediate
+        assert not path.is_closing
+
+        p0 = 'i -> k + B; j -> l; k + l -> C'
+        path = Path(my_parse_crn(p0)[0], fs)
+        assert path.is_prime
+        assert not path.is_formal
+        assert path.is_intermediate
+        assert path.is_closing
+
+        p0 = 'i -> k + B; j -> l'
+        path = Path(my_parse_crn(p0)[0], fs)
+        assert not path.is_prime
+        assert not path.is_formal
+        assert path.is_intermediate
+        assert not path.is_closing
+
+        p0 = 'i -> j + B; j -> l'
+        path = Path(my_parse_crn(p0)[0], fs)
+        assert not path.is_prime
+        assert not path.is_formal
+        assert path.is_intermediate
+        assert not path.is_closing
 
     def test_decomposable_final_states(self):
         fs = set('AVWXY')
@@ -337,31 +477,15 @@ class TestPathProperties(unittest.TestCase):
 
         pX = 'A -> i29; i29 -> i46 + i47; i47 -> i70; i46 -> X + Y; i70 -> A + i89; A -> i29; i29 -> i46 + i47; i47 -> i70; i46 -> X + Y; i70 -> i47; A + i89 -> i70'
         pathX = Path(my_parse_crn(pX)[0], fs)
-        assert pathX.signature == (frozenset({('A', 2)}), 
-                                   frozenset({('Y', 2), ('i47', 1), ('i70', 1), ('X', 2)}), 
+        assert pathX.signature == (('A', 'A'), 
+                                   ('X', 'X', 'Y', 'Y', 'i47', 'i70'), 
                                    7, 
-                                   frozenset({('Y', 2), ('A', 2), ('X', 2)}), 
-                                   frozenset({('X', 'Y', 'i47'), ('X', 'Y', 'i70')}), 
+                                   ('A', 'A', 'X', 'X', 'Y', 'Y'), 
+                                   frozenset({
+                                       ('X', 'Y', 'i47'), 
+                                       ('X', 'Y', 'i70')}), 
                                    frozenset())
 
-    def test_deprecated_functions(self):
-        fs = set('AVWXY')
-        p0 = 'A -> i29; i29 -> i46 + i47; i47 -> i70; i46 -> X + Y; i70 -> A + i89; A -> i29; i29 -> i46 + i47; i47 -> i70; i70 -> A + i89; A -> i29'
-        p1 = 'A -> i29; i29 -> i46 + i47; i47 -> i70; i46 -> X + Y; i70 -> A + i89; A -> i29; i29 -> i46 + i47; i47 -> i70; i70 -> A + i89; A -> i29; A + i89 -> i70'
-        p2 = 'A -> i29; i29 -> i46 + i47; i47 -> i70; i46 -> X + Y; i70 -> A + i89; A -> i29; i29 -> i46 + i47; i47 -> i70; i70 -> A + i89; A -> i29; A + i89 -> i70; i70 -> i47'
-
-        path0 = Path(my_parse_crn(p0)[0], fs)
-        #print(path0)
-        #print(old_signature(path0.lpath, fs))
-
-        path1 = Path(my_parse_crn(p1)[0], fs)
-        #print(path1)
-        #print(old_signature(path1.lpath, fs))
-
-        path2 = Path(my_parse_crn(p2)[0], fs)
-        #print(path2)
-        #print(old_signature(path2.lpath, fs))
-        
     def test_more_pathway_properties(self):
         fs = ['A', 'B', 'C', 'X', 'Y']
         lpath = [[['A'],['i']],
@@ -376,8 +500,7 @@ class TestPathProperties(unittest.TestCase):
         assert path.width == 2
         assert path.formal_closure == Counter({'A': 1, 'B': 1})
         assert path.dfs == set()
-        RFS = frozenset({frozenset({('A', 1), ('B', 1)})})
-        assert path.rfs == RFS
+        assert path.rfs == frozenset({('A', 'B')})
  
         lpath = [[['A'],['i']],
                  [['i'],['j']],
@@ -390,8 +513,7 @@ class TestPathProperties(unittest.TestCase):
         assert path.width == 2
         assert path.formal_closure == Counter({'A': 1})
         assert path.dfs == set()
-        RFS = frozenset({frozenset({('A', 1)})})
-        assert path.rfs == RFS
+        assert path.rfs == frozenset({('A',)})
 
         lpath = [[['A'],['i']],
                  [['i', 'B', 'B'],['j']],
@@ -404,9 +526,7 @@ class TestPathProperties(unittest.TestCase):
         assert path.width == 3
         assert path.formal_closure == Counter({'A': 1, 'B': 2, 'X': 1})
         assert path.dfs == set()
-        RFS = frozenset({frozenset({('A', 1), ('X', 1)}), 
-                         frozenset({('A', 1), ('B', 1), ('X', 1)})})
-        assert RFS == path.rfs
+        assert path.rfs == frozenset({('A', 'B', 'X'), ('A', 'X')})
 
         lpath = [[['A'],['i']],
                  [['i'],['A', 'j']],
@@ -417,8 +537,7 @@ class TestPathProperties(unittest.TestCase):
         assert path.width == 2
         assert path.formal_closure == Counter({'A': 1, 'B': 1})
         assert path.dfs == set()
-        RFS = frozenset({frozenset({('B', 1)}), frozenset({('A', 1), ('B', 1)})})
-        assert RFS == path.rfs
+        assert path.rfs == frozenset({('B',), ('A', 'B')})
 
         cpath = [[Counter({'B': 1}), Counter({'i11': 1})], 
                  [Counter({'B': 1}), Counter({'i11': 1})]]
@@ -428,8 +547,7 @@ class TestPathProperties(unittest.TestCase):
         assert path.width == 2
         assert path.formal_closure == Counter({'B': 2})
         assert path.dfs == frozenset({('i11',)})
-        RFS = frozenset({frozenset()})
-        assert RFS == path.rfs
+        assert path.rfs == frozenset({()})
 
         lpath = [[['A'], ['i']],
                  [['i'], ['j', 'j']],
@@ -439,7 +557,6 @@ class TestPathProperties(unittest.TestCase):
                  [['i'], ['C']]]
         path = Path(lpath, fs)
         RFS = set([('B', 'C', 'C')])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         DFS = set([('C',), ('B', 'C')])
         assert path.dfs == DFS
@@ -452,8 +569,7 @@ class TestPathProperties(unittest.TestCase):
         path = Path(lpath, fs)
         DFS = {('m',), ('A', 'm'), ('A', 'm', 'm'), ('m', 'm'), ('m', 'm', 'm'), ('A',)}
         assert DFS == path.dfs
-        RFS = frozenset({frozenset({('A', 1)})})
-        assert RFS == path.rfs
+        assert path.rfs == set([('A',)])
 
         cpath = [[Counter({'A': 1}), Counter({'i29': 1})], 
                  [Counter({'A': 1}), Counter({'i29': 1})],
@@ -483,15 +599,13 @@ class TestPathProperties(unittest.TestCase):
         path = Path(cpath, fs)
         DFS = {('i126', 'i127', 'i47'), ('i46', 'i47')}
         assert DFS == path.dfs
-        RFS = frozenset({frozenset(), frozenset({('A', 1)})})
-        assert RFS == path.rfs
+        assert path.rfs == frozenset({(), ('A',)})
 
         cpath = [[Counter({'B': 1}), Counter({'i11': 1})], 
                  [Counter({'i11': 1}), Counter({'B': 1})], 
                  [Counter({'B': 1}), Counter({'i11': 1})]] 
         path = Path(cpath, fs)
         RFS = set([(), ('B',)])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         DFS = set([('B',), ('i11',)])
         assert DFS == path.dfs
@@ -510,8 +624,7 @@ class TestPathProperties(unittest.TestCase):
         path = Path(lpath, fs)
         DFS = {('i46', 'i47'), ('i29',)}
         assert DFS == path.dfs
-        RFS = frozenset({frozenset()})
-        assert RFS == path.rfs
+        assert path.rfs == frozenset({()})
 
         lpath =   [[['A'], ['i9']], 
                    [['A'], ['i9']], 
@@ -524,22 +637,19 @@ class TestPathProperties(unittest.TestCase):
         path = Path(lpath, fs)
         DFS = {('i0', 'i6'), ('X', 'Y', 'i0'), ('X', 'Y', 'i7'), ('i6', 'i7')}
         assert DFS == path.dfs
-        RFS = frozenset({frozenset({('X', 1), ('Y', 1)})})
-        assert RFS == path.rfs
+        assert path.rfs == frozenset({('X', 'Y')})
 
         lpath = [[['A'], ['i']],
                  [['B', 'i'], ['j']],
                  [['j'], ['X', 'k']]]
         path = Path(lpath, fs)
         RFS = set([('X',)])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         assert path.dfs == set()
 
         p0 = 'A -> i; i -> j + B; B + j -> k'
         path = Path(my_parse_crn(p0)[0], fs)
         RFS = set([('B',)])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         assert path.dfs == set()
 
@@ -548,7 +658,6 @@ class TestPathProperties(unittest.TestCase):
                  [['A', 'j'], ['B']]]
         path = Path(lpath, fs)
         RFS = set([('A', 'B'), ('B',)])
-        RFS = frozenset([frozenset(Counter(x).items()) for x in RFS])
         assert RFS == path.rfs
         assert path.dfs == set()
 
@@ -671,13 +780,39 @@ class TestHelperFunctions(unittest.TestCase):
         T = ['i', 'k', 'l']
         assert is_tidy(T, crn, fs)
 
-        crn = [[['X'], ['i', 'k', 'l']],
-               [['l'], []],
-               [['l'], ['l', 'l', 'l']],
-               [['B', 'i', 'k', 'l', 'l', 'l', 'l'], ['A']],
-               [['k'], ['j']]]
-        T = ['i', 'k', 'l']
-        assert not is_tidy(T, crn, fs)
+        crn = """
+        i -> i + q
+        i -> i + i
+        q -> q + k
+        10k + i + q -> X
+        10i -> i
+        2q -> q
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['i']
+        assert is_tidy(T, crn, fs)
+
+        crn = """
+        m -> 3i
+        i -> 3k 
+        k -> 2k + l
+        3l -> X
+        2i ->
+        2k ->
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['m']
+        assert is_tidy(T, crn, fs)
+
+        crn = """
+        a -> a + 3i
+        7i -> b + 3l
+        7l -> a
+        2a + 3b + 2l -> X
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['a']
+        assert is_tidy(T, crn, fs)
 
     def test_get_crn_modules(self):
         from nuskell.verifier.basis_finder import get_crn_modules
@@ -761,6 +896,104 @@ class TestHelperFunctions(unittest.TestCase):
         assert m2 in sm
         assert m3 in sm
 
+@unittest.skipIf(SKIP, "skipping tests")
+class TestTidyBound(unittest.TestCase):
+    """ Is it possible to derive a bound from the CRN?
+    """
+
+    def test_tidy_binary_counter(self):
+        from nuskell.verifier.basis_finder import is_tidy
+        # An example with width > 2^K
+        # With every bit increase (C_K)
+        # the species A accumulates by 2^K
+        fs = set(['N', 'M'])
+        crn = """
+        N -> i
+        i -> D + x00 + x10 + x20 + x30
+        F + x00 + x10 + x20 + x30 -> M
+
+        D -> C0 + A
+        C4 -> F
+        F + A -> F
+        C0 + x00 -> D  + x01
+        C0 + x01 -> C1 + x00
+        C1 + x10 -> D  + x11
+        C1 + x11 -> C2 + x10
+        C2 + x20 -> D  + x21
+        C2 + x21 -> C3 + x20
+        C3 + x30 -> D  + x31
+        C3 + x31 -> C4 + x30
+        """
+        crn, _ = my_parse_crn(crn)
+        S = ['i']
+        T = ['M']
+        assert is_tidy(S, crn, fs)
+
+    def test_tidy_accumulation(self):
+        from nuskell.verifier.basis_finder import is_tidy
+        fs = set(['A', 'B', 'C', 'X'])
+        crn = """
+        X -> i + k + l
+        l -> 
+        l -> 3l
+        i -> i + i
+        B + i + k + 4l -> A
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['i', 'k', 'l']
+        assert not is_tidy(T, crn, fs)
+
+    def test_tidy_sorting(self):
+        from nuskell.verifier.basis_finder import is_tidy
+        fs = set(['A', 'B', 'C', 'X'])
+        crn = """
+        i -> 8i + q
+        q -> 8q + k
+        i + q + k -> C
+        2i -> i
+        2q -> q
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['i']
+        assert is_tidy(T, crn, fs)
+
+    def slow_test_lakin2016_2D_3I(self):
+        fcrn = "B + C -> A"
+        icrn = """
+            B -> i47 + i48
+            C + i47 -> i97 + i98
+            i135 -> i560 + i561
+            i135 + i154 -> i561 + i572
+            i135 + i216 -> i560 + i582
+            i136 -> i154 + i155
+            i136 + i216 -> i155
+            i136 + i582 -> i155 + i561
+            i154 + i155 -> i136
+            i154 + i216 ->
+            i154 + i560 -> i572
+            i154 + i582 -> i561
+            i154 + i802 -> i136 + i572
+            i155 -> i136 + i216
+            i155 + i560 -> i216 + i802
+            i216 + i802 -> i155 + i560
+            i216 + i97 -> i132 + i135 + i155
+            i47 + i48 -> B
+            i560 + i582 -> i135 + i216
+            i560 + i97 -> i132 + i135 + i802
+            i582 -> i216 + i561
+            i582 + i802 -> i135 + i155
+            i802 -> i136 + i560
+            i802 -> i155 + i572
+            i97 -> i132 + i135 + i136
+            i97 + i98 -> C + i47
+            """
+        fcrn, fs = my_parse_crn(fcrn)
+        icrn, _ = my_parse_crn(icrn)
+
+        print(fcrn)
+        print(icrn)
+        basis_raw, basis_int = find_basis(icrn, fs)
+        assert False
 
 @unittest.skipIf(SKIP, "skipping tests")
 class TestBasisFinder(unittest.TestCase):
@@ -839,7 +1072,7 @@ class TestBasisFinder(unittest.TestCase):
         assert sorted(braw2) == sorted(basis_raw2)
         assert sorted(bint2) == sorted(basis_int2)
 
-    def test_STW17_intro(self):
+    def test_STW2019_intro(self):
         crn1 = "A+B -> C+D; C+A -> C+C"
         crn2 = "A<=>i; i+B<=>j; i+j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
         crn3 = "A<=>i; i+B<=>j; j<=>C+k; k->D; C+A<=>m+n; m+n->C+C"

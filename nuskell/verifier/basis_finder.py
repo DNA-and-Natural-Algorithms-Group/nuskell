@@ -119,8 +119,8 @@ class Path:
 
     @property
     def S0(self):
-        """ frozenset: hashable initial state. """
-        return frozenset(self.minimal_initial_state.items())
+        """ tuple: hashable initial state. """
+        return tuple(sorted(self.minimal_initial_state.elements()))
 
     @property
     def minimal_initial_state(self):
@@ -131,8 +131,8 @@ class Path:
 
     @property
     def Sn(self):
-        """ frozenset: hashable final state. """
-        return frozenset(self.final_state.items())
+        """ tuple: hashable final state. """
+        return tuple(sorted(self.final_state.elements()))
 
     @property
     def final_state(self):
@@ -142,15 +142,32 @@ class Path:
         return self._final
 
     @property
+    def is_semiformal(self):
+        """ bool: True if path has a formal initial state, False otherwise. """
+        return is_formal_state(self.minimal_initial_state.elements(), self.fs)
+
+    @property
+    def is_closed(self):
+        """ bool: True if path has a formal final state, False otherwise. """
+        return is_formal_state(self.final_state.elements(), self.fs)
+
+    @property
     def is_formal(self):
-        """ bool: True if path is formal, False otherwise. """
+        """ bool: True if path has formal initial and formal final state, False otherwise. """
+        # semi-formal & closed = formal
         return is_formal_state(self.minimal_initial_state.elements(), self.fs) \
                 and is_formal_state(self.final_state.elements(), self.fs)
 
     @property
-    def is_semiformal(self):
-        """ bool: True if path is semi-formal, False otherwise. """
-        return is_formal_state(self.minimal_initial_state.elements(), self.fs)
+    def is_intermediate(self):
+        """ bool: True if path has intermediate initial state, False otherwise. """
+        return len(formal(self.minimal_initial_state.elements(), self.fs)) == 0 and \
+               len(intermediate(self.minimal_initial_state.elements(), self.fs)) >= 1
+
+    @property
+    def is_prime(self):
+        """ bool: True if path is undecomposable, False otherwise. """
+        return len(self.dfs) == 0
 
     def is_linear(self, nonwastes):
         """ True if path has monomolecular sub-structure, False otherwise. 
@@ -177,8 +194,8 @@ class Path:
 
     @property
     def fc(self):
-        """ frozenset: hashable formal closure. """
-        return frozenset(self.formal_closure.items())
+        """ tuple: hashable formal closure. """
+        return tuple(sorted(self.formal_closure.elements()))
 
     @property
     def formal_closure(self):
@@ -328,7 +345,7 @@ class Path:
             [R, P] = self.cpath[i-1] # rxn 1 at pos 0
             remainder = self.formal(states[i-1] - R)
             if sum(remainder.values()) == 0:
-                t = frozenset(T.items())
+                t = tuple(sorted(T.elements()))
                 RFS.add(t)
         return frozenset(RFS)
 
@@ -426,26 +443,62 @@ def is_tidy(T, crn, fs):
 
     Args:
         T: final state of a path.
-        crn: the underlying CRN.
+        crn: the CRN.
         fs: set of formal species.
 
-    TODO: does not terminate if not tidy and intermediate species keep accumulating.
-    A width bound can help, but is it justified?
+    Accumulation optimization:
+        - Let set(Si) be the set of unique species in a state Si.
+        - Let c(Si, x) be the count of species x in state Si.
+
+        Claim: Two states Si and Sj with set(Si) == set(Sj) have the same set
+        of outgoing reactions if for every x:
+            c(Si, x) == c(Sj, x)
+                or 
+            c(Si, x) > bR and c(Sj, x) > bR.
+
+        A state Si accumulates x if it has c(Si, x) > c(Sj, x) > bR.
     """
-    w = Path(crn).width  # wait what is the width of a CRN???
+
+    bR = max(len(R) for [R, _] in crn)
     warnme = False
 
     def next_state(s, rxn):
-        """ Applies reaction rxn to state s """
+        # Applies reaction rxn to state s.
         s = s[:]
         for x in rxn[0]:
             s.remove(x)
         s += rxn[1]
         return sorted(s)
 
-    queue = [intermediate(T, fs)]
+    def accumulating(newSC):
+        """ 
+        Let set(Si) be the set of unique species in a state Si.
+        Let c(Si, x) be the count of species x in state Si.
+        Intuitively, a state Si accumulates x if there exists a state Sj with
+        c(Si, x) > c(Sj, x) > bR, while all other (non-accumulating) species
+        have c(Si, x) == c(Sj, x). A state may accumulate multiple species.
+        """
+        for oldSC in memC:
+            if set(oldSC.keys()) != set(newSC.keys()):
+                continue
+            for k in oldSC.keys():
+                if oldSC[k] == newSC[k]:
+                    # species counts are the same
+                    continue
+                if not (newSC[k] > oldSC[k] > bR): 
+                    # species counts are different, but not (yet) accumulating beyond reason.
+                    break
+            else:
+                # All species have same counts or are accumulating.
+                warnme = True
+                return True
+        return False
+
+    queue = [intermediate(sorted(T), fs)]
     mem = [queue[0]]
+    memC = [Counter(queue[0])]
     while len(queue) > 0:
+        log.debug(queue)
         iS = queue[0] # an intermediate state
         queue = queue[1:]
         if len(iS) == 0: 
@@ -453,21 +506,28 @@ def is_tidy(T, crn, fs):
         for rxn in crn:
             if len(rxn[0]) > 0 and is_subset(Counter(rxn[0]), Counter(iS)):
                 nS = intermediate(next_state(iS, rxn), fs)
-                if nS not in mem:
-                    if len(nS) <= 2*w: #TODO: PROOF
-                        mem.append(nS)
-                        queue.append(nS)
-                    else:
-                        warnme = True
+                nSC = Counter(nS)
+                if nS not in mem and not accumulating(nSC):
+                    mem.append(nS)
+                    memC.append(nSC)
+                    queue.append(nS)
+        # NOTE: we sort the queue to prioritize smaller states.
+        # Actually, the accumulation check seems to take care of this as well. 
+        #queue = sorted(queue, key = lambda x: len(x))
+
     if warnme:
-        log.warning('Triggered width-based exit for tidy routine.')
+        log.warning(f'Accumulating species found in tidy routine.')
+        log.debug(f" - from initial state: {T}")
+        [log.debug('    {}'.format(r)) for r in queue]
     return False
+
 
 def crn_properties(crn, fs):
     """ Get different CRN properties.
         b (int): the branching factor
-        bf: max over |intermediate(R)| of (R,P) in crn
-        br: set of (|formal(R)|, |intermediate(R)|)
+        iR: max over |intermediate(R)| of (R,P) in crn
+        fRiR: set of (|formal(R)|, |intermediate(R)|)
+        nw: nonwaste species for linear check
     """
     i, w, nw = assign_crn_species(crn, fs)
     assert i == nw
@@ -479,13 +539,11 @@ def crn_properties(crn, fs):
             linear = False
             break
     log.debug('Monomolecular substructre: {}'.format(linear))
- 
     b  = max(max(len(r),len(p)) for [r, p] in crn)
-    br = max(len(intermediate(r, fs)) for [r, p] in crn) #TODO should be br
-    fi = set((len(formal(r, fs)), len(intermediate(r, fs))) for [r, p] in crn)
-    log.debug('Branching Factors: b = {}, br = {}, fi = {}'.format(b, br, fi))
-
-    return b, br, fi, nw if linear else None
+    iR = max(len(intermediate(r, fs)) for [r, p] in crn) 
+    fRiR = set((len(formal(r, fs)), len(intermediate(r, fs))) for [r, p] in crn)
+    log.debug('Branching Factors: b = {}, iR = {}, fRiR = {}'.format(b, iR, fRiR))
+    return b, iR, fRiR, nw if linear else None
 
 def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
     """ Find the formal basis of a CRN.
@@ -500,7 +558,7 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
             non-waste in reactants and products for every reaction.
     """
     TidyCheck = set() # A cache to remember which final states are Tidy. 
-    b, br, fi, nonw = crn_properties(crn, fs)
+    b, iR, fRiR, nonw = crn_properties(crn, fs)
 
     # Uses some constants: w_max, i_max, nonw, fs, but not crn (in case we want it random)
     def enumerate_elementary_basis(p, crn):
@@ -519,9 +577,6 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
             return
         for df in p.dfs:
             if is_formal_state(df, fs):
-                # log.debug("Return: decomposable final states {}.".format(p.dfs))
-                # log.debug(" - from initial state: {}".format(p.minimal_initial_state))
-                # [log.debug('    {}'.format(r)) for r in p.pretty_path]
                 return
 
         sig = p.signature
@@ -533,7 +588,7 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
         if len(dfs) == 0: # Ok, we found a valid path? Check if the system is tidy and regular!
             if fin not in TidyCheck:
                 TidyCheck.add(fin)
-                if not is_tidy(p.final_state.elements(), crn, fs):
+                if not is_tidy(list(p.final_state.elements()), crn, fs):
                     log.info("The given system is not tidy.")
                     log.info(" - from initial state: {}".format(p.minimal_initial_state))
                     [log.info('    {}'.format(r)) for r in p.pretty_path]
@@ -585,6 +640,8 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
     ############################################################################
     # STW2019 Theorem 4.10: i_p >= i_{p-1} >= min_{R,P in C} (i_p - f)/i
 
+    newbounds = True
+
     w_max, i_max = 0, 0
     while True:
         log.debug("Current bounds: w_max = {}, i_max = {}".format(w_max, i_max))
@@ -595,12 +652,15 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
         new_w, new_i = 0, 0
         for (i, f, w, fc, dfs, rfs) in signatures:
             if len(dfs) == 0: # one undecomposable final state
+                if newbounds and is_formal_state(f, fs):
+                    continue
+                log.debug(f'w: {w}, S0: {i}, Sn: {f}') 
                 new_w = max(new_w, w)
                 new_i = max(new_i, len(i)) # Size of initial (formal) state.
-        w_t = new_w * br + b
+        w_t = new_w * iR + b
         i_t = 0
-        for (x, y) in fi:
-            i_t = max(i_t, new_i * y + x)
+        for (fR, iR) in fRiR:
+            i_t = max(i_t, new_i * iR + fR)
         if w_t <= w_max and i_t <= i_max:
             break
         w_max = w_t
@@ -623,7 +683,6 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
             T1 = p1.final_state
             r = [sorted(S1.elements()), sorted(T1.elements())] 
             fbasis_int.append(r)
-
     return fbasis_raw, fbasis_int
 
 def get_crn_modules(crn, intermediates):
@@ -778,6 +837,7 @@ if __name__ == "__main__":
 
     i, wastes, nw = assign_crn_species(crn, fs)
     assert i == nw
+    #wastes = set()
     log.info('{} waste species are treated as formal. ({})'.format(len(wastes), ' '.join(wastes)))
 
     inter = {}
