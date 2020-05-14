@@ -897,7 +897,7 @@ class TestHelperFunctions(unittest.TestCase):
         assert m3 in sm
 
 @unittest.skipIf(SKIP, "skipping tests")
-class TestTidyBound(unittest.TestCase):
+class TestTidyAccumulation(unittest.TestCase):
     """ Is it possible to derive a bound from the CRN?
     """
 
@@ -929,7 +929,7 @@ class TestTidyBound(unittest.TestCase):
         T = ['M']
         assert is_tidy(S, crn, fs)
 
-    def test_tidy_accumulation(self):
+    def test_tidy_accumulation_01(self):
         from nuskell.verifier.basis_finder import is_tidy
         fs = set(['A', 'B', 'C', 'X'])
         crn = """
@@ -943,7 +943,7 @@ class TestTidyBound(unittest.TestCase):
         T = ['i', 'k', 'l']
         assert not is_tidy(T, crn, fs)
 
-    def test_tidy_sorting(self):
+    def test_tidy_accumulation_02(self):
         from nuskell.verifier.basis_finder import is_tidy
         fs = set(['A', 'B', 'C', 'X'])
         crn = """
@@ -957,7 +957,7 @@ class TestTidyBound(unittest.TestCase):
         T = ['i']
         assert is_tidy(T, crn, fs)
 
-    def slow_test_lakin2016_2D_3I(self):
+    def test_lakin2016_2D_3I_accumulation(self):
         fcrn = "B + C -> A"
         icrn = """
             B -> i47 + i48
@@ -989,11 +989,8 @@ class TestTidyBound(unittest.TestCase):
             """
         fcrn, fs = my_parse_crn(fcrn)
         icrn, _ = my_parse_crn(icrn)
-
-        print(fcrn)
-        print(icrn)
-        basis_raw, basis_int = find_basis(icrn, fs)
-        assert False
+        with self.assertRaises(NoFormalBasisError) as e:
+            basis_raw, basis_int = find_basis(icrn, fs)
 
 @unittest.skipIf(SKIP, "skipping tests")
 class TestBasisFinder(unittest.TestCase):
