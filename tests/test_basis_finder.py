@@ -152,7 +152,6 @@ class TestPathProperties(unittest.TestCase):
         pathC = path0 + path0 + path0 + path0 + path1
         assert not pathC.is_prime
 
-
     def test_utilities(self):
         fs = ['A', 'B', 'X']
         lpath = [[['A'],['i']],
@@ -814,6 +813,7 @@ class TestHelperFunctions(unittest.TestCase):
         T = ['a']
         assert is_tidy(T, crn, fs)
 
+
     def test_get_crn_modules(self):
         from nuskell.verifier.basis_finder import get_crn_modules
         fs = set(['A', 'B', 'C'])
@@ -898,8 +898,26 @@ class TestHelperFunctions(unittest.TestCase):
 
 @unittest.skipIf(SKIP, "skipping tests")
 class TestTidyAccumulation(unittest.TestCase):
-    """ Is it possible to derive a bound from the CRN?
+    """ An up-front width bound for arbitrary CRNs must be pretty large.  How
+    large exactly? I don't know, but it isn't much more useful than no width
+    bound at all. So here we test for "accumulation of species". How
+    accumulation of species is related to a width bound must be worked out 
+    before this goes into production, but it looks reasonable to me and it
+    can cope with all unittests so far.
     """
+
+    def test_tidy_spontaneous_reactions(self):
+        from nuskell.verifier.basis_finder import is_tidy
+        fs = set('A')
+        # This tests a modification to the original codebase:
+        # Originally, this example would not be tidy.
+        crn = """
+        -> i
+        2i -> A
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['i']
+        assert is_tidy(T, crn, fs)
 
     def test_tidy_binary_counter(self):
         from nuskell.verifier.basis_finder import is_tidy

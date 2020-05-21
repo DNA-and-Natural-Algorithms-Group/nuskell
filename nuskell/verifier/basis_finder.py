@@ -438,27 +438,26 @@ class Path:
 def is_tidy(T, crn, fs):
     """ BFS to test if the crn is (strongly) tidy from state T.
 
-    All intermediate species of the final state T can react to produce 
-    formal species (without requiring formal species as reactants).
+    True if all intermediate species of the inpute state T can react to produce
+    formal species (without requiring formal species as reactants), false otherwise.
 
     Args:
         T: final state of a path.
         crn: the CRN.
         fs: set of formal species.
 
-    Accumulation optimization:
-        - Let set(Si) be the set of unique species in a state Si.
-        - Let c(Si, x) be the count of species x in state Si.
+    Def: Let bR be the max number of reactants over all reactions in the CRN.
+    Def: Let c(Si, x) be the count of species x in state Si.
 
-        Claim: Two states Si and Sj with set(Si) == set(Sj) have the same set
-        of outgoing reactions if for every x:
-            c(Si, x) == c(Sj, x)
-                or 
-            c(Si, x) > bR and c(Sj, x) > bR.
+    Dickson's Lemma: If Sj is reachable by Si and for all species x either 
+    c(Si, x) == c(Sj, x) or c(Sj, x) > c(Si, x) then the state space if infinite.
 
-        A state Si accumulates x if it has c(Si, x) > c(Sj, x) > bR.
+    Def: A state Sj is *accumulating* x if it is reachable by Si and for all
+    species x either c(Si, x) == c(Sj, x) or c(Sj, x) > c(Si, x) > bR.
+
+    Claim: Excluding all states that are accumulating species from the BFS
+    does not change the result of checking tidyness.
     """
-
     bR = max(len(R) for [R, _] in crn)
     warnme = False
 
@@ -470,17 +469,19 @@ def is_tidy(T, crn, fs):
         s += rxn[1]
         return sorted(s)
 
-    def accumulating(newSC):
-        """ 
-        Let set(Si) be the set of unique species in a state Si.
-        Let c(Si, x) be the count of species x in state Si.
-        Intuitively, a state Si accumulates x if there exists a state Sj with
-        c(Si, x) > c(Sj, x) > bR, while all other (non-accumulating) species
-        have c(Si, x) == c(Sj, x). A state may accumulate multiple species.
+    def accumulating(newP, newSC):
+        """ Checks for an accumulating species due to an infinite state space.
         """
-        for oldSC in memC:
+        for oldP, oldSC in memC:
+            # Quick filter, the set species must be equal
             if set(oldSC.keys()) != set(newSC.keys()):
                 continue
+            # Quick filter, newSC must be reachable from oldSC
+            if newP[0:len(oldP)] != oldP:
+                # If the old path is not a prefix of the new path, we
+                # cannot be sure that newSC is reachable from oldSC!
+                continue
+            # All species have same counts or are accumulating.
             for k in oldSC.keys():
                 if oldSC[k] == newSC[k]:
                     # species counts are the same
@@ -489,38 +490,36 @@ def is_tidy(T, crn, fs):
                     # species counts are different, but not (yet) accumulating beyond reason.
                     break
             else:
-                # All species have same counts or are accumulating.
                 warnme = True
                 return True
         return False
 
-    queue = [intermediate(sorted(T), fs)]
+    queue = [('p', intermediate(sorted(T), fs))]
     mem = [queue[0]]
-    memC = [Counter(queue[0])]
+    memC = [('p', Counter(queue[0][1]))]
     while len(queue) > 0:
         log.debug(queue)
-        iS = queue[0] # an intermediate state
+        pS, iS = queue[0] # a path and the intermediate state
         queue = queue[1:]
         if len(iS) == 0: 
             return True
-        for rxn in crn:
-            if len(rxn[0]) > 0 and is_subset(Counter(rxn[0]), Counter(iS)):
+        for e, rxn in enumerate(crn):
+            if is_subset(Counter(rxn[0]), Counter(iS)):
+                npS = pS + '.' + str(e)
                 nS = intermediate(next_state(iS, rxn), fs)
                 nSC = Counter(nS)
-                if nS not in mem and not accumulating(nSC):
+                if nS not in mem and not accumulating(npS, nSC):
                     mem.append(nS)
-                    memC.append(nSC)
-                    queue.append(nS)
+                    memC.append((npS, nSC))
+                    queue.append((npS, nS))
+
         # NOTE: we sort the queue to prioritize smaller states.
-        # Actually, the accumulation check seems to take care of this as well. 
-        #queue = sorted(queue, key = lambda x: len(x))
+        queue = sorted(queue, key = lambda x: len(x[1]))
 
     if warnme:
-        log.warning(f'Accumulating species found in tidy routine.')
+        log.warning(f'This CRN can produce an infinite state space!')
         log.debug(f" - from initial state: {T}")
-        [log.debug('    {}'.format(r)) for r in queue]
     return False
-
 
 def crn_properties(crn, fs):
     """ Get different CRN properties.
