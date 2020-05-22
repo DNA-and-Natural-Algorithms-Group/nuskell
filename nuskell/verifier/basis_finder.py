@@ -498,7 +498,6 @@ def is_tidy(T, crn, fs):
     mem = [queue[0]]
     memC = [('p', Counter(queue[0][1]))]
     while len(queue) > 0:
-        log.debug(queue)
         pS, iS = queue[0] # a path and the intermediate state
         queue = queue[1:]
         if len(iS) == 0: 
@@ -658,8 +657,8 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
                 new_i = max(new_i, len(i)) # Size of initial (formal) state.
         w_t = new_w * iR + b
         i_t = 0
-        for (fR, iR) in fRiR:
-            i_t = max(i_t, new_i * iR + fR)
+        for (fr, ir) in fRiR:
+            i_t = max(i_t, new_i * ir + fr)
         if w_t <= w_max and i_t <= i_max:
             break
         w_max = w_t
@@ -737,20 +736,20 @@ def find_basis(crn, fs, modular = True, interpretation = None):
     """
     if modular:
         intermediates, wastes, nonwastes = assign_crn_species(crn, fs)
-        divs = get_crn_modules(crn, intermediates)
-        log.info("Divided the implementation CRN into {} modules.".format(len(divs)))
-
+        divs = sorted(get_crn_modules(crn, intermediates), key = lambda x: len(x))
+        log.info(f"Divided the implementation CRN into {len(divs)} modules " + \
+                f"with {[len(d) for d in divs]} reactions.")
         basis_raw = []
         basis_int = []
         for e, mod in enumerate(divs, 1):
             log.info("Verifying module {}:".format(e))
             [log.info(f'    {r}') for r in pretty_crn(mod)]
             b_raw, b_int = get_formal_basis(mod, fs, inter = interpretation)
-            log.debug("Formal basis of the current module:")
-            [log.debug('    {}'.format(r)) for r in pretty_crn(b_raw)]
+            log.info("Formal basis of the current module:")
+            [log.info('    {}'.format(r)) for r in pretty_crn(b_raw)]
             if interpretation is not None:
-                log.debug("Formal basis of the current module (integrated hybrid):")
-                [log.debug('    {}'.format(r)) for r in pretty_crn(b_int)]
+                log.info("Formal basis of the current module (integrated hybrid):")
+                [log.info('    {}'.format(r)) for r in pretty_crn(b_int)]
             log.info('')
             basis_raw += b_raw
             basis_int += b_int

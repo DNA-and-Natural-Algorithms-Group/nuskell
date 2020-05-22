@@ -159,7 +159,7 @@ def test(c1, c2, inter, integrated = False):
     log.info("Original CRN:")
     [log.info('    {}'.format(r)) for r in genCRN(crn1, rates = False)]
     log.info("")
-    log.info("Compiled CRN with {} species. After partial interpretation:".format(len(set().union(*[set().union(*rxn) for rxn in crn2]))))
+    log.info(f"Compiled CRN with {len(set().union(*[set().union(*rxn) for rxn in crn2]))} species and {len(crn2)} reactions. After partial interpretation:")
     [log.info(f'    {r}') for r in genCRN(crn2, interpretation = inter, rates = False)]
     log.info("")
 

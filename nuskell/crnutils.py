@@ -92,7 +92,6 @@ def crn_to_standard(crn):
         if isinstance(rxn, Reaction):
             nrxn = rxn
         else:
-            log.debug('Reaction: {}'.format(rxn))
             # Unify reactants and products.
             if isinstance(rxn[0], Counter):
                 assert isinstance(rxn[1], Counter)
