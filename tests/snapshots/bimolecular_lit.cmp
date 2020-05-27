@@ -1,166 +1,166 @@
-Translation scheme       CRN           enumerated pathway integrated bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
-      cardelli2011_FJ.ts  bimol_01.crn      [c]     None    None       None         None                495                    26                              timeout  
-      cardelli2011_FJ.ts  bimol_02.crn      [c]     None    None      False        False                495                    15                              timeout  
-      cardelli2011_FJ.ts  bimol_03.crn      [c]     None    None       None         None                545                    20                              timeout  
-      cardelli2011_FJ.ts  bimol_04.crn      [c]     None    None       True         True                510                    15                                 True  
-      cardelli2011_FJ.ts  bimol_05.crn      [c]     None    None       None         None                510                    15                              timeout  
-      cardelli2011_FJ.ts  bimol_06.crn      [c]     None    None       True         True                580                    15                                 True  
-      cardelli2011_FJ.ts  bimol_07.crn      [c]     None    None       True         True                580                    15                                 True  
-      cardelli2011_FJ.ts  bimol_08.crn      [c]     None    None       True         True                545                    15                                 True  
-      cardelli2011_FJ.ts  bimol_09.crn      [c]     None    None       True         True                545                    15                                 True  
-      cardelli2011_FJ.ts  bimol_10.crn      [c]     None    None       True         True                545                    15                                 True  
-      cardelli2011_FJ.ts  bimol_11.crn      [c]     None    None       True         True                545                    15                                 True  
-      cardelli2011_FJ.ts  bimol_12.crn      [c]     None    None       True         True                545                    18                                 True  
-      cardelli2011_FJ.ts  bimol_13.crn      [c]     None    None      False        False                530                    15                              timeout  
-      cardelli2011_FJ.ts  bimol_14.crn      [c]     None    None      False        False                495                    15                              timeout  
-      cardelli2011_FJ.ts  bimol_15.crn      [c]     None    None      False        False                530                    15                              timeout  
-      cardelli2011_NM.ts  bimol_01.crn      [c]     None    None       None         None                430                    23                              timeout  
-      cardelli2011_NM.ts  bimol_02.crn      [c]     None    None      False        False                430                    12                              timeout  
-      cardelli2011_NM.ts  bimol_03.crn      [c]     None    None       True         True                480                    17                                 True  
-      cardelli2011_NM.ts  bimol_04.crn      [c]     None    None       True         True                445                    12                                 True  
-      cardelli2011_NM.ts  bimol_05.crn      [c]     None    None       True         True                445                    12                                 True  
-      cardelli2011_NM.ts  bimol_06.crn      [c]     None    None       True         True                515                    12                                 True  
-      cardelli2011_NM.ts  bimol_07.crn      [c]     None    None       True         True                515                    12                                 True  
-      cardelli2011_NM.ts  bimol_08.crn      [c]     None    None       True         True                480                    12                                 True  
-      cardelli2011_NM.ts  bimol_09.crn      [c]     None    None       True         True                480                    12                                 True  
-      cardelli2011_NM.ts  bimol_10.crn      [c]     None    None       True         True                480                    12                                 True  
-      cardelli2011_NM.ts  bimol_11.crn      [c]     None    None       True         True                480                    12                                 True  
-      cardelli2011_NM.ts  bimol_12.crn      [c]     None    None       True         True                480                    15                                 True  
-      cardelli2011_NM.ts  bimol_13.crn      [c]     None    None      False        False                465                    12                              timeout  
-      cardelli2011_NM.ts  bimol_14.crn      [c]     None    None      False        False                430                    12                              timeout  
-      cardelli2011_NM.ts  bimol_15.crn      [c]     None    None      False        False                465                    12                              timeout  
-      cardelli2013_2D.ts  bimol_01.crn      [c]     None    None       True         True                270                    14                                 True  
-      cardelli2013_2D.ts  bimol_02.crn      [c]    False   False      False        False                440                    16                                False  
-      cardelli2013_2D.ts  bimol_03.crn      [c]    False   False      False        False                440                    16                                False  
-      cardelli2013_2D.ts  bimol_04.crn      [c]    False   False       True         True                440                    16                                 True  
-      cardelli2013_2D.ts  bimol_05.crn      [c]     None    None       True         True                310                    14                                 True  
-      cardelli2013_2D.ts  bimol_06.crn      [c]    False   False      False        False                480                    16                                False  
-      cardelli2013_2D.ts  bimol_07.crn      [c]    False   False      False        False                520                    16                                False  
-      cardelli2013_2D.ts  bimol_08.crn      [c]    False   False      False        False                480                    16                                False  
-      cardelli2013_2D.ts  bimol_09.crn      [c]    False   False      False        False                480                    16                                False  
-      cardelli2013_2D.ts  bimol_10.crn      [c]    False   False      False        False                480                    16                                False  
-      cardelli2013_2D.ts  bimol_11.crn      [c]    False   False      False        False                350                    14                                False  
-      cardelli2013_2D.ts  bimol_12.crn      [c]    False   False      False        False                310                    14                                False  
-      cardelli2013_2D.ts  bimol_13.crn      [c]    False   False      False        False                480                    16                                False  
-      cardelli2013_2D.ts  bimol_14.crn      [c]    False   False      False        False                310                    14                                False  
-      cardelli2013_2D.ts  bimol_15.crn      [c]    False   False      False        False                440                    16                                False  
- cardelli2013_2D_2TGC.ts  bimol_01.crn      [c]     None    None       True         True                330                    15                                 True  
- cardelli2013_2D_2TGC.ts  bimol_02.crn      [c]    False   False      False        False                370                    15                                False  
- cardelli2013_2D_2TGC.ts  bimol_03.crn      [c]     None    None      False        False                365                    15                              timeout  
- cardelli2013_2D_2TGC.ts  bimol_04.crn      [c]     None    None       True         True                385                    15                                 True  
- cardelli2013_2D_2TGC.ts  bimol_05.crn      [c]     None    None       True         True                385                    15                                 True  
- cardelli2013_2D_2TGC.ts  bimol_06.crn      [c]    False   False      False        False                405                    15                                False  
- cardelli2013_2D_2TGC.ts  bimol_07.crn      [c]    False   False      False        False                445                    15                                False  
- cardelli2013_2D_2TGC.ts  bimol_08.crn      [c]     None    None      False        False                405                    15                              timeout  
- cardelli2013_2D_2TGC.ts  bimol_09.crn      [c]    False   False      False        False                425                    15                                False  
- cardelli2013_2D_2TGC.ts  bimol_10.crn      [c]    False   False      False        False                405                    15                                False  
- cardelli2013_2D_2TGC.ts  bimol_11.crn      [c]     None    None      False        False                425                    15                              timeout  
- cardelli2013_2D_2TGC.ts  bimol_12.crn      [c]     None    None      False        False                385                    15                              timeout  
- cardelli2013_2D_2TGC.ts  bimol_13.crn      [c]    False   False      False        False                410                    15                                False  
- cardelli2013_2D_2TGC.ts  bimol_14.crn      [c]     None    None      False        False                370                    15                              timeout  
- cardelli2013_2D_2TGC.ts  bimol_15.crn      [c]    False   False      False        False                370                    15                                False  
-   cardelli2013_2D_3I.ts  bimol_01.crn  [c, rr]     None    None       True         True                335                    13                                 True  
-   cardelli2013_2D_3I.ts  bimol_02.crn  [c, rr]    False   False       True         True                505                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_03.crn  [c, rr]    False   False       True         True                505                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_04.crn  [c, rr]    False   False       True         True                505                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_05.crn  [c, rr]     None    None       True         True                375                    13                                 True  
-   cardelli2013_2D_3I.ts  bimol_06.crn  [c, rr]    False   False       True         True                545                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_07.crn  [c, rr]    False   False       True         True                585                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_08.crn  [c, rr]    False   False       True         True                545                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_09.crn  [c, rr]    False   False       True         True                545                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_10.crn  [c, rr]    False   False       True         True                545                    15                                 True  
-   cardelli2013_2D_3I.ts  bimol_11.crn  [c, rr]     None    None      False        False                415                    13                              timeout  
-   cardelli2013_2D_3I.ts  bimol_12.crn  [c, rr]     None    None       True         True                375                    13                                 True  
-   cardelli2013_2D_3I.ts  bimol_13.crn  [c, rr]    False   False      False        False                545                    15                                False  
-   cardelli2013_2D_3I.ts  bimol_14.crn  [c, rr]     None    None      False        False                375                    13                              timeout  
-   cardelli2013_2D_3I.ts  bimol_15.crn  [c, rr]    False   False      False        False                505                    15                                False  
-       chen2013_2D_JF.ts  bimol_01.crn      [c]    False   False       True         True                280                    13                                 True  
-       chen2013_2D_JF.ts  bimol_02.crn      [c]    False   False      False        False                340                    13                                False  
-       chen2013_2D_JF.ts  bimol_03.crn      [c]    False   False      False        False                340                    13                                False  
-       chen2013_2D_JF.ts  bimol_04.crn      [c]    False   False       True         True                340                    13                                 True  
-       chen2013_2D_JF.ts  bimol_05.crn      [c]    False   False       True         True                300                    13                                 True  
-       chen2013_2D_JF.ts  bimol_06.crn      [c]    False   False      False        False                360                    13                                False  
-       chen2013_2D_JF.ts  bimol_07.crn      [c]    False   False      False        False                380                    13                                False  
-       chen2013_2D_JF.ts  bimol_08.crn      [c]    False   False      False        False                360                    13                                False  
-       chen2013_2D_JF.ts  bimol_09.crn      [c]    False   False      False        False                360                    13                                False  
-       chen2013_2D_JF.ts  bimol_10.crn      [c]    False   False      False        False                360                    13                                False  
-       chen2013_2D_JF.ts  bimol_11.crn      [c]    False   False      False        False                340                    13                                False  
-       chen2013_2D_JF.ts  bimol_12.crn      [c]    False   False      False        False                320                    13                                False  
-       chen2013_2D_JF.ts  bimol_13.crn      [c]    False   False      False        False                360                    13                                False  
-       chen2013_2D_JF.ts  bimol_14.crn      [c]    False   False      False        False                320                    13                                False  
-       chen2013_2D_JF.ts  bimol_15.crn      [c]    False   False      False        False                340                    13                                False  
-         lakin2012_3D.ts  bimol_01.crn      [c]    False   False       True         True                270                    36                                 True  
-         lakin2012_3D.ts  bimol_02.crn      [c]    False   False       True         True                270                    13                                 True  
-         lakin2012_3D.ts  bimol_03.crn      [c]    False   False       True         True                305                    10                                 True  
-         lakin2012_3D.ts  bimol_04.crn      [c]    False   False       True         True                270                     5                                 True  
-         lakin2012_3D.ts  bimol_05.crn      [c]    False   False       True         True                270                     5                                 True  
-         lakin2012_3D.ts  bimol_06.crn      [c]    False   False       True         True                340                     5                                 True  
-         lakin2012_3D.ts  bimol_07.crn      [c]    False   False       True         True                340                     5                                 True  
-         lakin2012_3D.ts  bimol_08.crn      [c]    False   False       True         True                305                     5                                 True  
-         lakin2012_3D.ts  bimol_09.crn      [c]    False   False       True         True                305                     5                                 True  
-         lakin2012_3D.ts  bimol_10.crn      [c]    False   False       True         True                305                     5                                 True  
-         lakin2012_3D.ts  bimol_11.crn      [c]    False   False       True         True                305                     5                                 True  
-         lakin2012_3D.ts  bimol_12.crn      [c]    False   False       True         True                305                     8                                 True  
-         lakin2012_3D.ts  bimol_13.crn      [c]    False   False       True         True                305                    13                                 True  
-         lakin2012_3D.ts  bimol_14.crn      [c]    False   False       True         True                270                    13                                 True  
-         lakin2012_3D.ts  bimol_15.crn      [c]    False   False       True         True                305                    13                                 True  
-      lakin2016_2D_3I.ts  bimol_01.crn  [c, rr]     None    None      False        False                385                    12                              timeout  
-      lakin2016_2D_3I.ts  bimol_02.crn  [c, rr]    False   False      False        False                405                     8                                False  
-      lakin2016_2D_3I.ts  bimol_03.crn  [c, rr]    False   False      False        False                425                    12                                False  
-      lakin2016_2D_3I.ts  bimol_04.crn  [c, rr]    False   False       None         None                425                    12                              timeout  
-      lakin2016_2D_3I.ts  bimol_05.crn  [c, rr]     None    None       None         None                425                    12                              timeout  
-      lakin2016_2D_3I.ts  bimol_06.crn  [c, rr]    False   False       True         True                445                     8                                 True  
-      lakin2016_2D_3I.ts  bimol_07.crn      [c]     None    None       True         True                465                    26                                 True  
-      lakin2016_2D_3I.ts  bimol_08.crn  [c, rr]    False   False      False        False                445                    12                                False  
-      lakin2016_2D_3I.ts  bimol_09.crn      [c]    False   False       None         None                445                    29                              timeout  
-      lakin2016_2D_3I.ts  bimol_10.crn  [c, rr]    False   False      False        False                445                     8                                False  
-      lakin2016_2D_3I.ts  bimol_11.crn  [c, rr]     True    True      False        False                445                    12                                 True  
-      lakin2016_2D_3I.ts  bimol_12.crn  [c, rr]     None    None      False        False                425                    12                              timeout  
-      lakin2016_2D_3I.ts  bimol_13.crn      [c]     None    None       None         None                425                    26                              timeout  
-      lakin2016_2D_3I.ts  bimol_14.crn  [c, rr]     None    None      False        False                405                    12                              timeout  
-      lakin2016_2D_3I.ts  bimol_15.crn  [c, rr]    False   False      False        False                405                     8                                False  
-          qian2011_3D.ts  bimol_01.crn      [c]     True    True       True         True                160                     8                                 True  
-          qian2011_3D.ts  bimol_02.crn      [c]    False   False      False        False                265                     9                                False  
-          qian2011_3D.ts  bimol_03.crn      [c]    False   False      False        False                265                     9                                False  
-          qian2011_3D.ts  bimol_04.crn      [c]     True    True       True         True                235                     8                                 True  
-          qian2011_3D.ts  bimol_05.crn      [c]     True    True       True         True                235                     8                                 True  
-          qian2011_3D.ts  bimol_06.crn      [c]    False   False      False        False                300                     9                                False  
-          qian2011_3D.ts  bimol_07.crn      [c]    False   False      False        False                355                     9                                False  
-          qian2011_3D.ts  bimol_08.crn      [c]    False   False      False        False                320                     9                                False  
-          qian2011_3D.ts  bimol_09.crn      [c]    False   False      False        False                320                     9                                False  
-          qian2011_3D.ts  bimol_10.crn      [c]    False   False      False        False                320                     9                                False  
-          qian2011_3D.ts  bimol_11.crn      [c]    False   False      False        False                320                     9                                False  
-          qian2011_3D.ts  bimol_12.crn      [c]    False   False      False        False                265                     9                                False  
-          qian2011_3D.ts  bimol_13.crn      [c]    False   False      False        False                300                     9                                False  
-          qian2011_3D.ts  bimol_14.crn      [c]    False   False      False        False                265                     9                                False  
-          qian2011_3D.ts  bimol_15.crn      [c]    False   False      False        False                245                     9                                False  
-      soloveichik2010.ts  bimol_01.crn  [c, rr]     True    True       True         True                260                     9                                 True  
-      soloveichik2010.ts  bimol_02.crn      [c]    False   False      False        False                260                    59                                False  
-      soloveichik2010.ts  bimol_03.crn      [c]     True    True       True         True                300                     7                                 True  
-      soloveichik2010.ts  bimol_04.crn      [c]     True    True       True         True                260                     4                                 True  
-      soloveichik2010.ts  bimol_05.crn      [c]     True    True       True         True                260                     4                                 True  
-      soloveichik2010.ts  bimol_06.crn      [c]     True    True       True         True                340                     4                                 True  
-      soloveichik2010.ts  bimol_07.crn      [c]     True    True       True         True                340                     4                                 True  
-      soloveichik2010.ts  bimol_08.crn      [c]     True    True       True         True                300                     4                                 True  
-      soloveichik2010.ts  bimol_09.crn      [c]     True    True       True         True                300                     4                                 True  
-      soloveichik2010.ts  bimol_10.crn      [c]     True    True       True         True                300                     4                                 True  
-      soloveichik2010.ts  bimol_11.crn      [c]     True    True       True         True                300                     4                                 True  
-      soloveichik2010.ts  bimol_12.crn      [c]     True    True       True         True                300                     5                                 True  
-      soloveichik2010.ts  bimol_13.crn      [c]     True    True       True         True                300                     4                                 True  
-      soloveichik2010.ts  bimol_14.crn      [c]    False   False      False        False                260                    59                                False  
-      soloveichik2010.ts  bimol_15.crn      [c]     True    True       True         True                300                     4                                 True  
-         srinivas2015.ts  bimol_01.crn      [c]     True    True       True         True                260                    11                                 True  
-         srinivas2015.ts  bimol_02.crn      [c]     True    True       True         True                260                     6                                 True  
-         srinivas2015.ts  bimol_03.crn      [c]     True    True       True         True                300                     9                                 True  
-         srinivas2015.ts  bimol_04.crn      [c]     True    True       True         True                260                     6                                 True  
-         srinivas2015.ts  bimol_05.crn      [c]     True    True       True         True                260                     6                                 True  
-         srinivas2015.ts  bimol_06.crn      [c]     True    True       True         True                340                     6                                 True  
-         srinivas2015.ts  bimol_07.crn      [c]     True    True       True         True                340                     6                                 True  
-         srinivas2015.ts  bimol_08.crn      [c]     True    True       True         True                300                     6                                 True  
-         srinivas2015.ts  bimol_09.crn      [c]     True    True       True         True                300                     6                                 True  
-         srinivas2015.ts  bimol_10.crn      [c]     True    True       True         True                300                     6                                 True  
-         srinivas2015.ts  bimol_11.crn      [c]     True    True       True         True                300                     6                                 True  
-         srinivas2015.ts  bimol_12.crn      [c]     True    True       True         True                300                     7                                 True  
-         srinivas2015.ts  bimol_13.crn      [c]     True    True       True         True                300                     6                                 True  
-         srinivas2015.ts  bimol_14.crn      [c]     True    True       True         True                260                     6                                 True  
-         srinivas2015.ts  bimol_15.crn      [c]     True    True       True         True                300                     6                                 True  
+Translation scheme       CRN           enumerated pathway bisimulation modular-bisimulation  number of nucleotides  reactions in condensed network equivalent
+      cardelli2011_FJ.ts  bimol_01.crn      [c]     None    None         None                495                    26                              timeout  
+      cardelli2011_FJ.ts  bimol_02.crn      [c]     None    None         None                495                    15                              timeout  
+      cardelli2011_FJ.ts  bimol_03.crn      [c]     None    None         None                545                    20                              timeout  
+      cardelli2011_FJ.ts  bimol_04.crn      [c]     None    True         True                510                    15                                 True  
+      cardelli2011_FJ.ts  bimol_05.crn      [c]     None    None         None                510                    15                              timeout  
+      cardelli2011_FJ.ts  bimol_06.crn      [c]     None    True         True                580                    15                                 True  
+      cardelli2011_FJ.ts  bimol_07.crn      [c]     None    True         True                580                    15                                 True  
+      cardelli2011_FJ.ts  bimol_08.crn      [c]     None    None         None                545                    15                              timeout  
+      cardelli2011_FJ.ts  bimol_09.crn      [c]     None    True         True                545                    15                                 True  
+      cardelli2011_FJ.ts  bimol_10.crn      [c]     None    True         True                545                    15                                 True  
+      cardelli2011_FJ.ts  bimol_11.crn      [c]     None    True         True                545                    15                                 True  
+      cardelli2011_FJ.ts  bimol_12.crn      [c]     None    True         True                545                    18                                 True  
+      cardelli2011_FJ.ts  bimol_13.crn      [c]     None   False        False                530                    15                              timeout  
+      cardelli2011_FJ.ts  bimol_14.crn      [c]     None   False        False                495                    15                              timeout  
+      cardelli2011_FJ.ts  bimol_15.crn      [c]     None   False        False                530                    15                              timeout  
+      cardelli2011_NM.ts  bimol_01.crn      [c]     None    None         None                430                    23                              timeout  
+      cardelli2011_NM.ts  bimol_02.crn      [c]     None   False        False                430                    12                              timeout  
+      cardelli2011_NM.ts  bimol_03.crn      [c]     None    True         True                480                    17                                 True  
+      cardelli2011_NM.ts  bimol_04.crn      [c]     None    True         True                445                    12                                 True  
+      cardelli2011_NM.ts  bimol_05.crn      [c]     None    True         True                445                    12                                 True  
+      cardelli2011_NM.ts  bimol_06.crn      [c]     None    True         True                515                    12                                 True  
+      cardelli2011_NM.ts  bimol_07.crn      [c]     None    True         True                515                    12                                 True  
+      cardelli2011_NM.ts  bimol_08.crn      [c]     None    True         True                480                    12                                 True  
+      cardelli2011_NM.ts  bimol_09.crn      [c]     None    True         True                480                    12                                 True  
+      cardelli2011_NM.ts  bimol_10.crn      [c]     None    True         True                480                    12                                 True  
+      cardelli2011_NM.ts  bimol_11.crn      [c]     None    True         True                480                    12                                 True  
+      cardelli2011_NM.ts  bimol_12.crn      [c]     None    True         True                480                    15                                 True  
+      cardelli2011_NM.ts  bimol_13.crn      [c]     None   False        False                465                    12                              timeout  
+      cardelli2011_NM.ts  bimol_14.crn      [c]     None   False        False                430                    12                              timeout  
+      cardelli2011_NM.ts  bimol_15.crn      [c]     None   False        False                465                    12                              timeout  
+      cardelli2013_2D.ts  bimol_01.crn      [c]     None    True         True                270                    14                                 True  
+      cardelli2013_2D.ts  bimol_02.crn      [c]    False   False        False                440                    16                                False  
+      cardelli2013_2D.ts  bimol_03.crn      [c]    False   False        False                440                    16                                False  
+      cardelli2013_2D.ts  bimol_04.crn      [c]    False    True         True                440                    16                                 True  
+      cardelli2013_2D.ts  bimol_05.crn      [c]     None    True         True                310                    14                                 True  
+      cardelli2013_2D.ts  bimol_06.crn      [c]    False   False        False                480                    16                                False  
+      cardelli2013_2D.ts  bimol_07.crn      [c]    False   False        False                520                    16                                False  
+      cardelli2013_2D.ts  bimol_08.crn      [c]    False   False        False                480                    16                                False  
+      cardelli2013_2D.ts  bimol_09.crn      [c]    False   False        False                480                    16                                False  
+      cardelli2013_2D.ts  bimol_10.crn      [c]    False   False        False                480                    16                                False  
+      cardelli2013_2D.ts  bimol_11.crn      [c]    False   False        False                350                    14                                False  
+      cardelli2013_2D.ts  bimol_12.crn      [c]    False   False        False                310                    14                                False  
+      cardelli2013_2D.ts  bimol_13.crn      [c]    False   False        False                480                    16                                False  
+      cardelli2013_2D.ts  bimol_14.crn      [c]    False   False        False                310                    14                                False  
+      cardelli2013_2D.ts  bimol_15.crn      [c]    False   False        False                440                    16                                False  
+ cardelli2013_2D_2TGC.ts  bimol_01.crn      [c]     None    True         True                330                    15                                 True  
+ cardelli2013_2D_2TGC.ts  bimol_02.crn      [c]    False   False        False                370                    15                                False  
+ cardelli2013_2D_2TGC.ts  bimol_03.crn      [c]     None   False        False                365                    15                              timeout  
+ cardelli2013_2D_2TGC.ts  bimol_04.crn      [c]     None    True         True                385                    15                                 True  
+ cardelli2013_2D_2TGC.ts  bimol_05.crn      [c]     None    True         True                385                    15                                 True  
+ cardelli2013_2D_2TGC.ts  bimol_06.crn      [c]    False   False        False                405                    15                                False  
+ cardelli2013_2D_2TGC.ts  bimol_07.crn      [c]    False   False        False                445                    15                                False  
+ cardelli2013_2D_2TGC.ts  bimol_08.crn      [c]     None   False        False                405                    15                              timeout  
+ cardelli2013_2D_2TGC.ts  bimol_09.crn      [c]    False   False        False                425                    15                                False  
+ cardelli2013_2D_2TGC.ts  bimol_10.crn      [c]    False   False        False                405                    15                                False  
+ cardelli2013_2D_2TGC.ts  bimol_11.crn      [c]     None   False        False                425                    15                              timeout  
+ cardelli2013_2D_2TGC.ts  bimol_12.crn      [c]     None   False        False                385                    15                              timeout  
+ cardelli2013_2D_2TGC.ts  bimol_13.crn      [c]    False   False        False                410                    15                                False  
+ cardelli2013_2D_2TGC.ts  bimol_14.crn      [c]     None   False        False                370                    15                              timeout  
+ cardelli2013_2D_2TGC.ts  bimol_15.crn      [c]    False   False        False                370                    15                                False  
+   cardelli2013_2D_3I.ts  bimol_01.crn  [c, rr]     None    True         True                335                    13                                 True  
+   cardelli2013_2D_3I.ts  bimol_02.crn  [c, rr]    False    True         True                505                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_03.crn  [c, rr]    False    True         True                505                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_04.crn  [c, rr]    False    True         True                505                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_05.crn  [c, rr]     None    True         True                375                    13                                 True  
+   cardelli2013_2D_3I.ts  bimol_06.crn  [c, rr]    False    True         True                545                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_07.crn  [c, rr]    False    True         True                585                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_08.crn  [c, rr]    False    True         True                545                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_09.crn  [c, rr]    False    True         True                545                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_10.crn  [c, rr]    False    True         True                545                    15                                 True  
+   cardelli2013_2D_3I.ts  bimol_11.crn  [c, rr]     None   False        False                415                    13                              timeout  
+   cardelli2013_2D_3I.ts  bimol_12.crn  [c, rr]     None    True         True                375                    13                                 True  
+   cardelli2013_2D_3I.ts  bimol_13.crn  [c, rr]    False   False        False                545                    15                                False  
+   cardelli2013_2D_3I.ts  bimol_14.crn  [c, rr]     None   False        False                375                    13                              timeout  
+   cardelli2013_2D_3I.ts  bimol_15.crn  [c, rr]    False   False        False                505                    15                                False  
+       chen2013_2D_JF.ts  bimol_01.crn      [c]    False    True         True                280                    13                                 True  
+       chen2013_2D_JF.ts  bimol_02.crn      [c]    False   False        False                340                    13                                False  
+       chen2013_2D_JF.ts  bimol_03.crn      [c]    False   False        False                340                    13                                False  
+       chen2013_2D_JF.ts  bimol_04.crn      [c]    False    True         True                340                    13                                 True  
+       chen2013_2D_JF.ts  bimol_05.crn      [c]    False    True         True                300                    13                                 True  
+       chen2013_2D_JF.ts  bimol_06.crn      [c]    False   False        False                360                    13                                False  
+       chen2013_2D_JF.ts  bimol_07.crn      [c]    False   False        False                380                    13                                False  
+       chen2013_2D_JF.ts  bimol_08.crn      [c]    False   False        False                360                    13                                False  
+       chen2013_2D_JF.ts  bimol_09.crn      [c]    False   False        False                360                    13                                False  
+       chen2013_2D_JF.ts  bimol_10.crn      [c]    False   False        False                360                    13                                False  
+       chen2013_2D_JF.ts  bimol_11.crn      [c]    False   False        False                340                    13                                False  
+       chen2013_2D_JF.ts  bimol_12.crn      [c]    False   False        False                320                    13                                False  
+       chen2013_2D_JF.ts  bimol_13.crn      [c]    False   False        False                360                    13                                False  
+       chen2013_2D_JF.ts  bimol_14.crn      [c]    False   False        False                320                    13                                False  
+       chen2013_2D_JF.ts  bimol_15.crn      [c]    False   False        False                340                    13                                False  
+         lakin2012_3D.ts  bimol_01.crn      [c]    False    True         True                270                    36                                 True  
+         lakin2012_3D.ts  bimol_02.crn      [c]    False    True         True                270                    13                                 True  
+         lakin2012_3D.ts  bimol_03.crn      [c]    False    True         True                305                    10                                 True  
+         lakin2012_3D.ts  bimol_04.crn      [c]    False    True         True                270                     5                                 True  
+         lakin2012_3D.ts  bimol_05.crn      [c]    False    True         True                270                     5                                 True  
+         lakin2012_3D.ts  bimol_06.crn      [c]    False    True         True                340                     5                                 True  
+         lakin2012_3D.ts  bimol_07.crn      [c]    False    True         True                340                     5                                 True  
+         lakin2012_3D.ts  bimol_08.crn      [c]    False    True         True                305                     5                                 True  
+         lakin2012_3D.ts  bimol_09.crn      [c]    False    True         True                305                     5                                 True  
+         lakin2012_3D.ts  bimol_10.crn      [c]    False    True         True                305                     5                                 True  
+         lakin2012_3D.ts  bimol_11.crn      [c]    False    True         True                305                     5                                 True  
+         lakin2012_3D.ts  bimol_12.crn      [c]    False    True         True                305                     8                                 True  
+         lakin2012_3D.ts  bimol_13.crn      [c]    False    True         True                305                    13                                 True  
+         lakin2012_3D.ts  bimol_14.crn      [c]    False    True         True                270                    13                                 True  
+         lakin2012_3D.ts  bimol_15.crn      [c]    False    True         True                305                    13                                 True  
+      lakin2016_2D_3I.ts  bimol_01.crn  [c, rr]     None   False        False                385                    12                              timeout  
+      lakin2016_2D_3I.ts  bimol_02.crn  [c, rr]    False   False        False                405                     8                                False  
+      lakin2016_2D_3I.ts  bimol_03.crn  [c, rr]    False   False        False                425                    12                                False  
+      lakin2016_2D_3I.ts  bimol_04.crn  [c, rr]    False    None         None                425                    12                              timeout  
+      lakin2016_2D_3I.ts  bimol_05.crn  [c, rr]     None    None         None                425                    12                              timeout  
+      lakin2016_2D_3I.ts  bimol_06.crn  [c, rr]    False    True         True                445                     8                                 True  
+      lakin2016_2D_3I.ts  bimol_07.crn      [c]     None    True         True                465                    26                                 True  
+      lakin2016_2D_3I.ts  bimol_08.crn  [c, rr]    False   False        False                445                    12                                False  
+      lakin2016_2D_3I.ts  bimol_09.crn      [c]    False    None         None                445                    29                              timeout  
+      lakin2016_2D_3I.ts  bimol_10.crn  [c, rr]    False   False        False                445                     8                                False  
+      lakin2016_2D_3I.ts  bimol_11.crn  [c, rr]     True   False        False                445                    12                                 True  
+      lakin2016_2D_3I.ts  bimol_12.crn  [c, rr]     None   False        False                425                    12                              timeout  
+      lakin2016_2D_3I.ts  bimol_13.crn      [c]     None    None         None                425                    26                              timeout  
+      lakin2016_2D_3I.ts  bimol_14.crn  [c, rr]     None   False        False                405                    12                              timeout  
+      lakin2016_2D_3I.ts  bimol_15.crn  [c, rr]    False   False        False                405                     8                                False  
+          qian2011_3D.ts  bimol_01.crn      [c]     True    True         True                160                     8                                 True  
+          qian2011_3D.ts  bimol_02.crn      [c]    False   False        False                265                     9                                False  
+          qian2011_3D.ts  bimol_03.crn      [c]    False   False        False                265                     9                                False  
+          qian2011_3D.ts  bimol_04.crn      [c]     True    True         True                235                     8                                 True  
+          qian2011_3D.ts  bimol_05.crn      [c]     True    True         True                235                     8                                 True  
+          qian2011_3D.ts  bimol_06.crn      [c]    False   False        False                300                     9                                False  
+          qian2011_3D.ts  bimol_07.crn      [c]    False   False        False                355                     9                                False  
+          qian2011_3D.ts  bimol_08.crn      [c]    False   False        False                320                     9                                False  
+          qian2011_3D.ts  bimol_09.crn      [c]    False   False        False                320                     9                                False  
+          qian2011_3D.ts  bimol_10.crn      [c]    False   False        False                320                     9                                False  
+          qian2011_3D.ts  bimol_11.crn      [c]    False   False        False                320                     9                                False  
+          qian2011_3D.ts  bimol_12.crn      [c]    False   False        False                265                     9                                False  
+          qian2011_3D.ts  bimol_13.crn      [c]    False   False        False                300                     9                                False  
+          qian2011_3D.ts  bimol_14.crn      [c]    False   False        False                265                     9                                False  
+          qian2011_3D.ts  bimol_15.crn      [c]    False   False        False                245                     9                                False  
+      soloveichik2010.ts  bimol_01.crn  [c, rr]     True    True         True                260                     9                                 True  
+      soloveichik2010.ts  bimol_02.crn      [c]    False   False        False                260                    59                                False  
+      soloveichik2010.ts  bimol_03.crn      [c]     True    True         True                300                     7                                 True  
+      soloveichik2010.ts  bimol_04.crn      [c]     True    True         True                260                     4                                 True  
+      soloveichik2010.ts  bimol_05.crn      [c]     True    True         True                260                     4                                 True  
+      soloveichik2010.ts  bimol_06.crn      [c]     True    True         True                340                     4                                 True  
+      soloveichik2010.ts  bimol_07.crn      [c]     True    True         True                340                     4                                 True  
+      soloveichik2010.ts  bimol_08.crn      [c]     True    True         True                300                     4                                 True  
+      soloveichik2010.ts  bimol_09.crn      [c]     True    True         True                300                     4                                 True  
+      soloveichik2010.ts  bimol_10.crn      [c]     True    True         True                300                     4                                 True  
+      soloveichik2010.ts  bimol_11.crn      [c]     True    True         True                300                     4                                 True  
+      soloveichik2010.ts  bimol_12.crn      [c]     True    True         True                300                     5                                 True  
+      soloveichik2010.ts  bimol_13.crn      [c]     True    True         True                300                     4                                 True  
+      soloveichik2010.ts  bimol_14.crn      [c]    False   False        False                260                    59                                False  
+      soloveichik2010.ts  bimol_15.crn      [c]     True    True         True                300                     4                                 True  
+         srinivas2015.ts  bimol_01.crn      [c]     True    True         True                260                    11                                 True  
+         srinivas2015.ts  bimol_02.crn      [c]     True    True         True                260                     6                                 True  
+         srinivas2015.ts  bimol_03.crn      [c]     True    True         True                300                     9                                 True  
+         srinivas2015.ts  bimol_04.crn      [c]     True    True         True                260                     6                                 True  
+         srinivas2015.ts  bimol_05.crn      [c]     True    True         True                260                     6                                 True  
+         srinivas2015.ts  bimol_06.crn      [c]     True    True         True                340                     6                                 True  
+         srinivas2015.ts  bimol_07.crn      [c]     True    True         True                340                     6                                 True  
+         srinivas2015.ts  bimol_08.crn      [c]     True    True         True                300                     6                                 True  
+         srinivas2015.ts  bimol_09.crn      [c]     True    True         True                300                     6                                 True  
+         srinivas2015.ts  bimol_10.crn      [c]     True    True         True                300                     6                                 True  
+         srinivas2015.ts  bimol_11.crn      [c]     True    True         True                300                     6                                 True  
+         srinivas2015.ts  bimol_12.crn      [c]     True    True         True                300                     7                                 True  
+         srinivas2015.ts  bimol_13.crn      [c]     True    True         True                300                     6                                 True  
+         srinivas2015.ts  bimol_14.crn      [c]     True    True         True                260                     6                                 True  
+         srinivas2015.ts  bimol_15.crn      [c]     True    True         True                300                     6                                 True  
