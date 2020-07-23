@@ -259,7 +259,7 @@ class Path:
             elif tmp1 is None:
                 return (t1, tmp2), None
             else:
-                return (t1, tmp2), (tmp1, t2)
+                return (tmp1, t2), (t1, tmp2)
 
         debug = False
         new_finals = []
@@ -271,9 +271,9 @@ class Path:
                         (is_formal_state(T2.elements(), self.fs) and sum(T2.values()) != 0):
                         raise BasisFinderError('DFS: found formal final state during decomposition!')
                 n1, n2 = next_final_states(T1, T2, R, P)
-                if n1 is not None and n1 not in new_finals:
+                if n1 is not None and n1 not in new_finals[1:]:
                     new_finals.append((n1))
-                if n2 is not None and n2 not in new_finals:
+                if n2 is not None and n2 not in new_finals[1:]:
                     new_finals.append((n2))
             if len(new_finals) < 1:
                 raise BasisFinderError('DFS: not a semi-formal pathway!')
@@ -285,8 +285,9 @@ class Path:
             return frozenset()
         else:
             DFS = set()
-            for (T1, T2) in self._dfinals:
-                if sum(T2.values()) == 0:
+            for e, (T1, T2) in enumerate(self._dfinals):
+                if e == 0:
+                    assert sum(T2.values()) == 0
                     (final, _) = (T1, T2)
                     assert final == self.final_state
                 else:
@@ -446,20 +447,13 @@ def is_tidy(T, crn, fs):
         crn: the CRN.
         fs: set of formal species.
 
-    Def: Let bR be the max number of reactants over all reactions in the CRN.
-    Def: Let c(Si, x) be the count of species x in state Si.
-
-    Dickson's Lemma: If Sj is reachable by Si and for all species x either 
-    c(Si, x) == c(Sj, x) or c(Sj, x) > c(Si, x) then the state space if infinite.
-
-    Def: A state Sj is *accumulating* x if it is reachable by Si and for all
-    species x either c(Si, x) == c(Sj, x) or c(Sj, x) > c(Si, x) > bR.
-
-    Claim: Excluding all states that are accumulating species from the BFS
-    does not change the result of checking tidyness.
+    How can we determine that it is *impossible* to reach a formal state?
+        - If the set of reachable states is finite, then by exhaustive enumeration.
+        - If the set of reachable states is infinite, then by exhaustive
+          enumeration of a carefully defined finite subset (experimental).
     """
     bR = max(len(R) for [R, _] in crn)
-    warnme = False
+    warnme = True
 
     def next_state(s, rxn):
         # Applies reaction rxn to state s.
@@ -469,8 +463,16 @@ def is_tidy(T, crn, fs):
         s += rxn[1]
         return sorted(s)
 
-    def accumulating(newP, newSC):
+    def accumulating(newP, newSC, warnme = True):
         """ Checks for an accumulating species due to an infinite state space.
+
+        * Let bR be the max number of reactants over all reactions in the CRN.
+        * Let c(S, x) be the count of species x in state S.
+
+        * A state N ('new') can be ignored if
+            - N is reachable by a known state O('old') and
+            - for all species x holds that:
+                either c(N, x) == c(O, x) or c(N, x) > c(O, x) > bR.
         """
         for oldP, oldSC in memC:
             # Quick filter, the set species must be equal
@@ -481,21 +483,26 @@ def is_tidy(T, crn, fs):
                 # If the old path is not a prefix of the new path, we
                 # cannot be sure that newSC is reachable from oldSC!
                 continue
-            # All species have same counts or are accumulating.
+            # If all species have same counts or are in excess, we are good.
             for k in oldSC.keys():
-                if oldSC[k] == newSC[k]:
+                if newSC[k] == oldSC[k]:
                     # species counts are the same
                     continue
-                if not (newSC[k] > oldSC[k] > bR): 
-                    # species counts are different, but not (yet) accumulating beyond reason.
-                    break
-            else:
-                warnme = True
+                if newSC[k] > oldSC[k] > bR: 
+                    # species counts are accumulating beyond reason.
+                    continue
+                break
+            else: # we found a species that is accumulating w.r.t. a known boundary state.
+                if warnme:
+                    log.warning(f'This CRN can produce an infinite state space!')
+                    log.debug(f" - from initial state: {T}")
+                    log.debug(f" oldSC: {oldSC} ({oldP})")
+                    log.debug(f" newSC: {newSC} ({newP})")
                 return True
         return False
 
     queue = [('p', intermediate(sorted(T), fs))]
-    mem = [queue[0]]
+    mem = [queue[0][1]]
     memC = [('p', Counter(queue[0][1]))]
     while len(queue) > 0:
         pS, iS = queue[0] # a path and the intermediate state
@@ -507,17 +514,18 @@ def is_tidy(T, crn, fs):
                 npS = pS + '.' + str(e)
                 nS = intermediate(next_state(iS, rxn), fs)
                 nSC = Counter(nS)
-                if nS not in mem and not accumulating(npS, nSC):
-                    mem.append(nS)
-                    memC.append((npS, nSC))
-                    queue.append((npS, nS))
+                if nS not in mem: 
+                    # Ignore the state if it is accumulating species.
+                    if not accumulating(npS, nSC, warnme):
+                        mem.append(nS)
+                        memC.append((npS, nSC))
+                        queue.append((npS, nS))
+                    else:
+                        # Warnig once is enough.
+                        warnme = False
 
         # NOTE: we sort the queue to prioritize smaller states.
         queue = sorted(queue, key = lambda x: len(x[1]))
-
-    if warnme:
-        log.warning(f'This CRN can produce an infinite state space!')
-        log.debug(f" - from initial state: {T}")
     return False
 
 def crn_properties(crn, fs):
@@ -584,13 +592,16 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
 
         (i, fin, w, fc, dfs, rfs) = sig
         if len(dfs) == 0: # Ok, we found a valid path? Check if the system is tidy and regular!
+            log.debug(f"New undecomposable path: {p}")
             if fin not in TidyCheck:
+                log.debug(f"Checking if tidy from state: {fin} ...")
                 TidyCheck.add(fin)
                 if not is_tidy(list(p.final_state.elements()), crn, fs):
                     log.info("The given system is not tidy.")
                     log.info(" - from initial state: {}".format(p.minimal_initial_state))
                     [log.info('    {}'.format(r)) for r in p.pretty_path]
                     raise NoFormalBasisError("The given system is not tidy.")
+                log.debug(f"... done.")
             if len(p) > 0 and p.is_formal:
                 if inter: # integrated hybrid theory
                     fs1 = set(interpret(fs, inter))
