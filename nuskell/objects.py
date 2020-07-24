@@ -441,17 +441,17 @@ class TestTube(object):
             rxns = self.reactions
             [prev, total] = [set(), 
                     set(list(interpretation.keys()) + list(map(str, self.present_complexes())))]
-            log.debug('Prev {}, Total {}'.format(prev, total))
+            #log.debug('Prev {}, Total {}'.format(prev, total))
             while prev != total:
                 prev = set(list(total)) # force a copy?
                 for rxn in rxns:
                     self.rm_reaction(rxn)
                     r = set(map(str, rxn.reactants))
                     p = set(map(str, rxn.products))
-                    log.debug('R {}, P {}'.format(r, p))
+                    #log.debug('R {}, P {}'.format(r, p))
                     if r.intersection(total) == r: 
                         total |= p
-                    log.debug('Total = {}'.format(total))
+                    #log.debug('Total = {}'.format(total))
 
             # Now add all reactions that are possible from the pruned state.
             [self.add_reaction(x) for x in rxns if set(map(str, x.reactants)).issubset(total)]

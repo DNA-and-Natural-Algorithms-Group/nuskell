@@ -170,7 +170,7 @@ class Path:
         return len(self.dfs) == 0
 
     def is_linear(self, nonwastes):
-        """ True if path has monomolecular sub-structure, False otherwise. 
+        """ True if path has monomolecular substructure, False otherwise. 
         Args: nonwastes (list): non-formal reactants. """
         if self._linear is None:
             for state in self.states(counter = False):
@@ -436,7 +436,7 @@ class Path:
     def __repr__(self):
         return "Path(l={}, {})".format(len(self), self.signature)
 
-def is_tidy(T, crn, fs):
+def is_tidy(T, crn, fs, accumulationcheck = True):
     """ BFS to test if the crn is (strongly) tidy from state T.
 
     True if all intermediate species of the inpute state T can react to produce
@@ -516,7 +516,7 @@ def is_tidy(T, crn, fs):
                 nSC = Counter(nS)
                 if nS not in mem: 
                     # Ignore the state if it is accumulating species.
-                    if not accumulating(npS, nSC, warnme):
+                    if not accumulationcheck or not accumulating(npS, nSC, warnme):
                         mem.append(nS)
                         memC.append((npS, nSC))
                         queue.append((npS, nS))
@@ -530,6 +530,8 @@ def is_tidy(T, crn, fs):
 
 def crn_properties(crn, fs):
     """ Get different CRN properties.
+
+    Returns:
         b (int): the branching factor
         iR: max over |intermediate(R)| of (R,P) in crn
         fRiR: set of (|formal(R)|, |intermediate(R)|)
@@ -544,24 +546,26 @@ def crn_properties(crn, fs):
         if len(r1) > 1 or len(p1) > 1: 
             linear = False
             break
-    log.debug('Monomolecular substructre: {}'.format(linear))
+    log.debug('Monomolecular substructure: {}'.format(linear))
     b  = max(max(len(r),len(p)) for [r, p] in crn)
     iR = max(len(intermediate(r, fs)) for [r, p] in crn) 
     fRiR = set((len(formal(r, fs)), len(intermediate(r, fs))) for [r, p] in crn)
     log.debug('Branching Factors: b = {}, iR = {}, fRiR = {}'.format(b, iR, fRiR))
     return b, iR, fRiR, nw if linear else None
 
-def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
+def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
     """ Find the formal basis of a CRN.
 
-    Ok, lets get CRN as list of lists, ok? Counters are just too slow ...
-
     Args:
-        crn [[Counter, Counter],]: The CRN.
-        fs: Formal species (and waste species).
-        nonw: Reactants that are not formal species ('non-wastes') and which
-            are supposed to pass the linearcheck: There is at most one
-            non-waste in reactants and products for every reaction.
+        crn (List[[R], [P]]): A list of irreversible reactions. First a list of
+            reactants, second a list of products.
+        fs (set(str)): A set of formal species.
+        interpretation (dict, optional): An interpretation dictionary for the 
+            "integrated hybrid" mode. Defaults to None.
+
+    Returns:
+        basis_raw, basis_int: The formal basis found without and with an 
+            interpretation dictionary. 
     """
     TidyCheck = set() # A cache to remember which final states are Tidy. 
     b, iR, fRiR, nonw = crn_properties(crn, fs)
@@ -570,8 +574,8 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
     def enumerate_elementary_basis(p, crn):
         """Enumerates all signatures and thereby the relevant paths.
 
-        Note that the search is bounded by the external constants w_max, i_max.
-        Also, it relies on the definition of formal species (fs) and non-wastes (nonw).
+        Note that the search is bounded by the external constants w_max, i_max, and that
+        it relies on the definition of formal species (fs) and non-wastes (nonw).
         """
         if not p.is_semiformal:
             return
@@ -650,7 +654,6 @@ def get_formal_basis(crn, fs, inter = None): # former: enumerate_basis:
     # STW2019 Theorem 4.10: i_p >= i_{p-1} >= min_{R,P in C} (i_p - f)/i
 
     newbounds = True
-
     w_max, i_max = 0, 0
     while True:
         log.debug("Current bounds: w_max = {}, i_max = {}".format(w_max, i_max))
@@ -729,21 +732,22 @@ def get_crn_modules(crn, intermediates):
 def find_basis(crn, fs, modular = True, interpretation = None):
     """Finds all formal reactions in a CRN.
     
-    STW_16 - Def12: The set of prime pathways in a given CRN is called elementary
-    basis.  The fromal basis is the set of (initial state, final state) pairs of
-    the pathways in the elementatry basis.
+    STW2019 - Def13: The set of prime pathways in a given CRN is called the
+    *elementary basis* of the CRN. The *formal basis* is the set of (initial
+    state, final state) pairs of the pathways in the elementatry basis.
 
     Args:
-      crn (List[Lists]): a CRN as returned from the nuskell.parser module
-      fs (List[str]): a list of formal species in the CRN
-      modular (bool): Chop the CRN into modules and then find the basis 
-                       separately for each of those modules.
-      interpretation (?): A second interpretation crn, *only* used in the "integrated
-                  hybrid" approach
+      crn (List[[R], [P]]): A list of irreversible reactions. First a list of
+            reactants, second a list of products.
+      fs (set(str)): A set of formal species.
+      modular (bool, optional): Chop the CRN into modules and then find the basis
+            separately for each of those modules. Defaults to True.
+      interpretation (dict, optional): An interpretation dictionary for the 
+            "integrated hybrid" mode. Defaults to None.
 
     Returns:
         basis_raw, basis_int: The formal basis found without and with an 
-            interpretation dictionary. If the dictionary is None, 
+            interpretation dictionary. 
     """
     if modular:
         intermediates, wastes, nonwastes = assign_crn_species(crn, fs)
