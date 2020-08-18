@@ -460,11 +460,11 @@ def tidy(queue, crn, fs, TC = None, bound = None):
  
     def next_state(s, rxn):
         # Applies reaction rxn to state s.
-        s = s[:]
+        s = list(s)
         for x in rxn[0]:
             s.remove(x)
         s += rxn[1]
-        return sorted(s)
+        return s
 
     # Keep this. queue should not be a single state but a list of states.
     assert all(isinstance(x, (list, tuple)) for x in queue)
@@ -480,13 +480,15 @@ def tidy(queue, crn, fs, TC = None, bound = None):
         elif bound and len(iS) > bound:
             return queue
         queue = queue[1:]
-        assert len(queue) == len(list(set(queue)))
         for e, rxn in enumerate(crn):
-            if is_subset(Counter(rxn[0]), Counter(iS)):
-                nS = tuple(sorted(intermediate(next_state(list(iS), rxn), fs)))
+            try:
+                nS = tuple(sorted(intermediate(next_state(iS, rxn), fs)))
                 if nS not in mem: 
                     mem.append(nS)
                     queue.append(nS)
+            except ValueError as err:
+                # iS did not contain the required reactants.
+                continue
     return False
 
 def crn_properties(crn, fs):
