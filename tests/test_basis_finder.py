@@ -252,6 +252,14 @@ class TestPathProperties(unittest.TestCase):
         assert set(['i', 'k']) == nonw
         assert path.is_linear(nonw) is True
 
+        p0 = 'A -> k; i -> k; k + k -> B'
+        p0, _ = my_parse_crn(p0)
+        path = Path(p0)
+        nonw = nonwastes(p0, fs)
+        assert set(['i', 'k']) == nonw
+        assert path.is_linear(nonw) is False
+
+
     def test_equality(self):
         fs = set('ABCXY')
 
@@ -765,7 +773,7 @@ class TestHelperFunctions(unittest.TestCase):
         assert not is_subset(fs, s3)
 
     def test_is_tidy(self):
-        from nuskell.verifier.basis_finder import is_tidy
+        from nuskell.verifier.basis_finder import tidy
         fs = set(['A', 'X'])
         crn = [[['X'], ['i', 'k', 'l']],
                [['l'], ['p', 'q']],
@@ -773,7 +781,7 @@ class TestHelperFunctions(unittest.TestCase):
                [['p', 'q'], ['k']],
                [['k'], ['l']]]
         T = ['i', 'k', 'l']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs)
 
         crn = [[['X'], ['i', 'k', 'l']],
                [['l'], ['p', 'q']],
@@ -781,7 +789,7 @@ class TestHelperFunctions(unittest.TestCase):
                [['k'], ['l']],
                [['p', 'q'], ['k']]]
         T = ['i', 'k', 'l']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs)
 
         crn = [[['X'], ['i', 'k', 'l']],
                [['l'], []],
@@ -789,7 +797,7 @@ class TestHelperFunctions(unittest.TestCase):
                [['i', 'k', 'l', 'l', 'l', 'l'], ['A']],
                [['k'], ['j']]]
         T = ['i', 'k', 'l']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs)
 
         crn = """
         i -> i + q
@@ -801,7 +809,7 @@ class TestHelperFunctions(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['i']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs)
 
         crn = """
         m -> 3i
@@ -813,7 +821,7 @@ class TestHelperFunctions(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['m']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs)
 
         crn = """
         a -> a + 3i
@@ -823,8 +831,16 @@ class TestHelperFunctions(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['a']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs)
 
+        # This tests a modification to the original codebase:
+        crn = """
+        -> i
+        2i -> A
+        """
+        crn, _ = my_parse_crn(crn)
+        T = ['i']
+        assert tidy([T], crn, fs)
 
     def test_get_crn_modules(self):
         from nuskell.verifier.basis_finder import get_crn_modules
@@ -910,29 +926,8 @@ class TestHelperFunctions(unittest.TestCase):
 
 @unittest.skipIf(SKIP, "skipping tests")
 class TestTidyAccumulation(unittest.TestCase):
-    """ An up-front width bound for arbitrary CRNs must be pretty large.  How
-    large exactly? I don't know, but it isn't much more useful than no width
-    bound at all. So here we test for "accumulation of species". How
-    accumulation of species is related to a width bound must be worked out 
-    before this goes into production, but it looks reasonable to me and it
-    can cope with all unittests so far.
-    """
-
-    def test_tidy_spontaneous_reactions(self):
-        from nuskell.verifier.basis_finder import is_tidy
-        fs = set('A')
-        # This tests a modification to the original codebase:
-        # Originally, this example would not be tidy.
-        crn = """
-        -> i
-        2i -> A
-        """
-        crn, _ = my_parse_crn(crn)
-        T = ['i']
-        assert is_tidy(T, crn, fs)
-
     def test_tidy_binary_counter(self):
-        from nuskell.verifier.basis_finder import is_tidy
+        from nuskell.verifier.basis_finder import tidy
         # An example with width > 2^K
         # With every bit increase (C_K)
         # the species A accumulates by 2^K
@@ -955,12 +950,39 @@ class TestTidyAccumulation(unittest.TestCase):
         C3 + x31 -> C4 + x30
         """
         crn, _ = my_parse_crn(crn)
-        S = ['i']
+        S = ['i', 'i', 'i']
         T = ['M']
-        assert is_tidy(S, crn, fs)
+        assert tidy([S], crn, fs)
+
+    def test_nontidy_binc(self):
+        from nuskell.verifier.basis_finder import tidy
+        fs = set(['N', 'M'])
+        crn = """
+        N -> i
+        i -> D + x00 + x10 + x20 + x30
+        F + x00 + x10 + x20 + x30 -> M
+
+        D -> C0 + A
+        C4 -> F
+        F + A -> F
+        C0 + x00 -> D  + x01
+        C0 + x01 -> C1 + x00
+        C1 + x10 -> D  + x11
+        C1 + x11 -> C2 + x10
+        C2 + x20 -> D  + x21
+        C2 + x21 -> C3 + x20
+        C3 + x30 -> D  + x31
+        C3 + x31 -> C4 + x30
+        """
+        crn, _ = my_parse_crn(crn)
+        #p = "N -> i; N -> i; N -> i; N -> i; N -> i; i -> D + x00 + x10 + x20 + x30; i -> D + x00 + x10 + x20 + x30; D -> A + C0; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; i -> D + x00 + x10 + x20 + x30; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; i -> D + x00 + x10 + x20 + x30; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; i -> D + x00 + x10 + x20 + x30; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; C0 + x00 -> D + x01; D -> A + C0; A + F -> F; C0 + x00 -> D + x01; D -> A + C0; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; C2 + x20 -> D + x21; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; D -> A + C0; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C3 + x31 -> C4 + x30; C4 -> F; F + x00 + x10 + x20 + x30 -> M"
+        #path = Path(my_parse_crn(p)[0], fs)
+        #T = path.Sn
+        T = ['A', 'A']
+        assert not tidy([[x for x in T if x not in fs]], crn, fs)
 
     def test_tidy_accumulation_01(self):
-        from nuskell.verifier.basis_finder import is_tidy
+        from nuskell.verifier.basis_finder import tidy
         fs = set(['A', 'B', 'C', 'X'])
         crn = """
         X -> i + k + l
@@ -971,10 +993,10 @@ class TestTidyAccumulation(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['i', 'k', 'l']
-        assert not is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs, bound = 50) is not True
 
     def test_tidy_accumulation_02(self):
-        from nuskell.verifier.basis_finder import is_tidy
+        from nuskell.verifier.basis_finder import tidy
         fs = set(['A', 'B', 'C', 'X'])
         crn = """
         i -> 8i + q
@@ -985,10 +1007,13 @@ class TestTidyAccumulation(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['i']
-        assert is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs, bound = 9) is not True
+        assert tidy([T], crn, fs, bound = 10)
 
     def test_tidy_accumulation_03(self):
-        from nuskell.verifier.basis_finder import is_tidy
+        # This test is somewhat misleading. Due to optimization,
+        # -> k; k -> A and -> i would be in different modules ...
+        from nuskell.verifier.basis_finder import tidy
         fs = set(['A'])
         crn = """
         -> k
@@ -997,48 +1022,12 @@ class TestTidyAccumulation(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['i']
-        assert not is_tidy(T, crn, fs)
+        assert tidy([T], crn, fs, bound = 10) is not True
 
-    def test_lakin2016_2D_3I_accumulation(self):
-        fcrn = "B + C -> A"
-        icrn = """
-            B -> i47 + i48
-            C + i47 -> i97 + i98
-            i135 -> i560 + i561
-            i135 + i154 -> i561 + i572
-            i135 + i216 -> i560 + i582
-            i136 -> i154 + i155
-            i136 + i216 -> i155
-            i136 + i582 -> i155 + i561
-            i154 + i155 -> i136
-            i154 + i216 ->
-            i154 + i560 -> i572
-            i154 + i582 -> i561
-            i154 + i802 -> i136 + i572
-            i155 -> i136 + i216
-            i155 + i560 -> i216 + i802
-            i216 + i802 -> i155 + i560
-            i216 + i97 -> i132 + i135 + i155
-            i47 + i48 -> B
-            i560 + i582 -> i135 + i216
-            i560 + i97 -> i132 + i135 + i802
-            i582 -> i216 + i561
-            i582 + i802 -> i135 + i155
-            i802 -> i136 + i560
-            i802 -> i155 + i572
-            i97 -> i132 + i135 + i136
-            i97 + i98 -> C + i47
-            """
-        fcrn, fs = my_parse_crn(fcrn)
-        icrn, _ = my_parse_crn(icrn)
-        with self.assertRaises(NoFormalBasisError) as e:
-            basis_raw, basis_int = find_basis(icrn, fs)
-
-    @unittest.skip("skipping slow test")
     def test_a_large_example(self):
         # Comes from cat crns/basic/basic_05.crn | nuskell --ts lakin2012_3D.ts --verify pathway --max-complex-count 10000 --max-reaction-count 10000 --verify-timeout 0 -vv
         # formal CRN: A <=> 
-        from nuskell.verifier.basis_finder import is_tidy
+        from nuskell.verifier.basis_finder import tidy
         fs = {'i219', 'i3173', 'i4464', 'i335', 'i3586', 
               'A_1_', 'i5223', 'i3400', 'i508', 'i2743', 
               'i108', 'i2525', 'i4989', 'i5467', 'i4598', 
@@ -1265,7 +1254,7 @@ class TestTidyAccumulation(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['A_1_', 'i1945', 'i801']
-        assert is_tidy(T, crn, fs)
+        assert tidy([[t for t in T if t not in fs]], crn, fs, bound = 5) is not True
 
 
 @unittest.skipIf(SKIP, "skipping tests")
@@ -1451,6 +1440,44 @@ class TestBasisFinder(unittest.TestCase):
             basis_raw, basis_int = find_basis(icrn, fs)
         with self.assertRaises(NoFormalBasisError) as e:
             basis_raw, basis_int = find_basis(icrn, fs, interpretation = inter)
+
+    @unittest.skip("skipping slow test")
+    def test_lakin2016_2D_3I_accumulation(self):
+        #TODO: does this terminate over night?
+        fcrn = "B + C -> A"
+        icrn = """
+            B -> i47 + i48
+            C + i47 -> i97 + i98
+            i135 -> i560 + i561
+            i135 + i154 -> i561 + i572
+            i135 + i216 -> i560 + i582
+            i136 -> i154 + i155
+            i136 + i216 -> i155
+            i136 + i582 -> i155 + i561
+            i154 + i155 -> i136
+            i154 + i216 ->
+            i154 + i560 -> i572
+            i154 + i582 -> i561
+            i154 + i802 -> i136 + i572
+            i155 -> i136 + i216
+            i155 + i560 -> i216 + i802
+            i216 + i802 -> i155 + i560
+            i216 + i97 -> i132 + i135 + i155
+            i47 + i48 -> B
+            i560 + i582 -> i135 + i216
+            i560 + i97 -> i132 + i135 + i802
+            i582 -> i216 + i561
+            i582 + i802 -> i135 + i155
+            i802 -> i136 + i560
+            i802 -> i155 + i572
+            i97 -> i132 + i135 + i136
+            i97 + i98 -> C + i47
+            """
+        fcrn, fs = my_parse_crn(fcrn)
+        icrn, _ = my_parse_crn(icrn)
+        with self.assertRaises(NoFormalBasisError) as e:
+            basis_raw, basis_int = find_basis(icrn, fs)
+
 
 class TestIntegratedHybrid(unittest.TestCase):
     pass

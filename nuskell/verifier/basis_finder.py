@@ -436,25 +436,28 @@ class Path:
     def __repr__(self):
         return "Path(l={}, {})".format(len(self), self.signature)
 
-def is_tidy(T, crn, fs, accumulationcheck = True):
-    """ BFS to test if the crn is (strongly) tidy from state T.
+def tidy(queue, crn, fs, TC = None, bound = None):
+    """BFS to test if the crn is strongly tidy from any state in queue.
 
-    True if all intermediate species of the inpute state T can react to produce
-    formal species (without requiring formal species as reactants), false otherwise.
+    Typically, queue contains only one state: all intermediate species of the
+    final state T of a pathay p. The function attempts to find a closing
+    pathway q, which produces a formal state (without requiring formal species
+    as reactants).  If such a pathway q is found, return True, otherwise return
+    False.
 
     Args:
-        T: final state of a path.
-        crn: the CRN.
-        fs: set of formal species.
+        queue (list): A list of states (typically containing only intermediate species).
+        crn (list): The CRN.
+        fs (set): A set of formal species.
+        TC (dict, optional): A Tidy-Check dictionary that cotains known tidy states.
+        bound (int, optional): A width bound to limit the search for a pathway q.
 
-    How can we determine that it is *impossible* to reach a formal state?
-        - If the set of reachable states is finite, then by exhaustive enumeration.
-        - If the set of reachable states is infinite, then by exhaustive
-          enumeration of a carefully defined finite subset (experimental).
+    Returns:
+        True: if a strong closing pathway exists
+        False: if no strong closing pathway exists
+        queue: a list of states that exceed the current bound
     """
-    bR = max(len(R) for [R, _] in crn)
-    warnme = True
-
+ 
     def next_state(s, rxn):
         # Applies reaction rxn to state s.
         s = s[:]
@@ -463,69 +466,27 @@ def is_tidy(T, crn, fs, accumulationcheck = True):
         s += rxn[1]
         return sorted(s)
 
-    def accumulating(newP, newSC, warnme = True):
-        """ Checks for an accumulating species due to an infinite state space.
+    # Keep this. queue should not be a single state but a list of states.
+    assert all(isinstance(x, (list, tuple)) for x in queue)
 
-        * Let bR be the max number of reactants over all reactions in the CRN.
-        * Let c(S, x) be the count of species x in state S.
-
-        * A state N ('new') can be ignored if
-            - N is reachable by a known state O('old') and
-            - for all species x holds that:
-                either c(N, x) == c(O, x) or c(N, x) > c(O, x) > bR.
-        """
-        for oldP, oldSC in memC:
-            # Quick filter, the set species must be equal
-            if set(oldSC.keys()) != set(newSC.keys()):
-                continue
-            # Quick filter, newSC must be reachable from oldSC
-            if newP[0:len(oldP)] != oldP:
-                # If the old path is not a prefix of the new path, we
-                # cannot be sure that newSC is reachable from oldSC!
-                continue
-            # If all species have same counts or are in excess, we are good.
-            for k in oldSC.keys():
-                if newSC[k] == oldSC[k]:
-                    # species counts are the same
-                    continue
-                if newSC[k] > oldSC[k] > bR: 
-                    # species counts are accumulating beyond reason.
-                    continue
-                break
-            else: # we found a species that is accumulating w.r.t. a known boundary state.
-                if warnme:
-                    log.warning(f'This CRN can produce an infinite state space!')
-                    log.debug(f" - from initial state: {T}")
-                    log.debug(f" oldSC: {oldSC} ({oldP})")
-                    log.debug(f" newSC: {newSC} ({newP})")
-                return True
-        return False
-
-    queue = [('p', intermediate(sorted(T), fs))]
-    mem = [queue[0][1]]
-    memC = [('p', Counter(queue[0][1]))]
+    mem = queue[:]
     while len(queue) > 0:
-        pS, iS = queue[0] # a path and the intermediate state
-        queue = queue[1:]
-        if len(iS) == 0: 
+        queue.sort(key = len)
+        iS = queue[0] 
+        if len(iS) == 0:
             return True
+        elif TC and TC.get(iS, False) is True: 
+            return True
+        elif bound and len(iS) > bound:
+            return queue
+        queue = queue[1:]
+        assert len(queue) == len(list(set(queue)))
         for e, rxn in enumerate(crn):
             if is_subset(Counter(rxn[0]), Counter(iS)):
-                npS = pS + '.' + str(e)
-                nS = intermediate(next_state(iS, rxn), fs)
-                nSC = Counter(nS)
+                nS = tuple(sorted(intermediate(next_state(list(iS), rxn), fs)))
                 if nS not in mem: 
-                    # Ignore the state if it is accumulating species.
-                    if not accumulationcheck or not accumulating(npS, nSC, warnme):
-                        mem.append(nS)
-                        memC.append((npS, nSC))
-                        queue.append((npS, nS))
-                    else:
-                        # Warnig once is enough.
-                        warnme = False
-
-        # NOTE: we sort the queue to prioritize smaller states.
-        queue = sorted(queue, key = lambda x: len(x[1]))
+                    mem.append(nS)
+                    queue.append(nS)
     return False
 
 def crn_properties(crn, fs):
@@ -541,8 +502,8 @@ def crn_properties(crn, fs):
     assert i == nw
     linear = True
     for [r, p] in crn:
-        r1 = set(r) & nw
-        p1 = set(p) & nw
+        r1 = [x for x in r if x in i and x not in w]
+        p1 = [x for x in p if x in i and x not in w]
         if len(r1) > 1 or len(p1) > 1: 
             linear = False
             break
@@ -567,8 +528,8 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
         basis_raw, basis_int: The formal basis found without and with an 
             interpretation dictionary. 
     """
-    TidyCheck = set() # A cache to remember which final states are Tidy. 
-    b, iR, fRiR, nonw = crn_properties(crn, fs)
+    TidyCheck = dict() # A cache to remember which final states are Tidy. 
+    b, b_r, fRiR, nonw = crn_properties(crn, fs)
 
     # Uses some constants: w_max, i_max, nonw, fs, but not crn (in case we want it random)
     def enumerate_elementary_basis(p, crn):
@@ -597,14 +558,18 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
         (i, fin, w, fc, dfs, rfs) = sig
         if len(dfs) == 0: # Ok, we found a valid path? Check if the system is tidy and regular!
             log.debug(f"New undecomposable path: {p}")
-            if fin not in TidyCheck:
-                log.debug(f"Checking if tidy from state: {fin} ...")
-                TidyCheck.add(fin)
-                if not is_tidy(list(p.final_state.elements()), crn, fs):
+            ifin = tuple(sorted(intermediate(fin, fs)))
+            if ifin not in TidyCheck or TidyCheck[ifin] is not True:
+                log.debug(f"Checking if tidy from state: {ifin} ...")
+                queue = [ifin] if ifin not in TidyCheck else TidyCheck[ifin]
+                TidyCheck[ifin] = tidy(queue, crn, fs, TidyCheck, bound = w_max)
+                if TidyCheck[ifin] is False:
                     log.info("The given system is not tidy.")
-                    log.info(" - from initial state: {}".format(p.minimal_initial_state))
+                    log.info(" - from initial state: {}".format(p.S0))
                     [log.info('    {}'.format(r)) for r in p.pretty_path]
                     raise NoFormalBasisError("The given system is not tidy.")
+                elif TidyCheck[ifin] is not True:
+                    log.info(f"The system is not tidy from initial state {p.S0} and final state {p.Sn} given the current width bound: {w_max}.")
                 log.debug(f"... done.")
             if len(p) > 0 and p.is_formal:
                 if inter: # integrated hybrid theory
@@ -615,12 +580,12 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
                     t1 = p1.Sn
                     if t1 not in p1.rfs:
                         log.info("The given system is not regular.")
-                        log.info(" - from initial state: {}".format(p.minimal_initial_state))
+                        log.info(" - from initial state: {}".format(p.S0))
                         [log.info('    {}'.format(r)) for r in p1.pretty_path]
                         raise NoFormalBasisError("The given system is not regular.")
                 elif fin not in rfs:
                     log.info("The given system is not regular.")
-                    log.info(" - from initial state: {}".format(p.minimal_initial_state))
+                    log.info(" - from initial state: {}".format(p.S0))
                     [log.info('    {}'.format(r)) for r in p.pretty_path]
                     raise NoFormalBasisError("The given system is not regular.")
                 ebasis.append(p)
@@ -642,18 +607,20 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
     # By STW2019 Theorem 4.2, the width of an undecomposable semi-formal path  #
     # w_p and the width of that path after removing the last reaction w_{p-1}  #
     # are related by:                                                          #
-    #                       w_p >= w_{p-1} >= (w_p-b)/b_i                      #
-    #                                                                          #
-    # Now take an interval between w and w_max, such that                      #
-    #                           w_max = w * b_i + b,                           #
+    #                       w_p >= w_{p-1} >= w_p - b                          #
+    # Also, p-1 can be decomposed into at most b_r undecomposable pathways     #
+    # (see Thm 4.10), and at least one of those pathways must have width:      #
+    #                           w >= (w-b)/b_r                                 #
+    # Now take an interval between w and w_max+1, where                        #
+    #                           w_max = w * b_r + b,                           #
     # then any undecomposable semi-formal pathway with width v > w_max can be  #
-    # decomposed into a semi-formal path that has width in this interval.      #
-    # Conversly, if no undecomosable semi-formal path exists in that interval, #
+    # decomposed into at least one semi-formal path that has width in this     #
+    # interval or (if it has w >= wmax) it can be further decomposed to have   #
+    # width in this interval.                                                  #
+    # Conversely, if no undecomosable semi-formal path exists in that interval,#
     # there exists no semi-formal path with width greater than w_max.          #
     ############################################################################
-    # STW2019 Theorem 4.10: i_p >= i_{p-1} >= min_{R,P in C} (i_p - f)/i
 
-    newbounds = True
     w_max, i_max = 0, 0
     while True:
         log.debug("Current bounds: w_max = {}, i_max = {}".format(w_max, i_max))
@@ -663,17 +630,20 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
         [log.debug(f'    {p}') for p in ebasis]
         new_w, new_i = 0, 0
         for (i, f, w, fc, dfs, rfs) in signatures:
-            if len(dfs) == 0: # one undecomposable final state
-                if newbounds and is_formal_state(f, fs):
-                    continue
+            # NEW: only *strongly* semiformal paths (no formal paths)
+            if len(dfs) == 0 and not is_formal_state(f, fs):
                 log.debug(f'w: {w}, S0: {i}, Sn: {f}') 
                 new_w = max(new_w, w)
                 new_i = max(new_i, len(i)) # Size of initial (formal) state.
-        w_t = new_w * iR + b
+        w_t = new_w * b_r + b
         i_t = 0
         for (fr, ir) in fRiR:
             i_t = max(i_t, new_i * ir + fr)
         if w_t <= w_max and i_t <= i_max:
+            for ifin in TidyCheck:
+                if TidyCheck[ifin] is not True:
+                    if tidy(TidyCheck[ifin], crn, fs, TidyCheck, bound = new_w) is not True:
+                        raise NoFormalBasisError(f"The given system is not tidy from state {ifin}.")
             break
         w_max = w_t
         i_max = i_t
