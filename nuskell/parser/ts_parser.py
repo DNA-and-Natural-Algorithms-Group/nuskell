@@ -8,7 +8,7 @@
 #
 from pyparsing import (Word, Literal, Group, Suppress, Optional, Forward,
                        OneOrMore, ZeroOrMore, nums, alphas, alphanums, delimitedList,
-                       operatorPrecedence, ParserElement, opAssoc, StringStart, StringEnd,
+                       infixNotation, ParserElement, opAssoc, StringStart, StringEnd,
                        pythonStyleComment, quotedString, ParseElementEnhance)
 
 def ts_document_setup():
@@ -62,7 +62,7 @@ def ts_document_setup():
     factor = Forward()
     factor << (G(T(S("-") + factor, "uminus")) | atom_trailers)
 
-    test = operatorPrecedence(factor,
+    test = infixNotation(factor,
                               [(W("*/", max=1), 2, opAssoc.LEFT, TPAOp),
                                (W("+-", max=1), 2, opAssoc.LEFT, TPAOp),
                                   ((L("==") | L(">=") | L("<=") | L(">") | L("<") | L("!=")),
