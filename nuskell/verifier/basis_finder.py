@@ -437,16 +437,15 @@ class Path:
         return "Path(l={}, {})".format(len(self), self.signature)
 
 def tidy(queue, crn, fs, TC = None, bound = None):
-    """BFS to test if the crn is strongly tidy from any state in queue.
+    """BFS to test if a pathway p has a strong closing pathway q.
 
     Typically, queue contains only one state: all intermediate species of the
     final state T of a pathay p. The function attempts to find a closing
     pathway q, which produces a formal state (without requiring formal species
-    as reactants).  If such a pathway q is found, return True, otherwise return
-    False.
+    as reactants).
 
     Args:
-        queue (list): A list of states (typically containing only intermediate species).
+        queue (list): A list of states (states must contain only intermediate species).
         crn (list): The CRN.
         fs (set): A set of formal species.
         TC (dict, optional): A Tidy-Check dictionary that cotains known tidy states.
@@ -468,6 +467,7 @@ def tidy(queue, crn, fs, TC = None, bound = None):
 
     # Keep this. queue should not be a single state but a list of states.
     assert all(isinstance(x, (list, tuple)) for x in queue)
+    assert all(intermediate(x, fs) == list(x) for x in queue)
 
     mem = queue[:]
     while len(queue) > 0:
