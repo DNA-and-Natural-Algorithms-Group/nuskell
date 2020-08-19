@@ -34,7 +34,7 @@ def pretty_crn(crn):
         yield pretty_rxn(rxn)
 
 def clean_crn(crn, duplicates = True, trivial = True):
-    """Takes a crn of Counter objects and removes trivail / duplicate reactions. """
+    """Takes a crn and removes trivial / duplicate reactions. """
     new = []
     seen = set()
     for [R, P] in crn:
@@ -154,7 +154,7 @@ class Path:
     @property
     def is_formal(self):
         """ bool: True if path has formal initial and formal final state, False otherwise. """
-        # semi-formal & closed = formal
+        # semiformal & closed = formal
         return is_formal_state(self.minimal_initial_state.elements(), self.fs) \
                 and is_formal_state(self.final_state.elements(), self.fs)
 
@@ -276,7 +276,7 @@ class Path:
                 if n2 is not None and n2 not in new_finals[1:]:
                     new_finals.append((n2))
             if len(new_finals) < 1:
-                raise BasisFinderError('DFS: not a semi-formal pathway!')
+                raise BasisFinderError('DFS: not a semiformal pathway!')
             self._dfinals = new_finals
 
         if len(self._dfinals) == 1:
@@ -437,12 +437,30 @@ class Path:
         return "Path(l={}, {})".format(len(self), self.signature)
 
 def tidy(queue, crn, fs, TC = None, bound = None):
-    """BFS to test if a pathway p has a strong closing pathway q.
+    """ BFS to test if a pathway p has a strong closing pathway q.
 
     Typically, queue contains only one state: all intermediate species of the
     final state T of a pathay p. The function attempts to find a closing
     pathway q, which produces a formal state (without requiring formal species
     as reactants).
+
+    Intended context & justification: The bound for tidyness checks is not
+    specifically mentioned in the paper (STW2020), but it follows from
+    Corollary 4.3 and Theorem 4.8 that there must not be a semiformal path 
+    p + q with width > w, once it is known that there is no semiformal path
+    between w and w_max+1.
+    Hence, the present implementation:
+        - tidy(...) is called with the current width bound w_max whenever a new
+          undecomposable pathway has been found.
+        - if tidy(...) returns False, the algorithm terminates.
+        - TC holds the results for each tested final state:
+            * TC[state] = True # CRN is tidy from that state 
+            * TC[state] = queue # Pick up up the search here in case the width
+              bound changes.
+        - After it has been established that there are no undecomposable
+          (strictly) semiformal paths with width >= w, every state in TC where
+          TC[state] != True is checked for tidyness again with bound w. If
+          still no formal state is found then the CRN is not tidy.
 
     Args:
         queue (list): A list of states (states must contain only intermediate species).
@@ -466,8 +484,8 @@ def tidy(queue, crn, fs, TC = None, bound = None):
         return s
 
     # Keep this. queue should not be a single state but a list of states.
-    assert all(isinstance(x, (list, tuple)) for x in queue)
-    assert all(intermediate(x, fs) == list(x) for x in queue)
+    assert all(isinstance(x, tuple) for x in queue)
+    assert all(tuple(intermediate(x, fs)) == x for x in queue)
 
     mem = queue[:]
     while len(queue) > 0:
@@ -480,7 +498,7 @@ def tidy(queue, crn, fs, TC = None, bound = None):
         elif bound and len(iS) > bound:
             return queue
         queue = queue[1:]
-        for e, rxn in enumerate(crn):
+        for rxn in crn:
             try:
                 nS = tuple(sorted(intermediate(next_state(iS, rxn), fs)))
                 if nS not in mem: 
@@ -606,7 +624,7 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
 
     ############################################################################
     #          On w and w_max as criteria to stop enumeration:                 #
-    # By STW2019 Theorem 4.2, the width of an undecomposable semi-formal path  #
+    # By STW2019 Theorem 4.2, the width of an undecomposable semiformal path   #
     # w_p and the width of that path after removing the last reaction w_{p-1}  #
     # are related by:                                                          #
     #                       w_p >= w_{p-1} >= w_p - b                          #
@@ -615,12 +633,12 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
     #                           w >= (w-b)/b_r                                 #
     # Now take an interval between w and w_max+1, where                        #
     #                           w_max = w * b_r + b,                           #
-    # then any undecomposable semi-formal pathway with width v > w_max can be  #
-    # decomposed into at least one semi-formal path that has width in this     #
+    # then any undecomposable semiformal pathway with width v > w_max can be   #
+    # decomposed into at least one semiformal path that has width in this      #
     # interval or (if it has w >= wmax) it can be further decomposed to have   #
     # width in this interval.                                                  #
-    # Conversely, if no undecomosable semi-formal path exists in that interval,#
-    # there exists no semi-formal path with width greater than w_max.          #
+    # Conversely, if no undecomosable semiformal path exists in that interval, #
+    # there exists no semiformal path with width greater than w_max.           #
     ############################################################################
 
     w_max, i_max = 0, 0

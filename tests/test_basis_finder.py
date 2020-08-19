@@ -780,7 +780,7 @@ class TestHelperFunctions(unittest.TestCase):
                [['i', 'k', 'l'], ['A']],
                [['p', 'q'], ['k']],
                [['k'], ['l']]]
-        T = ['i', 'k', 'l']
+        T = ('i', 'k', 'l')
         assert tidy([T], crn, fs)
 
         crn = [[['X'], ['i', 'k', 'l']],
@@ -788,7 +788,7 @@ class TestHelperFunctions(unittest.TestCase):
                [['i', 'k', 'l'], ['A']],
                [['k'], ['l']],
                [['p', 'q'], ['k']]]
-        T = ['i', 'k', 'l']
+        T = ('i', 'k', 'l')
         assert tidy([T], crn, fs)
 
         crn = [[['X'], ['i', 'k', 'l']],
@@ -796,7 +796,7 @@ class TestHelperFunctions(unittest.TestCase):
                [['l'], ['l', 'l', 'l']],
                [['i', 'k', 'l', 'l', 'l', 'l'], ['A']],
                [['k'], ['j']]]
-        T = ['i', 'k', 'l']
+        T = ('i', 'k', 'l')
         assert tidy([T], crn, fs)
 
         crn = """
@@ -808,7 +808,7 @@ class TestHelperFunctions(unittest.TestCase):
         2q -> q
         """
         crn, _ = my_parse_crn(crn)
-        T = ['i']
+        T = ('i',)
         assert tidy([T], crn, fs)
 
         crn = """
@@ -820,7 +820,7 @@ class TestHelperFunctions(unittest.TestCase):
         2k ->
         """
         crn, _ = my_parse_crn(crn)
-        T = ['m']
+        T = ('m',)
         assert tidy([T], crn, fs)
 
         crn = """
@@ -830,7 +830,7 @@ class TestHelperFunctions(unittest.TestCase):
         2a + 3b + 2l -> X
         """
         crn, _ = my_parse_crn(crn)
-        T = ['a']
+        T = ('a',)
         assert tidy([T], crn, fs)
 
         # This tests a modification to the original codebase:
@@ -839,7 +839,7 @@ class TestHelperFunctions(unittest.TestCase):
         2i -> A
         """
         crn, _ = my_parse_crn(crn)
-        T = ['i']
+        T = ('i',)
         assert tidy([T], crn, fs)
 
     def test_get_crn_modules(self):
@@ -950,8 +950,7 @@ class TestTidyAccumulation(unittest.TestCase):
         C3 + x31 -> C4 + x30
         """
         crn, _ = my_parse_crn(crn)
-        S = ['i', 'i', 'i']
-        T = ['M']
+        S = ('i', 'i', 'i')
         assert tidy([S], crn, fs)
 
     def test_nontidy_binc(self):
@@ -978,8 +977,8 @@ class TestTidyAccumulation(unittest.TestCase):
         #p = "N -> i; N -> i; N -> i; N -> i; N -> i; i -> D + x00 + x10 + x20 + x30; i -> D + x00 + x10 + x20 + x30; D -> A + C0; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; i -> D + x00 + x10 + x20 + x30; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; i -> D + x00 + x10 + x20 + x30; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; i -> D + x00 + x10 + x20 + x30; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; C0 + x00 -> D + x01; D -> A + C0; A + F -> F; C0 + x00 -> D + x01; D -> A + C0; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; C2 + x20 -> D + x21; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; D -> A + C0; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x10 -> D + x11; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; C3 + x31 -> C4 + x30; C4 -> F; A + F -> F; D -> A + C0; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; A + F -> F; F + x00 + x10 + x20 + x30 -> M; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C3 + x30 -> D + x31; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x20 -> D + x21; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x10 -> D + x11; D -> A + C0; C0 + x00 -> D + x01; D -> A + C0; C0 + x01 -> C1 + x00; C1 + x11 -> C2 + x10; C2 + x21 -> C3 + x20; C3 + x31 -> C4 + x30; C4 -> F; F + x00 + x10 + x20 + x30 -> M"
         #path = Path(my_parse_crn(p)[0], fs)
         #T = path.Sn
-        T = ['A', 'A']
-        assert not tidy([[x for x in T if x not in fs]], crn, fs)
+        T = ('A', 'A')
+        assert not tidy([tuple(x for x in T if x not in fs)], crn, fs)
 
     def test_tidy_accumulation_01(self):
         from nuskell.verifier.basis_finder import tidy
@@ -992,7 +991,7 @@ class TestTidyAccumulation(unittest.TestCase):
         B + i + k + 4l -> A
         """
         crn, _ = my_parse_crn(crn)
-        T = ['i', 'k', 'l']
+        T = ('i', 'k', 'l')
         assert tidy([T], crn, fs, bound = 50) is not True
 
     def test_tidy_accumulation_02(self):
@@ -1006,7 +1005,7 @@ class TestTidyAccumulation(unittest.TestCase):
         2q -> q
         """
         crn, _ = my_parse_crn(crn)
-        T = ['i']
+        T = ('i',)
         assert tidy([T], crn, fs, bound = 9) is not True
         assert tidy([T], crn, fs, bound = 10)
 
@@ -1021,7 +1020,7 @@ class TestTidyAccumulation(unittest.TestCase):
         k -> A
         """
         crn, _ = my_parse_crn(crn)
-        T = ['i']
+        T = ('i',)
         assert tidy([T], crn, fs, bound = 10) is not True
 
     def test_a_large_example(self):
@@ -1254,7 +1253,7 @@ class TestTidyAccumulation(unittest.TestCase):
         """
         crn, _ = my_parse_crn(crn)
         T = ['A_1_', 'i1945', 'i801']
-        assert tidy([[t for t in T if t not in fs]], crn, fs, bound = 5) is not True
+        assert tidy([tuple(t for t in T if t not in fs)], crn, fs, bound = 5) is not True
 
 
 @unittest.skipIf(SKIP, "skipping tests")
