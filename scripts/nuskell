@@ -3,10 +3,6 @@
 #  scripts/nuskell
 #  EnumeratorProject
 #
-from __future__ import absolute_import, division, print_function
-from builtins import map, dict
-
-
 import os
 import sys
 import logging
@@ -17,8 +13,8 @@ from dsdobjects.utils import natural_sort
 
 from nuskell import translate, verify, __version__
 from nuskell.objects import TestTube, TestTubeIO
-from nuskell.crnutils import parse_crn_string, Reaction
-from nuskell.crnutils import split_reversible_reactions, removeSpecies, genCRN, genCON
+from nuskell.crnutils import (parse_crn_string, Reaction, assign_crn_species,
+                              split_reversible_reactions, removeSpecies, genCRN, genCON)
 from nuskell.verifier import modular_bisimulation
 
 class colors:
@@ -340,8 +336,8 @@ def main(args):
     else:
         print("Compilation successfull. Use --pilfile to inspect or modify.")
     print(" - signal species: {}\n - fuel species: {}\n".format(
-            ' '.join(sorted(map(str, signals))), 
-            ' '.join(sorted(map(str, fuels)))))
+            ' '.join(natural_sort(map(str, signals))), 
+            ' '.join(natural_sort(map(str, fuels)))))
 
     if args.verify or args.enumerate:
         logger.info(header("Enumerating reaction pathways"))
@@ -361,6 +357,7 @@ def main(args):
         logger.info("Replacing regular-expression complexes ...")
         # History domains within constant and intermediate species will not get replaced.
         interpret = solution.interpret_species(fs.keys(), prune = True)
+        signals = solution.signal_complexes
 
         # Return the implementation CRN. (= enumerated CRN)
         icrn = []
@@ -458,7 +455,10 @@ def main(args):
         logger.info(header("Verification using: {}".format(args.verify)))
 
         vcrn = removeSpecies(icrn, list(map(str, fuels)))
-        logger.info("Verification CRN:")
+        intermediates, wastes, _ = assign_crn_species(vcrn, set(map(str, signals)))
+        vcrn = removeSpecies(vcrn, wastes)
+
+        logger.info("Verification CRN (no fuels, no wastes):")
         [logger.info('    {}'.format(r)) for r in genCRN(vcrn, reversible = True)]
         logger.info("")
 
@@ -468,7 +468,7 @@ def main(args):
         logger.info("")
 
         if args.modular:
-            icrns = list(map(lambda x: removeSpecies(x, list(map(str, fuels))), module_crns))
+            icrns = list(map(lambda x: removeSpecies(x, set(map(str, fuels)) | wastes), module_crns))
             for e, m in enumerate(icrns):
                 if e < len(fcrm):
                     logger.info("CRN Module {}:".format(e + 1))
@@ -486,18 +486,18 @@ def main(args):
                 if len(fcrm) > 1:
                     import copy # Temporary to fix a bug in testModules
                     backup = copy.deepcopy(interpret) if interpret else None
-                    v, i = modular_bisimulation(fcrm, icrns, fs, 
+                    v, i = modular_bisimulation(fcrm, icrns, fs.keys(), 
                                                 interpret = backup, 
                                                 method = meth[8:], 
                                                 timeout = args.verify_timeout)
                 else :
                     assert fcrn == fcrm[0]
-                    v, i = verify(fcrn, vcrn, fs, 
+                    v, i = verify(fcrn, vcrn, fs.keys(), 
                                   interpret = interpret, 
                                   method = meth[8:], 
                                   timeout = args.verify_timeout)
             else:
-                v, i = verify(fcrn, vcrn, fs, 
+                v, i = verify(fcrn, vcrn, fs.keys(), 
                               interpret = interpret, 
                               method = meth, 
                               timeout = args.verify_timeout)

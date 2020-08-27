@@ -3,8 +3,6 @@
 #  test_schemes.py
 #  NuskellCompilerProject
 #
-from __future__ import absolute_import, division, print_function
-
 import os
 import filecmp
 import unittest
@@ -20,7 +18,7 @@ import subprocess as sub
 # This is not a regular unittest, run overnight to check consistency of results
 # before every release.
 #
-SKIP = True
+SKIP = False
 
 @unittest.skipIf(SKIP, "slow tests are disabled by default")
 class SinlgeSnapshotCMP(unittest.TestCase):

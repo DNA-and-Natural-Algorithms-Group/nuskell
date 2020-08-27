@@ -44,7 +44,7 @@ class BisimulationTests(unittest.TestCase):
             """
         fcrn, fs = my_parse_crn(crn1)
         icrn, _ = my_parse_crn(crn2)
-        i, wastes, nw = assign_crn_species(icrn, fs)
+        i, wastes, _ = assign_crn_species(icrn, fs)
 
         print(fs)
         print(wastes)
@@ -73,39 +73,13 @@ class BisimulationTests(unittest.TestCase):
         icrn, _ = my_parse_crn(crn3)
         icrn = remove_const(icrn, ['f_ABCD', 'f_A', 'f_B', 'f_C', 'f_D'])
 
-        i, wastes, nw = assign_crn_species(icrn, fs)
+        i, wastes, _ = assign_crn_species(icrn, fs)
 
         #basis_raw, basis_int = basis_finder.find_basis(icrn, fs | wastes)
 
         print(fcrn)
         print(icrn)
         print(wastes)
-
-    def test_passes_permissive(self):
-        crn1 = "A+B->C+D; C+A->C+C"
-        #crn2 = "A<=>i; i+B<=>j; i+j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
-        crn2 = "A<=>i; i+B<=>j; j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
-
-        fcrn, fs = my_parse_crn(crn1)
-        icrn, _ = my_parse_crn(crn2)
-
-        i, wastes, nw = assign_crn_species(icrn, fs)
-
-        basis_raw, basis_int = basis_finder.find_basis(icrn, fs | wastes)
-
-        print(basis_raw)
-        b_int = [[['A', 'C'], ['A', 'C']], 
-                [['A', 'C'], ['C', 'C']], 
-                [['A'], ['A']], 
-                [['A', 'B'], ['A', 'B']], 
-                [['A', 'B'], ['C', 'D']], 
-                [['D'], ['D']]]
-
-        print(fcrn)
-        print(basis_raw)
-        fcrn = pathway_equivalence.cleanup(fcrn)
-        b_int = pathway_equivalence.cleanup(b_int)
-        assert pathway_equivalence.passes_delimiting_condition(fcrn, b_int)
 
 @unittest.skipIf(SKIP, "skipping tests")
 class PathwayEquivalenceTests(unittest.TestCase):
@@ -126,6 +100,7 @@ class PathwayEquivalenceTests(unittest.TestCase):
         crn4 = "A->i; i+B<=>j; j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
         crn5 = "A<=>i; i+B<=>j; j->C+k; k<=>D; C+A<=>m+n; m+n->C+C"
         crn6 = "A+g1<=>i+g2; i+B<=>j+g3; g4+j->C+k+w1; g5+k<=>D+w2; C+A<=>m+n; g6+m+n->C+C+w3"
+        crn6f = "A<=>i; i+B<=>j; j->C+k+w1; k<=>D+w2; C+A<=>m+n; m+n->C+C+w3"
 
         (crn1, fs) = my_parse_crn(crn1)
         (crn2, _) = my_parse_crn(crn2)
@@ -133,6 +108,7 @@ class PathwayEquivalenceTests(unittest.TestCase):
         (crn4, _) = my_parse_crn(crn4)
         (crn5, _) = my_parse_crn(crn5)
         (crn6, _) = my_parse_crn(crn6)
+        (crn6f, _) = my_parse_crn(crn6f)
 
         inter = {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D'}
 
@@ -141,6 +117,7 @@ class PathwayEquivalenceTests(unittest.TestCase):
         self.assertFalse(pathway_equivalence.test((crn1, fs), (crn4, fs), inter))
         self.assertTrue( pathway_equivalence.test((crn1, fs), (crn5, fs), inter))
         self.assertFalse(pathway_equivalence.test((crn1, fs), (crn6, fs), inter))
+        self.assertFalse(pathway_equivalence.test((crn1, fs), (crn6f, fs), inter))
 
 if __name__ == '__main__':
     unittest.main()

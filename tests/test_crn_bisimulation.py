@@ -16,14 +16,13 @@ SKIP_SLOW = True
 
 class BisimulationTests(unittest.TestCase):
     """Bisimulation Testing Class:
+    Compares *formal* CRNs with *enumerated* CRNs.
 
-  Compares *formal* CRNs with *enumerated* CRNs.
-
-  Note: Translation and enumeration are not part of this testing class. The
-        correct translation/enumeration has to be checked elsewhere! It is not
-        necessary to refer to translation schemes here at all, but it does make
-        sense for reproducability.
-  """
+    Note: Translation and enumeration are not part of this testing class. The
+    correct translation/enumeration has to be checked elsewhere! It is not
+    necessary to refer to translation schemes here at all, but it does make
+    sense for reproducability.
+    """
 
     def setUp(self):
         pass
@@ -357,6 +356,44 @@ class BisimulationTests(unittest.TestCase):
         v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter)
         self.assertTrue(v)
 
+    def test_example_GC(self):
+        # GC schemes do not produce a correct crn bisimulation ...
+        fcrn = "A + B <=> X + Y"
+        icrn = """ 
+                A <=> i22 [kf = 503452, kr = 503452]
+                i59 <=> i139 [kf = 503452, kr = 503452]
+                i45 -> i351 + i352 [k = 757794]
+                i22 + B <=> i45 + i44 [kf = 503452, kr = 503452]
+                i44 <=> i60 + i59 [kf = 503452, kr = 503452]
+                i60 -> i104 + i105 [k = 757794]
+                i139 <=> i227 + X [kf = 503452, kr = 503452]
+                i227 <=> i269 + Y [kf = 503452, kr = 503452]
+                i269 -> i338 + i339 [k = 757794]
+               """
+
+        (fcrn, fs) = self._parse_crn_string(fcrn)
+        (icrn, _) = self._parse_crn_string(icrn)
+
+        inter = {'A': Counter(['A']),
+                 'B': Counter(['B']),
+                 'X': Counter(['X']),
+                 'Y': Counter(['Y']),
+                 'i22': Counter(['A']),
+                 'i44': Counter(['A', 'B']),
+                 'i59': Counter(['A', 'B']),
+                 'i139': Counter(['A', 'B']),
+                 'i227': Counter(['Y']),
+                 'i269': Counter(),
+                 'i60': Counter(), 
+                 'i104': Counter(),
+                 'i105': Counter(),
+                 'i45': Counter(), 
+                 'i351': Counter(),
+                 'i352': Counter()}
+
+        v, i1 = bisimulation.test(fcrn, icrn, fs, interpretation=inter)
+
+        assert v is False
 
 if __name__ == '__main__':
     unittest.main()

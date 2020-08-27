@@ -33,13 +33,13 @@ def pretty_crn(crn):
     for rxn in crn:
         yield pretty_rxn(rxn)
 
-def clean_crn(crn, duplicates = True, trivial = True):
+def clean_crn(crn, duplicates = True, trivial = True, inter = None):
     """Takes a crn and removes trivial / duplicate reactions. """
     new = []
     seen = set()
     for [R, P] in crn:
-        lR = sorted(R)
-        lP = sorted(P)
+        lR = sorted(interpret(R, inter)) if inter else sorted(R)
+        lP = sorted(interpret(P, inter)) if inter else sorted(P)
         tR = tuple(lR)
         tP = tuple(lP)
         if trivial and tR == tP:
@@ -77,11 +77,10 @@ class Path:
     """ A sequence of reactions.
 
     Can be initialized using a list of reactions in *list* or *Counter* format.
-    Use __add__() to save compuatation time when concatinating two paths.
-
-    TODO: Think about how we can save compuation by expressing path decomposion
-    as a combination of path objects.
+    Use __add__() to save computation time when concatinating two paths.
     """
+    #TODO: Think about how we can save computation by expressing path decomposion
+    #as a combination of path objects.
     def __init__(self, path, fs = None):
         assert isinstance(path, list)
         if len(path) == 0:
@@ -147,22 +146,10 @@ class Path:
         return is_formal_state(self.minimal_initial_state.elements(), self.fs)
 
     @property
-    def is_closed(self):
-        """ bool: True if path has a formal final state, False otherwise. """
-        return is_formal_state(self.final_state.elements(), self.fs)
-
-    @property
     def is_formal(self):
         """ bool: True if path has formal initial and formal final state, False otherwise. """
-        # semiformal & closed = formal
         return is_formal_state(self.minimal_initial_state.elements(), self.fs) \
                 and is_formal_state(self.final_state.elements(), self.fs)
-
-    @property
-    def is_intermediate(self):
-        """ bool: True if path has intermediate initial state, False otherwise. """
-        return len(formal(self.minimal_initial_state.elements(), self.fs)) == 0 and \
-               len(intermediate(self.minimal_initial_state.elements(), self.fs)) >= 1
 
     @property
     def is_prime(self):
@@ -219,9 +206,9 @@ class Path:
     def decomposed_final_states(self, path = None):
         """ Calculate decomposed final states.
 
-        Note: If self._dfinal is None, then this routine always uses the internal path,
-            otherwise it will update the internal final states with the given path.
-            This is a speedup used by the __add__ function.
+        Note: If self._dfinal is None, then this routine always uses the
+        internal path, otherwise it will update the internal final states with
+        the given path.  This is a speedup used by the __add__ function.
         """
         if self.fs is None:
             raise BasisFinderError('DFS: no formal species given.')
@@ -365,7 +352,7 @@ class Path:
         """ Counter: multiset of formal species in the state S. """
         if self.fs is None:
             raise BasisFinderError('Path: no formal species given.')
-        return Counter({k: v for k,v in S.items() if k in self.fs})
+        return Counter({k: v for k, v in S.items() if k in self.fs})
 
     def intermediate(self, S):
         """ Counter: multiset of non-formal species in the state S. """
@@ -402,7 +389,7 @@ class Path:
             self._final = (self._final - R) + P
 
     def __add__(self, other):
-        """Path: the concatenation of two Path objects. """
+        """ Path: the concatenation of two Path objects. """
         assert type(self) == type(other)
         combo = Path(self.lpath + other.lpath)
         combo.fs = self.fs # force copy?
@@ -484,7 +471,6 @@ def tidy(queue, crn, fs, TC = None, bound = None):
         return s
 
     # Keep this. queue should not be a single state but a list of states.
-    assert all(isinstance(x, tuple) for x in queue)
     assert all(tuple(intermediate(x, fs)) == x for x in queue)
 
     mem = queue[:]
@@ -518,12 +504,15 @@ def crn_properties(crn, fs):
         fRiR: set of (|formal(R)|, |intermediate(R)|)
         nw: nonwaste species for linear check
     """
-    i, w, nw = assign_crn_species(crn, fs)
-    assert i == nw
+    # NOTE: Def 27 of STW uses "nonwaste" species to define monomolecular
+    # substructure, but nonwastes = intermediates, because wastes must
+    # be treated as formal species.
+    nw, w, _ = assign_crn_species(crn, fs)
+    assert len(nw & w) == 0 # assert that we can use intermediates as non-wastes.
     linear = True
     for [r, p] in crn:
-        r1 = [x for x in r if x in i and x not in w]
-        p1 = [x for x in p if x in i and x not in w]
+        r1 = [x for x in r if x in nw]
+        p1 = [x for x in p if x in nw]
         if len(r1) > 1 or len(p1) > 1: 
             linear = False
             break
@@ -589,7 +578,7 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
                     [log.info('    {}'.format(r)) for r in p.pretty_path]
                     raise NoFormalBasisError("The given system is not tidy.")
                 elif TidyCheck[ifin] is not True:
-                    log.info(f"The system is not tidy from initial state {p.S0} and final state {p.Sn} given the current width bound: {w_max}.")
+                    log.debug(f"The system is not tidy from initial state {p.S0} and final state {p.Sn} given the current width bound: {w_max}.")
                 log.debug(f"... done.")
             if len(p) > 0 and p.is_formal:
                 if inter: # integrated hybrid theory
@@ -647,7 +636,7 @@ def get_formal_basis(crn, fs, inter = None): # former "enumerate_basis"
         signatures, ebasis = set(), [] # We actually enumerate signatures, but care about paths.
         enumerate_elementary_basis(Path([], fs), crn)
         log.debug('After enumation of pathways: len(basis) = {}'.format(len(ebasis)))
-        [log.debug(f'    {p}') for p in ebasis]
+        [log.debug(f'   [{" + ".join(p.S0)} -> {" + ".join(p.Sn)}]  {p}') for p in ebasis]
         new_w, new_i = 0, 0
         for (i, f, w, fc, dfs, rfs) in signatures:
             # NEW: only *strongly* semiformal paths (no formal paths)
@@ -740,7 +729,7 @@ def find_basis(crn, fs, modular = True, interpretation = None):
             interpretation dictionary. 
     """
     if modular:
-        intermediates, wastes, nonwastes = assign_crn_species(crn, fs)
+        intermediates, wastes, _ = assign_crn_species(crn, fs)
         divs = sorted(get_crn_modules(crn, intermediates), key = lambda x: len(x))
         log.info(f"Divided the implementation CRN into {len(divs)} modules " + \
                 f"with {[len(d) for d in divs]} reactions.")
@@ -777,8 +766,6 @@ if __name__ == "__main__":
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument("-v", "--verbose", action = 'count', default = 0,
             help="print verbose output. -vv increases verbosity level.")
-    parser.add_argument("--old", action = 'store_true',
-            help="""Use original algo.""")
     parser.add_argument("--crn-file", action='store', metavar='</path/to/file>',
             help="""Read a CRN from a file.""")
     parser.add_argument("--formal-species", nargs = '+', default = [], 
@@ -838,10 +825,10 @@ if __name__ == "__main__":
     log.info('Input CRN (without fuel species):')
     [log.info('    ' + r) for r in pretty_crn(crn)]
 
-    i, wastes, nw = assign_crn_species(crn, fs)
-    assert i == nw
-    #wastes = set()
-    log.info('{} waste species are treated as formal. ({})'.format(len(wastes), ' '.join(wastes)))
+    _, wastes, reactive_waste = assign_crn_species(crn, fs)
+    if len(reactive_waste):
+        log.warning(f'Reactive waste species detected: {reactive_waste}')
+    log.info(f'{len(wastes)} waste species are treated as formal: ({", ".join(wastes)})')
 
     inter = {}
     for x in fs: inter[x] = [x]

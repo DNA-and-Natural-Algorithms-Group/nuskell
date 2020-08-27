@@ -6,205 +6,107 @@
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
-from __future__ import absolute_import, division, print_function
-from builtins import map
-
 import logging
 log = logging.getLogger(__name__)
 
 from collections import Counter
 
-from nuskell.verifier.basis_finder import find_basis, NoFormalBasisError
+# TODO: It would be nicer to have clean_crn as part of crnutils ...
 from nuskell.crnutils import genCRN, assign_crn_species
+from nuskell.verifier.basis_finder import find_basis, NoFormalBasisError, clean_crn
+from nuskell.verifier.crn_bisimulation_equivalence import test as get_crn_bisimulation
 
-def pretty_crn(crn):
-    for rxn in crn:
-        yield '{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
-
-def passes_atomic_condition():
-    # JDW (2019):
-    # For every formal species A, there exists an implementation species a
-    # s.t. m(a) = {| A |}
-    pass
-
-def remove_duplicates(l):
-    r = []
-    if len(l) == 0: return []
-    l.sort()
-    while len(l) > 1:
-        if l[0] != l[1]:
-            r.append(l[0])
-        l = l[1:]
-    r.append(l[0])
-    return r
-
-def passes_delimiting_condition(fcrn, icrn):
-    """Checks delimiting condition. 
-
-    Note: requires sorted reactants and products (see cleanup function).
-    """
-    # JDW (2019): 
-    # The interpretation of any implementation reaction is either trivial or a
-    # valid formal reaction.
-    def trivial(rxn):
-        return Counter(rxn[0]) == Counter(rxn[1])
-
-    # Every formal reaction must also be possible in the implementation CRN
-    # Every implementation reaction must also be possible in the formal CRN
-    flag = True
-    for rxn in fcrn:
-        if rxn not in icrn:
-            if not trivial(rxn):
-                log.info("Delimiting condition failed: The formal reaction ...")
-                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
-                log.info("... is in the input CRN but not in the compiled CRN.")
-                flag = False
-
-    for rxn in icrn:
-        if rxn not in fcrn:
-            if not trivial(rxn):
-                log.info("Delimiting condition failed: The formal reaction ...")
-                log.info('  {} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1])))
-                log.info("... is in the compiled CRN but not in the input CRN.")
-                flag = False
-
-    return flag
-
-def passes_permissive_condition(fcrn, icrn, inter):
-    """Checks permissive condition. 
-
-    Note: requires sorted reactants and products (see cleanup function).
-
-    """
-    # JDW (2019):
-    # If there exists a formal reaction r out of formal state S and an interpretation m(S') = S:
-    # there exists an implementation reaction r' s.t. m(r') = r and r' must be possible in S'.
-
-    # Every (formal) initial state can yield the same (formal) next state...
-    def cartesian_product(l):
-        if len(l) == 0:
-            return []
-        if len(l) == 1:
-            return l[0]
-        r = []
-        for i in l[0]:
-            for j in l[1]:
-                r.append(i+j)
-        return cartesian_product([r]+l[2:])
-
-    interrev = {}
-    for x in inter:
-        for y in inter[x]:
-            if y not in interrev:
-                interrev[y] = [[x]]
-            else:
-                interrev[y].append([x])
-
-    for rxn in fcrn:
-        initial_states = cartesian_product(list(map(lambda x: interrev[x], rxn[0])))
-        for initial in initial_states:
-            initial = sorted(initial)
-            for [iR, iP] in icrn:
-                if iR == initial and iP == rxn[1]:
-                    break
-            else: # didn't find a matching reaction ...
-                log.info("Permissive test failed:")
-                log.info("  Cannot get from {} to {}".format(initial, rxn[1]))
-                log.info("Formal basis:")
-                [log.info('    {}'.format(r)) for r in pretty_crn(basis)]
-                return False
-    return True
-
-def cleanup(basis):
-    for i in range(len(basis)):
-        basis[i][0].sort()
-        basis[i][1].sort()
-    return remove_duplicates(basis)
-
-def test(c1, c2, inter, integrated = False):
-    """Test two CRNs for pathway equivalence.
+def test(c1, c2, inter, compositional = False, integrated = False):
+    """ Test two CRNs for pathway equivalence.
 
     Args:
-        c1: Tuple of formal CRN and formal species
-        c2: Tuple of implementation CRN and species corresponding to formal species
-        inter: partial interpretation of species
-        integrated (bool, optional): Use integrated hybrid notion (True) 
-                    or compositional hybrid notion (False). Defaults to False.
+        c1 (list, list): Tuple of formal CRN and formal species.
+        c2 (list, list): Tuple of implementation CRN and signal species.
+        inter (dict): An interpretation of fs2 in terms of fs1.
+        compositional (bool, optional): Use compositional hybrid notion.
+            Defaults to False.
+        integrated (bool, optional): Use integrated hybrid notion.
+            Defaults to False.
 
+    Returns:
+        True: if formal basis of crn1 and formal basis of crn2 are equivalent.
+        False: otherwise.
     """
+    DEVELMODE = True
+    # Use the *interpretation upfront* mode of integrated hybrid and the new
+    # compositional hybrid implementation.
+    if DEVELMODE:
+        (integrated, integrated2) = (False, integrated) if integrated else (False, False)
+        (compositional, compositional2) = (False, compositional) if compositional else (False, False)
+
+    # Preprocess arguments, just to make sure ...
+    crn1, fs1 = clean_crn([rxn[0:2] for rxn in c1[0]]), set(c1[1])
+    if integrated2: 
+        log.warning('Using integrated "interpretation upfront" mode.')
+        crn2, fs2 = clean_crn([rxn[0:2] for rxn in c2[0]], inter = inter), set(c1[1])
+    else:
+        crn2, fs2 = clean_crn([rxn[0:2] for rxn in c2[0]]), set(c2[1])
+        # Note: if inter provides interpretations for non-signal species, that's ok here.
+        # They will be used as formal species when finding the formal basis.
+        assert all(x in inter for x in fs2)
+
     assert isinstance(inter, dict)
-
-    (crn1, fs1) = c1
-    (crn2, fs2) = c2
-    crn1 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn1]
-    crn2 = [[sorted(rxn[0]), sorted(rxn[1])] for rxn in crn2]
-    crn2.sort()
-
-    fs2 = set(fs2)
     # Interpret waste species as nothing.
-    i, wastes, nw = assign_crn_species(crn2, fs2)
-    fs2 = fs2 | wastes
-    for x in wastes: 
-        inter[x] = []
+    intermediates, wastes, reactive_waste = assign_crn_species(crn2, fs2)
+    if len(reactive_waste):
+        log.warning(f'Reactive waste species detected: {reactive_waste}')
+    if len(wastes):
+        log.warning(f'{len(wastes)} waste species are treated as formal: ({", ".join(wastes)})')
+        for x in wastes: 
+            inter[x] = []
 
-    # Remove trivial reactions.
-    remove_target = []
-    for [R, P] in crn2:
-        if sorted(R) == sorted(P):
-            remove_target.append([R, P])
-    for r in remove_target:
-        crn2.remove(r)
-
-
-    log.info("Original CRN:")
-    [log.info('    {}'.format(r)) for r in genCRN(crn1, rates = False)]
-    log.info("")
-    log.info(f"Compiled CRN with {len(set().union(*[set().union(*rxn) for rxn in crn2]))} species and {len(crn2)} reactions. After partial interpretation:")
-    [log.info(f'    {r}') for r in genCRN(crn2, interpretation = inter, rates = False)]
-    log.info("")
+    log.debug("Formal CRN:")
+    [log.debug('    {}'.format(r)) for r in genCRN(crn1, rates = False)]
+    log.debug("")
+    log.debug(f"Implementation CRN with {len(set().union(*[set().union(*rxn) for rxn in crn2]))} species and {len(crn2)} reactions.")
+    [log.debug(f'    {r}') for r in genCRN(crn2, rates = False)]
+    log.debug("")
+    if integrated:
+        log.debug(f"Implementation CRN after partial interpretation:")
+        [log.debug(f'    {r}') for r in genCRN(crn2, interpretation = inter, rates = False)]
+        log.debug("")
 
     try:
-        log.debug('Formal species to find basis: {}'.format(fs2))
-        fbasis_raw, fbasis_int = find_basis(crn2, fs2, 
-                                           modular = True,
-                                           interpretation = inter if integrated else None)
-        fbasis_raw = cleanup(fbasis_raw)
-        fbasis_int = cleanup(fbasis_int)
+        log.debug(f'Formal species to find basis: {fs2 | wastes}')
+        fbasis_raw, fbasis_int = find_basis(crn2, fs2 | wastes, modular = True,
+                                            interpretation = inter if integrated else None)
     except NoFormalBasisError as err:
         log.info("Could not find formal basis: {}".format(err))
         return False
 
-    def collapse(l):
-        l2 = []
-        for x in l:
-            l2 += inter.get(x, [x])
-        return l2
- 
-    if integrated: # integrated hybrid
-        fbasis2 = []
-        for [initial, final] in fbasis_raw:
-            r = [sorted(initial), sorted(collapse(final))]
-            fbasis2.append(r)
-    else: # compositional hybrid
-        assert fbasis_int == []
-        fbasis2 = []
-        for [initial, final] in fbasis_raw:
-            r = [sorted(initial), sorted(collapse(final))]
-            fbasis2.append(r)
-            r = [sorted(collapse(initial)), sorted(collapse(final))]
-            fbasis_int.append(r)
-        fbasis_int = remove_duplicates(fbasis_int)
+    log.info(f"Raw formal basis:")
+    [log.info(f'    {r}') for r in genCRN(fbasis_raw, rates = False)]
+    log.info(f"Interpreted formal basis:")
+    [log.info(f'    {r}') for r in genCRN(fbasis_int, rates = False)]
 
-    #
-    # TODO: the following tests are for strong bisimulation instead of weak bisimulation.
-    #
-    if not passes_delimiting_condition(crn1, fbasis_int):
-        return False
+    if compositional:
+        return sorted(crn1) == sorted(clean_crn(fbasis_raw, inter = inter))
+    elif compositional2:
+        # Currently, compositional and integrated use the same raw basis,
+        # because the raw basis after interpretation is the interpreted basis.
+        fcrn = [[Counter(part) for part in rxn] for rxn in crn1]
+        icrn = [[Counter(part) for part in rxn] for rxn in fbasis_raw]
 
-    if not passes_permissive_condition(fbasis_int, fbasis2, inter):
-        return False
+        interC = dict()
+        for k, v in inter.items():
+            interC[k] = Counter(v)
 
-    return True
+        v, i = get_crn_bisimulation(fcrn, icrn, fs1, 
+                                    interpretation = interC, 
+                                    permissive = 'whole-graph')
+        return v
+    elif integrated:
+        # If you use the standard integrated implementation, then you need
+        # to use the interpreted formal base.
+        return sorted(crn1) == sorted(clean_crn(fbasis_int))
+
+    # Pure CRN pathway decomposition or *new* integrated implementation.
+    return sorted(crn1) == sorted(fbasis_raw)
 
 if __name__ == "__main__":
     import sys

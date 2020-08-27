@@ -408,6 +408,12 @@ class TestPathProperties(unittest.TestCase):
         path0 = Path(my_parse_crn(p0)[0], fs)
         assert path0.rfs == frozenset()
 
+        # This is an example that makes integrated hybrid work ...
+        # Only if Bs are indistinguishable, then this is a regular path.
+        pX = 'Z -> i; B + i -> j; j -> B + i; B + i -> k; k -> l; l -> C + X + Y'
+        pathX = Path(my_parse_crn(pX)[0], fs)
+        assert pathX.rfs == frozenset({('C', 'X', 'Y'), ('B', 'C', 'X', 'Y')})
+
     def dont_test_extended_path_properties(self):
         # NOTE: Potential extensions for the path object. 
         # Most of these properties do not exist, but 
@@ -1418,6 +1424,179 @@ class TestBasisFinder(unittest.TestCase):
         basis_raw, basis_int = find_basis(icrn, fs2, interpretation = inter2)
         assert sorted(basis_raw) == icrn
         assert sorted(basis_int) == fcrn
+
+    def test_STW19_EX01(self):
+        from nuskell.crnutils import removeSpecies, assign_crn_species
+        icrn = """
+        A + g1 -> w1 + i
+        i + g2 -> w2 + X + Y + Z
+        i + g3 -> w3 + X + Y
+        i + g4 -> w4 + X
+        A + g5 -> w1 + j
+        j + g6 -> w5 + B
+        """
+        icrn, _ = my_parse_crn(icrn)
+        fuels = set(['g1', 'g2', 'g3', 'g4', 'g5', 'g6'])
+        signals = set(['A', 'B', 'X', 'Y', 'Z'])
+
+        def remove_const(crn, const):
+            for rxn in crn:
+                for x in const:
+                    while x in rxn[0]:
+                        rxn[0].remove(x)
+                    while x in rxn[1]:
+                        rxn[1].remove(x)
+            return crn
+        FB = [[['A'], ['B']], 
+              [['A'], ['X', 'Y', 'Z']], 
+              [['A'], ['X', 'Y']], 
+              [['A'], ['X']]]
+        vcrn = remove_const(icrn, fuels)
+        intermediates, wastes, _ = assign_crn_species(vcrn, signals)
+        vcrn = remove_const(vcrn, wastes)
+        basis_raw, basis_int = find_basis(vcrn, signals)
+        assert sorted(basis_raw) == sorted(FB)
+
+    def test_STW19_EX02(self):
+        from nuskell.crnutils import removeSpecies, assign_crn_species
+        icrn = """
+        G <=> i4
+        T + G -> i13
+        T + i4 -> i14
+        T + X -> W
+        i13 <=> i14
+        i13 <=> i19
+        i14 -> A + B
+        i19 -> A + B
+        i19 -> C + i7
+        i7 <=> D
+        """
+        icrn, _ = my_parse_crn(icrn)
+        signals = set(['A', 'B', 'C', 'D', 'G', 'T', 'X', 'W'])
+
+        def remove_const(crn, const):
+            for rxn in crn:
+                for x in const:
+                    while x in rxn[0]:
+                        rxn[0].remove(x)
+                    while x in rxn[1]:
+                        rxn[1].remove(x)
+            return crn
+        FB = [[['G', 'T'], ['A', 'B']], 
+              [['G', 'T'], ['C', 'D']], 
+              [['T', 'X'], ['W']]] 
+        intermediates, wastes, _ = assign_crn_species(icrn, signals)
+        vcrn = remove_const(icrn, wastes)
+        basis_raw, basis_int = find_basis(vcrn, signals)
+        assert sorted(basis_raw) == sorted(FB)
+
+    def test_STW19_EX03(self):
+        from nuskell.verifier.basis_finder import clean_crn
+        from nuskell.crnutils import removeSpecies, assign_crn_species
+        icrn = """
+        A1 <=> i1
+        A2 <=> i2
+        i1 + X1 -> j + w3
+        i1 + X2 -> j + w4
+        i1 + X3 -> j + w5
+        i1 + X4 -> j + w6
+        i2 + X1 -> j + w7
+        i2 + X2 -> j + w8
+        i2 + X3 -> j + w9
+        i2 + X4 -> j + w10
+        j -> X3 + w11
+        j -> X3 + X4 + w12
+        j -> A2 + X3 + X4 + w13
+        A1 -> k + w1
+        A2 -> k + w2
+        k -> A1 + X1 + X2 + w14
+        k -> A1 + X1 + w15
+        """
+        icrn, _ = my_parse_crn(icrn)
+        signals = set(['A1', 'A2', 'X1', 'X2', 'X3', 'X4'])
+
+        def remove_const(crn, const):
+            for rxn in crn:
+                for x in const:
+                    while x in rxn[0]:
+                        rxn[0].remove(x)
+                    while x in rxn[1]:
+                        rxn[1].remove(x)
+            return crn
+        FB = [[['A1'], ['A1', 'X1', 'X2']], 
+              [['A1'], ['A1', 'X1']],
+              [['A2'], ['A1', 'X1', 'X2']],
+              [['A2'], ['A1', 'X1']],
+              [['A1', 'X1'], ['X3']],
+              [['A1', 'X1'], ['X3', 'X4']],
+              [['A1', 'X1'], ['A2', 'X3', 'X4']],
+              [['A1', 'X2'], ['X3']],
+              [['A1', 'X2'], ['X3', 'X4']],
+              [['A1', 'X2'], ['A2', 'X3', 'X4']],
+              [['A1', 'X3'], ['X3']],
+              [['A1', 'X3'], ['X3', 'X4']], 
+              [['A1', 'X3'], ['A2', 'X3', 'X4']], 
+              [['A1', 'X4'], ['X3']],
+              [['A1', 'X4'], ['X3', 'X4']], 
+              [['A1', 'X4'], ['A2', 'X3', 'X4']],
+              [['A2', 'X1'], ['X3']], 
+              [['A2', 'X1'], ['X3', 'X4']], 
+              [['A2', 'X1'], ['A2', 'X3', 'X4']],
+              [['A2', 'X2'], ['X3']],
+              [['A2', 'X2'], ['X3', 'X4']],
+              [['A2', 'X2'], ['A2', 'X3', 'X4']],
+              [['A2', 'X3'], ['X3']],
+              [['A2', 'X3'], ['X3', 'X4']],
+              [['A2', 'X3'], ['A2', 'X3', 'X4']],
+              [['A2', 'X4'], ['X3']],
+              [['A2', 'X4'], ['X3', 'X4']],
+              [['A2', 'X4'], ['A2', 'X3', 'X4']]]
+
+        inter = {'A1': ['A'],
+                 'A2': ['A'],
+                 'X1': ['X'],
+                 'X2': ['X'],
+                 'X3': ['X'],
+                 'X4': ['X']}
+
+        intermediates, wastes, _ = assign_crn_species(icrn, signals)
+        vcrn = remove_const(icrn, wastes)
+        basis_raw, basis_int = find_basis(vcrn, signals)
+        IFB = [[['A'], ['A', 'X', 'X']], 
+               [['A'], ['A', 'X']], 
+               [['A', 'X'], ['X']],
+               [['A', 'X'], ['X', 'X']],
+               [['A', 'X'], ['A', 'X', 'X']]]
+        assert sorted(IFB) == sorted(clean_crn(basis_raw, inter = inter))
+
+    def test_STW19_EX05(self):
+        from nuskell.verifier.basis_finder import clean_crn
+        from nuskell.crnutils import removeSpecies, assign_crn_species
+        icrn = """
+        A <=> i + j
+        i + B <=> k + l
+        k -> C
+        l <=> m + n
+        m -> D
+        j + n -> E
+        """
+        icrn, _ = my_parse_crn(icrn)
+        signals = set(['A', 'B', 'C', 'D', 'E'])
+
+        def remove_const(crn, const):
+            for rxn in crn:
+                for x in const:
+                    while x in rxn[0]:
+                        rxn[0].remove(x)
+                    while x in rxn[1]:
+                        rxn[1].remove(x)
+            return crn
+        FB = [[['A', 'B'], ['C', 'D', 'E']]] 
+
+        intermediates, wastes, _ = assign_crn_species(icrn, signals)
+        vcrn = remove_const(icrn, wastes)
+        basis_raw, basis_int = find_basis(vcrn, signals)
+        assert FB == basis_raw
 
     def test_crn_JDW2019_F5(self):
         crn1 = "A + B -> C + D"

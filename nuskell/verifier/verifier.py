@@ -7,9 +7,6 @@
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
-from __future__ import absolute_import, division, print_function
-from builtins import map
-
 import logging
 log = logging.getLogger(__name__)
 
@@ -84,7 +81,7 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
                     pinter[k] = sorted(v.elements())
             v = nuskell.verifier.crn_pathway_equivalence.test((formal_crn, formals),
                                                               (impl_crn, pinter.keys()), 
-                                                              inter = pinter if interpret else None, 
+                                                              inter = pinter,
                                                               integrated = False)
         elif method == 'integrated':
             # TODO: integrated-hybrid -> first consider some species as formal for
@@ -100,7 +97,7 @@ def verify(formal_crn, impl_crn, formals, interpret = None,
                     pinter[k] = sorted(v.elements())
             v = nuskell.verifier.crn_pathway_equivalence.test((formal_crn, formals),
                                                               (impl_crn, pinter.keys()), 
-                                                              inter = pinter if interpret else None, 
+                                                              inter = pinter,
                                                               integrated = True)
         else:
             raise RuntimeError('Unknown verification method.')

@@ -2,9 +2,6 @@
 #  nuskell/crnutils.py
 #  NuskellCompilerProject
 #
-from __future__ import absolute_import, print_function, division
-from builtins import map, dict
-
 import logging
 log = logging.getLogger(__name__)
 
@@ -227,29 +224,44 @@ def combine_reversible_reactions(crn):
 
 def removeSpecies(crn, fuel):
     log.debug('Removing species: {}'.format(fuel))
-    assert isinstance(fuel, list)
+    assert isinstance(fuel, (list, set))
     # Remove all fuel species, keep rates untouched.
     crn = [Reaction([s for s in rxn.reactants if s not in fuel], 
                     [s for s in rxn.products if s not in fuel], 
                     rxn.k_fwd, rxn.k_rev) for rxn in crn]
     return crn
 
-def assign_crn_species(crn, fs):
-    """ Returns a bunch of properties for a given CRN.
+def assign_crn_species(crn, signals, fuels = None):
+    """ Returns types of species in a given CRN.
 
-    Waste species are all non-formal species that are only products, but never
-    react. A non-waste is a formal species, or a species that is involved as a
-    reactant in a reaction that involves a non-waste species.
+    On the types of species in an implementation CRN:
+        - Signal species are implementation species that (are supposed to)
+          correspond to formal species in a formal CRN. 
+        - Fuel species are implementation species that are required for some
+          reactions and are assumed to be present, always.
+        - Waste species are chemically inert byproducts that never react. 
+        - Reactive waste species are byproducts of a reaction that can react,
+          but only with fuels or other reactive waste species to produce
+          exclusively (reactive) waste species. A typical example for reactive
+          wastes are so-called garbage collection mechanisms to turn an
+          undesired waste into a desired waste.
+        - Intermediate species are all other species that do not fall in any
+          above category.
 
-    Return:
+    Logging warning:
+        - Reactive waste species found.
+
+    Returns:
         set(): intermediates
         set(): wastes
-        set(): nonwastes
+        set(): reactive wastes
     """
-    assert isinstance(fs, set)
     species = set().union(*[set().union(*rxn[:2]) for rxn in crn])
-    nonwastes = fs.copy()
+    # A signal species cannot be considered waste.
+    assert isinstance(signals, set)
+    nonwastes = signals.copy()
     wastes = set()
+
     while True:
         # Add x to non-waste if in any reaction x is an reactant while there
         # are non-wastes taking part in the reaction. Reset the outer loop if 
@@ -258,17 +270,25 @@ def assign_crn_species(crn, fs):
         for x in species:
             if x in nonwastes:
                 continue
-            for [R, P] in crn:
-                if x in R and len(nonwastes & set(R + P)):
+            for rxn in crn:
+                if x in rxn[0] and len(nonwastes & set(rxn[0] + rxn[1])):
                     nonwastes.add(x)
                     flag = True
                     break
         if not flag: 
             break
-    # A formal species cannot be considered waste.
+    
+    # Inert and reactive waste species.
     wastes = species - nonwastes
-    # A non-formal waste species
-    nonwastes -= fs
-    # An interemdiate species 
-    intermediates = species - fs - wastes
-    return intermediates, wastes, nonwastes
+
+    # An intermediate species 
+    intermediates = species - signals - wastes
+
+    # Let's assert here, to find the problems.
+    reactive_waste = set()
+    for w in list(wastes):
+        if any(w in rxn[0] for rxn in crn):
+            log.warning(f'Found reactive waste species {w}.')
+            reactive_waste.add(w)
+
+    return intermediates, wastes, reactive_waste

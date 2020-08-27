@@ -3,9 +3,6 @@
 #  scripts/nuskellCMP
 #  EnumeratorProject
 #
-from __future__ import absolute_import, division, print_function
-from builtins import map, filter, dict, zip
-
 import logging
 log = logging.getLogger('nuskell')
 
@@ -24,8 +21,8 @@ from peppercornenumerator import PolymerizationError
 from nuskell import translate, verify, NuskellExit, __version__
 from nuskell.objects import clear_memory
 from nuskell.verifier import modular_bisimulation
-from nuskell.crnutils import parse_crn_string, Reaction
-from nuskell.crnutils import split_reversible_reactions, removeSpecies
+from nuskell.crnutils import (parse_crn_string, Reaction, assign_crn_species,
+                              split_reversible_reactions, removeSpecies, genCRN, genCON)
 
 def compare_schemes(reactions, schemedir,
                     crn_name=True,
@@ -136,6 +133,7 @@ def compare_schemes(reactions, schemedir,
             current.append(semantics)
 
             interpret = solution.interpret_species(fs, prune=True)
+            signals = solution.signal_complexes
 
             icrn = []
             # Implementation CRN is an enumerated CRN after regex-complexes have
@@ -210,26 +208,29 @@ def compare_schemes(reactions, schemedir,
                 if mcrn:
                     module_crns.append(mcrn)
 
-                icrns = list(map(lambda x: removeSpecies(x, list(map(str, fuels))), module_crns))
-
             # VERIFICATION
-            vcrn = removeSpecies(icrn, list(map(str,fuels)))
+            vcrn = removeSpecies(icrn, list(map(str, fuels)))
+            intermediates, wastes, _ = assign_crn_species(vcrn, set(map(str, signals)))
+            vcrn = removeSpecies(vcrn, wastes)
+            if modular:
+                icrns = list(map(lambda x: removeSpecies(x, set(map(str, fuels)) | wastes), module_crns))
+
             for meth in vnotions:
                 if 'modular-' in meth:
                     if len(fcrm) > 1:
                         # NOTE: Temporary to fixe a bug in testModules
                         import copy
                         backup = copy.deepcopy(interpret) if interpret else None
-                        v, _ = modular_bisimulation(fcrm, icrns, fs, interpret=backup, 
+                        v, _ = modular_bisimulation(fcrm, icrns, fs.keys(), interpret=backup, 
                                 method=meth[8:], timeout=vtime)
                         #log.warning('transfering interpretation to bisimulation')
                         #interpret = backup
                     else :
                         assert fcrn == fcrm[0]
-                        v, i = verify(fcrn, vcrn, fs, interpret=interpret, method=meth[8:],
+                        v, i = verify(fcrn, vcrn, fs.keys(), interpret=interpret, method=meth[8:],
                               timeout=args.verify_timeout)
                 else:
-                    v, _ = verify(fcrn, vcrn, fs, interpret=interpret, method=meth,
+                    v, _ = verify(fcrn, vcrn, fs.keys(), interpret=interpret, method=meth,
                                   timeout=vtime)
 
                 if v is True:
