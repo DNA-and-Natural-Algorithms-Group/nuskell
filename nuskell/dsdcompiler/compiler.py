@@ -9,33 +9,21 @@
 import logging
 log = logging.getLogger(__name__)
 
-from . import parse_crn_string
+from .crn_parser import parse_crn_file, parse_crn_string
 from .ts_parser import parse_ts_string, parse_ts_file
 from .interpreter import NuskellEnvironment 
 from .objects import NuskellComplex
 
-import os
-import pkg_resources
-
-class InvalidSchemeError(Exception):
-    """Raise Error: Cannot find translation scheme."""
-    def __init__(self, ts_file, builtin=None):
-        self.message = "Cannot find translation scheme: {}\n".format(ts_file)
-        if builtin:
-            self.message += "You may want to use one of the built-in schemes instead:\n"
-            self.message += "Schemes in {}:\n".format(builtin)
-            for s in sorted(os.listdir(builtin)):
-                self.message += " * {}\n".format(s)
-        super(InvalidSchemeError, self).__init__(self.message)
+class NuskellInterpreterError(Exception):
+    pass
 
 def translate(input_crn, ts_file, modular = False):
-    """CRN-to-DSD translation wrapper function.
+    """ CRN-to-DSD translation wrapper function.
 
     A formal chemical reaction network (CRN) is translated into a domain-level
     strand displacement (DSD) system. The translation-scheme and the CRN are
-    parsed into low-level instructions using the **nuskell.parser** module,
-    passed on to the **nuskell.interpreter** and returned in form of a
-    **nuskell.objects.TestTube()** object.
+    parsed into low-level instructions, passed on to the **interpreter** and
+    returned in form of a list of complexes.
 
     Args:
       input_crn (str): An input string representation of the formal CRN.
@@ -47,18 +35,9 @@ def translate(input_crn, ts_file, modular = False):
       The first object contains signal and fuel species of the full DSD
       system, followed by the modular system specifications.
     """
-    if not os.path.isfile(ts_file):
-        builtin = '../schemes/literature/' + ts_file
-        try:
-            ts_file = pkg_resources.resource_filename('nuskell', builtin)
-        except KeyError:
-            schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-            raise InvalidSchemeError(ts_file, schemedir)
-
-    print(ts_file)
     ts = parse_ts_file(ts_file)
     crn, fs = parse_crn_string(input_crn)
-    solution, modules = compile_parsed(ts, crn, fs, modular = modular)
+    solution, modules = interpret(ts, crn, fs, modular = modular)
     return solution, modules
 
 def ts_code_snippet():
@@ -78,7 +57,7 @@ def ts_code_snippet():
     function map(f, x) = if len(x) == 0 then [] else [f(x[0])] + map(f, tail(x)) ;
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x)) """
 
-def compile_parsed(ts_parsed, crn_parsed, formals, modular = False, one = 100e-9):
+def interpret(ts_parsed, crn_parsed, formals, modular = False, one = 100):
     """ Translation of a CRN into a DSD system.
 
     Initializes the compiler environment, interprets the instructions of the
@@ -96,6 +75,14 @@ def compile_parsed(ts_parsed, crn_parsed, formals, modular = False, one = 100e-9
         [dict,...]: Complexes and their concentrations.  If you have a modular
             representation, then the following dictionaries contain all the modules.
     """
+
+    for name in formals.keys():
+        if name[0] == 'f': # fuels
+            raise NuskellInterpreterError('Formal species name must not start with "f": {name}.')
+        elif name[0] == 'i': # intermediates
+            raise NuskellInterpreterError('Formal species name must not start with "i": {name}.')
+        elif name[0] == 'w': # wastes
+            raise NuskellInterpreterError('Formal species name must not start with "w": {name}.')
 
     # Initialize the environment
     ts_env = NuskellEnvironment()
@@ -123,50 +110,48 @@ def compile_parsed(ts_parsed, crn_parsed, formals, modular = False, one = 100e-9
     # Translation to final Complex objects using a new naming scheme.
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     solution = dict()
-    log.debug("Compiled species.")
+    log.debug("Compiled signal species:")
     for k, v in fs_result.items():
         v.flatten_cplx  # NusComplex-specific function.
-        v = NuskellComplex(v.sequence, v.structure, name = k)
-        v.concentration = None #TODO
-        log.debug(f"{type(v)} - {v} {v.kernel_string} {v.concentration}")
-        solution[v.name] = v # flag that it is a signal?
-        fs_result[k] = v
-
-    num = 0
-    for cplx in sorted(cs_solution):
-        cplx.name = name = 'f' + str(num)
-        assert cplx.concentration == ('constant', float('inf'), 'M')
-        cplx.concentration = ('constant', 1*one, 'M')
+        cplx = NuskellComplex(v.sequence, v.structure, name = k)
+        cplx.concentration = None if None in formals[k] else (*formals[k], 'nM')
         log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
-        solution[cplx.name] = cplx # flag that it is a fuel?
+        solution[cplx.name] = cplx
+        fs_result[k] = cplx
+
+    num = 1
+    log.debug("Compiled fuel species:")
+    for cplx in sorted(cs_solution):
+        cplx.name = 'f' + str(num)
+        assert cplx.concentration == ('constant', float('inf'), 'nM')
+        cplx.concentration = ('constant', 1*one, 'nM')
+        log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
+        solution[cplx.name] = cplx
         num += 1
 
     rxnmodules = []
-    #for e, csm in enumerate(cs_modules[1:]):
-    #    log.debug("MODULE {}".format(e))
-    #    rxn = set(crn_parsed[e].reactants + crn_parsed[e].products)
-    #    module = TestTube()
+    for e, csm in enumerate(cs_modules[1:]):
+        module = dict()
+        log.debug(f"Compiled module {e}")
+        rxn = set(crn_parsed[e].reactants + crn_parsed[e].products)
+        for k, cplx in fs_result.items():
+            assert k == cplx.name
+            if cplx.name in module:
+                raise NuskellInterpreterError("Overwriting existing signal species in module.")
+            if cplx.name not in solution:
+                raise NuskellInterpreterError("Cannot find signal species of module in solution.")
+            if k in rxn:
+                module[cplx.name] = cplx
+            log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
 
-    #    # TODO select formal species?
-    #    for k, v in fs_result.items():
-    #        assert k == v.name
-    #        if module.has_complex(v):
-    #            raise ValueError("Overwriting existing module species")
-    #        if not solution.has_complex(v):
-    #            raise ValueError("Cannot find formal module species in solution.")
-    #        if k in rxn:
-    #            conc = fs[k] if None in fs[k] else (fs[k][1]*one, fs[k][0] == 'constant')
-    #            module.add_complex(v, conc, ctype = 'signal')
-    #        log.debug("{} - {} {}".format(type(v), v, v.kernel_string))
-
-    #    for cplx in csm.complexes:
-    #        if not solution.has_complex(cplx):
-    #            raise ValueError("Cannot find constant module species in solution.")
-    #        assert cs_solution.ReactionGraph.nodes[cplx]['ctype'] == 'fuel'
-    #        module.add_complex(cplx, cs_solution.get_complex_concentration(cplx), ctype = 'fuel')
-    #        log.debug("{} - {} {}".format(type(cplx), cplx, cplx.kernel_string))
-    #    rxnmodules.append(module)
+        for cplx in sorted(csm):
+            if cplx.name not in solution:
+                raise NuskellInterpreterError("Cannot find fuel species of module in solution.")
+            module[cplx.name] = cplx
+            log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
+        rxnmodules.append(module)
     return solution, rxnmodules
 
-
+if __name__ == '__main__':
+   translate()
 

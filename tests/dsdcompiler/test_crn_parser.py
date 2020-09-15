@@ -4,7 +4,7 @@
 #  NuskellCompilerProject
 #
 import unittest
-from nuskell.crnutils import parse_crn_string, split_reversible_reactions, Reaction
+from nuskell.dsdcompiler.crn_parser import parse_crn_string, Reaction
 
 class TestCRNparser(unittest.TestCase):
     def setUp(self):
@@ -43,19 +43,6 @@ class TestCRNparser(unittest.TestCase):
         ecrn, efs = parse_crn_string(crn)
         self.assertEqual(ecrn, pcrn, 'single chemical reaction 4a')
         self.assertEqual(sorted(efs), sorted(pfs), 'single chemical reaction 4b')
-
-    def test_split_reversible_reactions(self):
-        crn = "A+B->X+Y\nA<=>X"
-        pcrn = [Reaction(['A', 'B'], ['X', 'Y'], 1, 0), Reaction(['A'], ['X'], 1, 1)]
-        pfs = {'A': (None, None), 'B': (None, None), 'X': (None, None), 'Y': (None, None)}
-        ecrn, efs = parse_crn_string(crn)
-        self.assertEqual(ecrn, pcrn, 'single chemical reaction 5a')
-        self.assertEqual(sorted(efs), sorted(pfs), 'single chemical reaction 5b')
-        splitcrn = [Reaction(['A', 'B'], ['X', 'Y'], 1, 0), 
-                    Reaction(['A'], ['X'], 1, 0),
-                    Reaction(['X'], ['A'], 1, 0)]
-        self.assertEqual(sorted(split_reversible_reactions(ecrn)), 
-                         sorted(splitcrn), 'split irreversible reactions')
 
     def todo_test_parse_crn_string(self):
         # This does not work atm

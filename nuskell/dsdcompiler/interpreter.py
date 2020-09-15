@@ -6,7 +6,7 @@
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
-"""The nuskell programming language interpreter.
+""" The nuskell programming language interpreter.
 
 Nuskell code is interpreted using public functions of the **Environment**
 class.  All other classes and functions are needed internally to set up the
@@ -16,69 +16,51 @@ in the respective namespace.
 .. When modifying this file, follow the Google Python Style Guide:
 .. http://google.github.io/styleguide/pyguide.html
 """
-from copy import copy
+import logging
+log = logging.getLogger(__name__)
 
+from copy import copy
 from .objects import NuskellDomain, NuskellComplex, DSD_Complex, DSDDuplicationError
 
 class NuskellEnvError(Exception):
-    """Nuskell Environment Error.
-
-    Args:
-      msg (str): Error description.
-    """
-
-    def __init__(self, msg):
-        self.message = msg
-        super(NuskellEnvError, self).__init__(self.message)
-
-class NuskellExit(SystemExit):
-    """Nuskell Scheme Exit """
-
-    def __init__(self, msg):
-        super(NuskellExit, self).__init__(msg)
-
-
-class void(object):
-    """An empty object returned by the print function"""
     pass
 
+class NuskellExit(SystemExit):
+    pass
 
-class Species(object):
-    """The Species object.
+class void:
+    """ An empty object returned by the print function. """
+    pass
+
+class Species:
+    """ A species of a CRN.
 
     Args:
       name (str): The name of a species.
     """
-
     def __init__(self, name):
         self.name = name
 
-
-class Reaction(object):
-    """Format of a single reaction:
+class Reaction:
+    """ A reversible or irreversible reaction.
 
     Args:
       reactands (List[str]) : a list of educts, eg. ['A', 'B']
       products (List[str]) : a list of products, eg. ['C']
       reversible (bool) : True or False
     """
-
     def __init__(self, reactants, products, reversible):
         self.reactants = reactants
         self.products = products
         self.reversible = reversible
 
-
-class NusFunction(object):
-    """
-    A function object of the Nuskell language.
+class NusFunction:
+    """ A function of the nuskell programming language.
 
     Args:
       args (): The arguments of a function.
       body (): The function body.
-
     """
-
     def __init__(self, args, body):
         self.args = args
         self.body = body
@@ -91,11 +73,11 @@ def flatten(l):
     return l[:1] + flatten(l[1:])
 
 class NusComplex(DSD_Complex):
-    """Nucleic Acid Complex (Sequence, Structure) pair.
+    """ A nucleic acid complex, i.e. a (sequence, structure) pair.
 
-    This is an extension of nuskell.objects.Complex(), which stores an additional
-    dictionary of attributes. This dictionary maps domain names as specified in
-    the translation-scheme to the unique Domain() object.
+    This is an extension of dsdobjects.core.DSD_Complex(), which stores an
+    additional dictionary of attributes. This dictionary maps domain names as
+    specified in the translation-scheme to the unique Domain() object.
 
     Args:
       attr (Dict[name]=Domain): A mapping between names in the translation scheme
@@ -103,8 +85,6 @@ class NusComplex(DSD_Complex):
       sequence (List[str]): Domain Objects
       structure (List[str]): A list of dot-parens characters ".(.+)."
     """
-
-
     def __new__(cls, attr=dict(), *kargs, **kwargs):
         # The new method returns the present instance of an object, if it exists
         self = DSD_Complex.__new__(cls)
@@ -178,10 +158,8 @@ class NusComplex(DSD_Complex):
         self._structure = newstr
         return self._sequence, self._structure
 
-
-class NuskellExpressions(object):
-    """
-    Builtin expressions for Nuskell translation schemes.
+class NuskellExpressions:
+    """ Builtin expressions for Nuskell translation schemes.  
     """
     # Say something about special trailer functions here?
 
@@ -245,12 +223,7 @@ class NuskellExpressions(object):
     # Context-dependent
     @staticmethod
     def _if(theenv, content):
-        """ Evaluate a (nested) if clause
-
-        :param theenv: the environment object
-        :param content: an expression that wants to be interpreted
-
-        """
+        """ Evaluate a (nested) if clause. """
         while len(content) > 1:
             theenv._env, test = theenv.interpret_expr(content[0])
             if test:
@@ -290,7 +263,6 @@ class NuskellExpressions(object):
         dotparen = content[1]
         attributes = {}
         for i in range(len(domains)):
-            # TODO history domains
             if domains[i] != "?" and domains[i] != "+":
                 starred = (len(domains[i]) == 2)
                 dom = domains[i][0]
@@ -300,8 +272,10 @@ class NuskellExpressions(object):
                 if starred:
                     dom_value = ~dom_value
                 domains[i] = dom_value
-        return theenv._env, NusComplex(sequence=domains, structure=dotparen,
-                                       attr=attributes, memorycheck=False)
+        return theenv._env, NusComplex(sequence = domains, 
+                                       structure = dotparen,
+                                       attr = attributes,
+                                       memorycheck = False)
 
     def _list(self, theenv, content):
         for i in range(len(content)):
@@ -309,7 +283,6 @@ class NuskellExpressions(object):
         return theenv._env, content
 
     def _where(self, theenv, content):
-        """ """
         theenv._create_level()
         if len(content) > 1:
             # if this is not a trivial where clause
@@ -352,7 +325,7 @@ class NuskellExpressions(object):
             head = head[subscript]
         except IndexError:
             raise NuskellEnvError(
-                "Bug in translation scheme, expected element in empty list.")
+                "Error in translation scheme, expected element but got empty list.")
         return theenv._env, head
 
     def _attribute(self, theenv, head, args):
@@ -362,19 +335,16 @@ class NuskellExpressions(object):
         elif identifier in head.__dict__:
             head = head.__dict__[identifier]
         else:
-            raise NuskellEnvError(
-                "The attribute `" + identifier + "' could not be found.")
+            raise NuskellEnvError(f"The attribute '{identifier}' could not be found.")
         return theenv._env, head
 
-
-class NuskellFunctions(object):
-    """Builtin functions of Nuskell translation schemes.
+class NuskellFunctions:
+    """ Builtin functions of Nuskell translation schemes.
 
     This object is initialized within the :obj:`NuskellEnvironment()` after the
     respective functions have been bound.  Most methods do not require any class
     variables and are therefore declared as staticmethods.  As a consequence, the
     functions can be accessed without prior initialization of the Object.
-
     """
     ################################
     ### Builtin-function section ###
@@ -385,8 +355,6 @@ class NuskellFunctions(object):
 
     def eval_builtin_functions(self, f, args):
         """Evaluate built-in functions.
-
-        These functions are independent of the environment.
 
         Args:
           f (str) : The built-in function name.
@@ -412,59 +380,52 @@ class NuskellFunctions(object):
             'rev_reactions': self.rev_reactions,
             'irrev_reactions': self.irrev_reactions,
         }
-
         if f in keywords.keys():
             return keywords[f](args)
         else:
-            raise NuskellEnvError("`" + f + "' could not be found.")
+            raise NuskellEnvError(f"Function '{f}' could not be found.")
 
     def unique(self, args):
-        """A function that returns branch-migration domains.
-        """
+        """ A function that returns branch-migration domains. """
         if type(args[0]) != int:
             raise RuntimeError("The first argument of `unique' should be an integer.")
-
-        dom = NuskellDomain(length=args[0], prefix='u')
+        dom = NuskellDomain(length = args[0], prefix = 'u')
         cdm = ~dom
         return dom
 
-
     def long(self, args):
-        """A function that returns branch-migration domains.
-        """
+        """ Returns a long domain. """
         if args:
-            raise args
-
-        dom = NuskellDomain(dtype='long', prefix='d')
+            raise NuskellEnvError('Did not expect arguments in long function: {args}')
+        dom = NuskellDomain(dtype = 'long', prefix = 'd')
         cdm = ~dom
         return dom
 
     def short(self, args):
-        """A function that returns toehold domains.
-        """
-        dom = NuskellDomain(dtype='short', prefix='t')
+        """ Returns a short domain. """
+        if args:
+            raise NuskellEnvError('Did not expect arguments in short function: {args}')
+        dom = NuskellDomain(dtype = 'short', prefix = 't')
         cdm = ~dom
         return dom
 
     def _print(self, args):
-        """Print statment, primarily to debug nuskell scripts"""
+        """ Print statment, primarily to debug nuskell scripts. """
         for a in args:
-            if isinstance(a, NusComplex):
-                print(list(map(str, a.sequence)))
-            elif isinstance(a, NuskellComplex):
+            if isinstance(a, NusComplex) or isinstance(a, NuskellComplex):
                 print(list(map(str, a.sequence)))
             else:
-                print(str(a), end='')
+                print(str(a), end = '')
         print()
         return void()
 
     def _abort(self, args):
-        """Raise NuskellExit and print the error message"""
+        """ Raise NuskellExit and print the error message. """
         raise NuskellExit(args[0])
 
     @staticmethod
     def tail(args):
-        """ Returns the list minus the first element.. """
+        """ Returns the list minus the first element. """
         if not isinstance(args[0], list):
             raise NuskellEnvError("`tail' should have a list as its argument.")
         return args[0][1:]
@@ -487,7 +448,6 @@ class NuskellFunctions(object):
         if not isinstance(args[1], int):
             raise NuskellEnvError(
                 "The second argument of `flip' should be an integer.")
-
         l = args[0]
         n = args[1]
         res = [0] * n
@@ -503,13 +463,13 @@ class NuskellFunctions(object):
 
     @staticmethod
     def infty(args):
-        """
-        'infty' is a built-in function that takes a Complex instance and puts
-        that the species is supposed to have "infinite" concentration. The
-        resulting object will be a dictionary
+        """ Return a fuel complex.
+
+        This function assigns infinite concentration to the complex, which
+        is a placeholder until we have come to a more reasonable solution.
         """
         if not isinstance(args[0], NusComplex):
-            raise NuskellEnvError("The argument of `infty' should be a Complex")
+            raise NuskellEnvError("The argument of 'infty' should be a complex")
         args[0].flatten_cplx
         if args[0].sequence == [] and args[0].structure == []:
             return []
@@ -518,7 +478,7 @@ class NuskellFunctions(object):
                 final = NuskellComplex(args[0].sequence, 
                                        args[0].structure, 
                                        prefix = 'final')
-                final.concentration = ('constant', float('inf'), 'M')
+                final.concentration = ('constant', float('inf'), 'nM')
                 return [final]
             except DSDDuplicationError as e:
                 final = e.existing
@@ -526,13 +486,14 @@ class NuskellFunctions(object):
 
     @staticmethod
     def complement(args):
-        """ Returns the complement of a given input. It can interpret Complex,
-        Domains and Dot-bracket lists, as well as lists of lists.
+        """ Returns the complement of a given input. 
+        
+        It can interpret Complex, Domains and dot-bracket lists, as well as
+        lists of lists.
 
-        :param args: an expression in form of an array, where the first element
-        in the array contains the data of interest. ... yeah, a bit complicated...
-
-        :return: complement of the input
+        Args:
+            args: An expression in form of an array, where the first element
+                in the array contains the data of interest. 
         """
         x = args[0]
         if isinstance(x, list):
@@ -541,7 +502,7 @@ class NuskellFunctions(object):
                 x[i] = [x[i]]
             return list(reversed(map(self._complement, x)))
         elif isinstance(x, Domain):
-            print('Untested:', ~x)
+            log.warning(f'Untested function: {~x}')
             return ~x
         elif isinstance(x, NusComplex):
             raise NotImplementedError
@@ -576,10 +537,7 @@ class NuskellFunctions(object):
 
     @staticmethod
     def irrev_reactions(args):
-        """
-        a function that divides every reversible reaction into a pair of
-        irreversible reaction.
-        """
+        """ Split reversible rxns into a pair of irreversible rxns. """
         if not isinstance(args[0], list):
             raise NuskellEnvError(
                 "The argument of `irrev_reactions' should be a list.")
@@ -595,13 +553,14 @@ class NuskellFunctions(object):
 
     @staticmethod
     def asgn_pattern_match(id, value):
-        """Does the pattern matching for list assignments.
-           ex) [a, b, c] = [1, 2, 3]
+        """ Pattern matching for list assignments.
+
+        For example: [a, b, c] = [1, 2, 3]
         """
         if isinstance(id, list):
             if not isinstance(value, list) or len(id) != len(value):
                 raise NuskellEnvError(
-                    "Pattern matching failed while assigning values to " + str(id) + ".")
+                        f"Pattern matching failed while assigning values to {str(id)}.")
             result = []
             for i in range(len(id)):
                 result += NuskellFunctions.asgn_pattern_match(id[i], value[i])
@@ -609,21 +568,18 @@ class NuskellFunctions(object):
         elif isinstance(id, str):
             return [(id, value)]
         else:
-            raise NuskellEnvError("""The left hand side of an assignment should be
-      either an identifier or a list-tree consisting only of identifiers.""")
+            raise NuskellEnvError("Pattern matching failed.")
 
     @staticmethod
     def remove_id_tags(l):
-        """Helper function to remove all tags from the given id_list."""
+        """ Helper function to remove all tags from the given id_list. """
         kwd = l[0]
         if kwd == "idlist":
             return list(map(NuskellFunctions.remove_id_tags, l[1:]))
         elif kwd == "id":
             return l[1]
         else:
-            raise NuskellEnvError("""The left hand side of an assignment should be
-      either an identifier or a list-tree consisting only of identifiers.""")
-
+            raise NuskellEnvError("Could not remove id tags.")
 
 class NuskellEnvironment(NuskellExpressions):
     """The Nuskell language environment.
@@ -635,7 +591,6 @@ class NuskellEnvironment(NuskellExpressions):
 
     Raises:
       NuskellEnvError
-
     """
 
     def __init__(self):
@@ -651,8 +606,8 @@ class NuskellEnvironment(NuskellExpressions):
         translation scheme.
 
         Note:
-          All keywords (class, function, macro, module) are treated the same, only
-          the **global** keyword is special, as global expressions are
+          All keywords (class, function, macro, module) are treated the same,
+          only the **global** keyword is special, as global expressions are
           **interpreted first** and then bound.
         """
         for stmt in code:
@@ -667,8 +622,8 @@ class NuskellEnvironment(NuskellExpressions):
                 value = body[1]
                 self._env, value = self.interpret_expr(value)
 
-                for key, value in self._bfunc_Obj.asgn_pattern_match(
-                        id_list, value):
+                for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, 
+                                                                     value):
                     self._create_binding(key, value)
             else:
                 # create binding to the function, without interpretation
@@ -708,7 +663,7 @@ class NuskellEnvironment(NuskellExpressions):
         return self.formal_species_dict
 
     def translate_reactions(self, crn_parsed, modular=False):
-        """Execute the main() function of the translation scheme.
+        """ Execute the main() function of the translation scheme.
 
         The input CRN is replaced with previously initialized formal species objects.
 
@@ -719,37 +674,36 @@ class NuskellEnvironment(NuskellExpressions):
           NuskellEnvError: If the compiled formal species cannot be found
 
         Returns:
-            dict: fuel species 
+            list: fuel species 
         """
         if not self.formal_species_dict:
-            raise NuskellEnvError(
-                'Could not find the compiled formal species!')
+            raise NuskellEnvError('Could not find the compiled formal species!')
 
         # replace every fs (str) with fs(NusComplex())
-        crn_remap = list(map(lambda rxn: [rxn.k_rev] + 
-                list(map(lambda y: list(map(lambda z: self.formal_species_dict[z], y)), rxn[:2])), crn_parsed))
-
-        crn_object = list(map(
-            lambda x: Reaction(x[1], x[2], x[0] != 0), crn_remap))
+        crn_objects = []
+        for (r, p, fw, rv) in crn_parsed:
+            r = [self.formal_species_dict[x] for x in r]
+            p = [self.formal_species_dict[x] for x in p]
+            crn_objects.append(Reaction(r, p, rv != 0))
 
         # main(__crn__)
         modules = []
         if modular:
-            for module in crn_object:
+            for module in crn_objects:
                 self._create_binding("__crn__", [module])
                 self._env, self.constant_species_solution = self.interpret_expr(
                     ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
                 modules.append(self.constant_species_solution)
 
-            # NOTE: The modular reaction-by-reaction translation does not *sum* over
-            # the whole CRN, but sums over every reaction. The common memory management
-            # of NusComplexes ensures that species wich are shared between reactions 
-            # have the same name.
-            unified_solution = sum(modules)
+            # NOTE: The modular reaction-by-reaction translation returns one
+            # module per Reaction object.  The memory management of
+            # NusComplexes ensures that species wich are shared between
+            # reactions have the same name.
+            unified_solution = list(set(flatten(modules)))
             modules.insert(0, unified_solution)
 
         else:
-            self._create_binding("__crn__", crn_object)
+            self._create_binding("__crn__", crn_objects)
             self._env, self.constant_species_solution = self.interpret_expr(
                 ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
             modules = [self.constant_species_solution]

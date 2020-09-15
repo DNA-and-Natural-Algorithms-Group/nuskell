@@ -10,8 +10,6 @@ from dsdobjects import (clear_memory,
                         DSDDuplicationError)
 from dsdobjects.core import DL_Domain, DSD_Complex
 from dsdobjects.prototypes import Complex
-from dsdobjects.utils import natural_sort
-#import dsdobjects.objectio as oio
 
 class NuskellObjectError(Exception):
     pass

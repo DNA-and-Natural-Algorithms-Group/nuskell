@@ -2,7 +2,7 @@
 #  nuskell/__init__.py
 #  NuskellCompilerProject
 #
-__version__ = "v0.6"
+from .dsdcompiler import __version__ # Let's use one combined version, for now.
 
 import logging
 logging.getLogger(__name__).addHandler(logging.NullHandler())
