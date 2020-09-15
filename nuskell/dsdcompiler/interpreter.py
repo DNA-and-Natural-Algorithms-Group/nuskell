@@ -1,14 +1,12 @@
 #
-#  nuskell/interpreter/interpreter.py
+#  nuskell/dsdcompiler/interpreter.py
 #  NuskellCompilerProject
 #
 # Copyright (c) 2010-2020 Caltech. All rights reserved.
 # Written by Seung Woo Shin (seungwoo.theory@gmail.com).
 #            Stefan Badelt (stefan.badelt@gmail.com)
 #
-from __future__ import absolute_import, division, print_function
-from builtins import map
-"""The nuskell programming language environment.
+"""The nuskell programming language interpreter.
 
 Nuskell code is interpreted using public functions of the **Environment**
 class.  All other classes and functions are needed internally to set up the
@@ -20,8 +18,7 @@ in the respective namespace.
 """
 from copy import copy
 
-from nuskell.objects import NuskellDomain, NuskellComplex, TestTube, DSDDuplicationError
-from dsdobjects.core import DSD_Complex
+from .objects import NuskellDomain, NuskellComplex, DSD_Complex, DSDDuplicationError
 
 class NuskellEnvError(Exception):
     """Nuskell Environment Error.
@@ -33,7 +30,6 @@ class NuskellEnvError(Exception):
     def __init__(self, msg):
         self.message = msg
         super(NuskellEnvError, self).__init__(self.message)
-
 
 class NuskellExit(SystemExit):
     """Nuskell Scheme Exit """
@@ -510,19 +506,23 @@ class NuskellFunctions(object):
         """
         'infty' is a built-in function that takes a Complex instance and puts
         that the species is supposed to have "infinite" concentration. The
-        resulting object will be a TestTube instance
+        resulting object will be a dictionary
         """
         if not isinstance(args[0], NusComplex):
             raise NuskellEnvError("The argument of `infty' should be a Complex")
         args[0].flatten_cplx
         if args[0].sequence == [] and args[0].structure == []:
-            return TestTube()
+            return []
         else:
             try : 
-                final = NuskellComplex(args[0].sequence, args[0].structure, prefix='final')
+                final = NuskellComplex(args[0].sequence, 
+                                       args[0].structure, 
+                                       prefix = 'final')
+                final.concentration = ('constant', float('inf'), 'M')
+                return [final]
             except DSDDuplicationError as e:
                 final = e.existing
-            return TestTube(complexes={final.name: [final, float("inf"), None, 'fuel']})
+                return []
 
     @staticmethod
     def complement(args):
@@ -719,7 +719,7 @@ class NuskellEnvironment(NuskellExpressions):
           NuskellEnvError: If the compiled formal species cannot be found
 
         Returns:
-          [:obj:`nuskell.objects.TestTube()`]: Fuel species
+            dict: fuel species 
         """
         if not self.formal_species_dict:
             raise NuskellEnvError(
@@ -781,7 +781,7 @@ class NuskellEnvironment(NuskellExpressions):
         self._create_binding(
             "irrev_reactions", NusFunction(
                 ["crn"], "irrev_reactions"))
-        self._create_binding("empty", TestTube())
+        self._create_binding("empty", [])
         return NuskellFunctions()
 
     def _create_binding(self, name, value):
@@ -791,14 +791,14 @@ class NuskellEnvironment(NuskellExpressions):
 
         Args:
           name (str): Name of the function.
-          value (...): A built-in data type (Function, TestTube, Species,
+          value (...): A built-in data type (Function, dict, Species,
             Domain, Reaction, Complex, etc ...), either as single value or list
 
         Returns:
           An updated environment inclding the function binding in the top-level.
         """
 
-        bindings = (NusFunction, TestTube, Species, NuskellDomain, Reaction, NusComplex,
+        bindings = (NusFunction, dict, Species, NuskellDomain, Reaction, NusComplex,
                     void, int, list)
         if isinstance(value, list):
             assert all(isinstance(s, bindings) for s in value)

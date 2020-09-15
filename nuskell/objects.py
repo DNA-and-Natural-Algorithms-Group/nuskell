@@ -2,13 +2,10 @@
 #  nuskell/objects.py
 #  NuskellCompilerProject
 #
-from __future__ import absolute_import, division, print_function
-from builtins import map, filter
-
 import logging
 log = logging.getLogger(__name__)
 
-import networkx as nx
+import networkx as nx #TODO: remove this dependency!
 from collections import Counter
 from dsdobjects import clear_memory
 from dsdobjects import DSDObjectsError, DSDDuplicationError

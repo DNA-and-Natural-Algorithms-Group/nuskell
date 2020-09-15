@@ -1,5 +1,5 @@
 #
-#  nuskell/parser/crn_parser.py
+#  nuskell/dsdcompiler/crn_parser.py
 #  NuskellCompilerProject
 #
 # Copyright (c) 2010-2020 Caltech. All rights reserved.
@@ -12,12 +12,12 @@ from pyparsing import (Word, Literal, Group, Suppress, Optional, ZeroOrMore,
                        pythonStyleComment, ParseElementEnhance)
 
 
-def crn_document_setup(modular=False):
-    """Parse a formal chemical reaction network.
+def crn_document_setup(modular = False):
+    """ Parse a formal chemical reaction network.
 
     Args:
       modular <optional:bool>: Adds an additional nesting for modules within a
-        CRN. Use one line per module (';' separates reactions).
+                               CRN. Use one line per module (';' separates reactions).
 
     Format:
       # A list of reactions, optionally with reaction rates:
@@ -28,8 +28,6 @@ def crn_document_setup(modular=False):
 
       # Note that you can write multiple reactions in one line:
       A + 2C -> E [k = 13.78]; E + F <=> 2A  [kf = 13, kr = 14]
-
-    Returns:
 
     """
     # NOTE: If you want to add support for multiple modules per line, you can use

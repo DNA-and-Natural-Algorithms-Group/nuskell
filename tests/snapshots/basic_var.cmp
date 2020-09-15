@@ -48,15 +48,15 @@ Translation scheme          CRN             enumerated pathway integrated bisimu
  cardelli2013_2D_3I_noGC.ts  amp_red_03.crn  [c, rr]     None    None       None         None                630                     22                             timeout  
  cardelli2013_2D_3I_noGC.ts  amp_red_04.crn  [c, rr]     True    True       None         None                670                     22                                True  
  cardelli2013_2D_3I_noGC.ts    basic_01.crn      [c]    False   False       None         None                275                     77                             timeout  
- cardelli2013_2D_3I_noGC.ts    basic_02.crn  [c, rr]     None    None      False        False                335                      9                             timeout  
- cardelli2013_2D_3I_noGC.ts    basic_03.crn  [c, rr]     None    None       True         True                295                      9                                True  
+ cardelli2013_2D_3I_noGC.ts    basic_02.crn  [c, rr]     True    True      False        False                335                      9                                True  
+ cardelli2013_2D_3I_noGC.ts    basic_03.crn  [c, rr]     True    True       True         True                295                      9                                True  
  cardelli2013_2D_3I_noGC.ts    basic_04.crn  [c, rr]     True    True       True         True                335                      9                                True  
- cardelli2013_2D_3I_noGC.ts    basic_05.crn  [c, rr]     None    None       True         True                570                     16                                True  
- cardelli2013_2D_3I_noGC.ts    basic_06.crn  [c, rr]     None    None       True         True                570                     16                                True  
- cardelli2013_2D_3I_noGC.ts    basic_07.crn  [c, rr]     None    None       True         True                535                     18                                True  
- cardelli2013_2D_3I_noGC.ts    basic_08.crn  [c, rr]     True    True       None         None                590                     18                                True  
- cardelli2013_2D_3I_noGC.ts      red_01.crn  [c, rr]     None    None       True         True                315                     11                                True  
- cardelli2013_2D_3I_noGC.ts      red_02.crn  [c, rr]     None    None       True         True                355                     11                                True  
+ cardelli2013_2D_3I_noGC.ts    basic_05.crn  [c, rr]     True    True       True         True                570                     16                                True  
+ cardelli2013_2D_3I_noGC.ts    basic_06.crn  [c, rr]     True    True       True         True                570                     16                                True  
+ cardelli2013_2D_3I_noGC.ts    basic_07.crn  [c, rr]     True    True       True         True                535                     18                                True  
+ cardelli2013_2D_3I_noGC.ts    basic_08.crn  [c, rr]     True    True       True         True                590                     18                                True  
+ cardelli2013_2D_3I_noGC.ts      red_01.crn  [c, rr]     True    True       True         True                315                     11                                True  
+ cardelli2013_2D_3I_noGC.ts      red_02.crn  [c, rr]     True    True       True         True                355                     11                                True  
  cardelli2013_2D_3I_noGC.ts      red_03.crn  [c, rr]     True    True       True         True                355                     11                                True  
  cardelli2013_2D_3I_noGC.ts      red_04.crn  [c, rr]     True    True       True         True                395                     11                                True  
     cardelli2013_2D_noGC.ts      amp_01.crn      [c]    False   False      False        False                250                     12                               False  
@@ -75,7 +75,7 @@ Translation scheme          CRN             enumerated pathway integrated bisimu
     cardelli2013_2D_noGC.ts    basic_06.crn      [c]    False   False       True         True                440                     18                                True  
     cardelli2013_2D_noGC.ts    basic_07.crn      [c]     None    None       True         True                405                     20                                True  
     cardelli2013_2D_noGC.ts    basic_08.crn      [c]    False   False       True         True                460                     20                                True  
-    cardelli2013_2D_noGC.ts      red_01.crn      [c]     None    None      False        False                250                     12                             timeout  
+    cardelli2013_2D_noGC.ts      red_01.crn      [c]     True    True      False        False                250                     12                                True  
     cardelli2013_2D_noGC.ts      red_02.crn      [c]     None    None      False        False                290                     12                             timeout  
     cardelli2013_2D_noGC.ts      red_03.crn      [c]     True    True      False        False                290                     12                                True  
     cardelli2013_2D_noGC.ts      red_04.crn      [c]    False   False      False        False                330                     12                               False  
@@ -96,9 +96,9 @@ Translation scheme          CRN             enumerated pathway integrated bisimu
      chen2013_2D_JF_var1.ts    basic_07.crn      [c]     None    None      False        False                290                     76                             timeout  
      chen2013_2D_JF_var1.ts    basic_08.crn  [c, rr]    False   False       True         True                620                     16                                True  
      chen2013_2D_JF_var1.ts      red_01.crn  [c, rr]    False   False       True         True                310                     10                                True  
-     chen2013_2D_JF_var1.ts      red_02.crn      [c]     None    None      False        False                370                    146                             timeout  
-     chen2013_2D_JF_var1.ts      red_03.crn      [c]     None    None      False        False                350                     78                             timeout  
-     chen2013_2D_JF_var1.ts      red_04.crn      [c]     None    None      False        False                390                     70                             timeout  
+     chen2013_2D_JF_var1.ts      red_02.crn      [c]    False   False      False        False                370                    146                               False  
+     chen2013_2D_JF_var1.ts      red_03.crn      [c]    False   False      False        False                350                     78                               False  
+     chen2013_2D_JF_var1.ts      red_04.crn      [c]    False   False      False        False                390                     70                               False  
      chen2013_2D_JF_var2.ts      amp_01.crn  [c, rr]    False   False       True         True                310                     10                                True  
      chen2013_2D_JF_var2.ts      amp_02.crn  [c, rr]    False   False       True         True                350                     10                                True  
      chen2013_2D_JF_var2.ts      amp_03.crn  [c, rr]    False   False       True         True                370                     10                                True  
@@ -116,9 +116,9 @@ Translation scheme          CRN             enumerated pathway integrated bisimu
      chen2013_2D_JF_var2.ts    basic_07.crn  [c, rr]    False   False       True         True                540                     16                                True  
      chen2013_2D_JF_var2.ts    basic_08.crn  [c, rr]    False   False       True         True                620                     16                                True  
      chen2013_2D_JF_var2.ts      red_01.crn  [c, rr]    False   False       True         True                310                     10                                True  
-     chen2013_2D_JF_var2.ts      red_02.crn      [c]     None    None      False        False                370                    146                             timeout  
-     chen2013_2D_JF_var2.ts      red_03.crn      [c]     None    None      False        False                350                     78                             timeout  
-     chen2013_2D_JF_var2.ts      red_04.crn      [c]     None    None      False        False                390                     70                             timeout  
+     chen2013_2D_JF_var2.ts      red_02.crn      [c]    False   False      False        False                370                    146                               False  
+     chen2013_2D_JF_var2.ts      red_03.crn      [c]    False   False      False        False                350                     78                               False  
+     chen2013_2D_JF_var2.ts      red_04.crn      [c]    False   False      False        False                390                     70                               False  
        lakin2012_3D_var1.ts      amp_01.crn      [c]     True    True       True         True                200                      6                                True  
        lakin2012_3D_var1.ts      amp_02.crn      [c]     True    True       True         True                200                      3                                True  
        lakin2012_3D_var1.ts      amp_03.crn      [c]     True    True       True         True                200                      3                                True  

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#  scripts/nuskellCMP
+#  compare_schemes.py
 #  EnumeratorProject
 #
 import logging
@@ -18,7 +18,8 @@ from numpy import nan
 from peppercornenumerator import CondensationError
 from peppercornenumerator import PolymerizationError
 
-from nuskell import translate, verify, NuskellExit, __version__
+from nuskell import verify, NuskellExit, __version__
+from nuskell.compiler import translate, get_peppercorn_args, set_handle_verbosity
 from nuskell.objects import clear_memory
 from nuskell.verifier import modular_bisimulation
 from nuskell.crnutils import (parse_crn_string, Reaction, assign_crn_species,
@@ -256,7 +257,6 @@ def compare_schemes(reactions, schemedir,
 
     return plotdata
 
-
 def normalize(rawdata, refscheme, ns=5):
     """Normalize results to reference scheme.
 
@@ -272,7 +272,6 @@ def normalize(rawdata, refscheme, ns=5):
                                       y in zip(n[ns:], c[ns:])])
 
     return normdata
-
 
 def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
     if not ts_order:
@@ -304,18 +303,67 @@ def single_plot(df, pfile='nuskell_compare.pdf', ts_order=None, crn_order=None):
     plt.savefig(pfile, bbox_inches="tight")
     return
 
-def set_handle_verbosity(h, v):
-    if v == 0:
-        h.setLevel(logging.WARNING)
-    elif args.verbose == 1:
-        h.setLevel(logging.INFO)
-    elif args.verbose == 2:
-        h.setLevel(logging.DEBUG)
-    elif args.verbose >= 3:
-        h.setLevel(logging.NOTSET)
+def get_nuskellCMP_args(parser):
+    """ A collection of arguments for Nuskell """
+    parser.add_argument('--version', action = 'version', version = '%(prog)s ' + __version__)
+    parser.add_argument("-v", "--verbose", action = 'count', default = 0,
+            help = "Print logging output. -vv increases verbosity level.")
 
-def main(args):
+    input = parser.add_argument_group('NuskellCMP Input Arguments')
+
+    input.add_argument("--ts-dir", action='store', metavar='<path/to/dir>',
+            help="""Specify path to the translation scheme directory. Only
+            files that have a *.ts ending will be compared.""")
+
+    input.add_argument("--crn-dir", action='store', metavar='<path/to/dir>',
+            help="""Specify path to a CRN directory. Only files that have a
+            *.crn ending will be compared.""")
+
+    input.add_argument("--reference", action='store', metavar='<path/to/file>',
+            help="Specify a translation scheme that serves as a reference.")
+
+    input.add_argument("--from-csv", action='store', metavar='<path/to/file>',
+            help="Read results from a *.CSV file. All other inputs are ignored.")
+
+    default = parser.add_argument_group('NuskellCMP Output Arguments')
+
+    default.add_argument("--pyplot", default='', action='store', metavar='<path/to/file>',
+            help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
+
+    default.add_argument("--to-csv", action='store', default='', metavar='<path/to/file>',
+            help="Print results to a *.CSV file.")
+
+    # NOTE: changing the equivalence notions would break normalization and
+    # plotting.
+    default.add_argument("--verify", nargs='+', default=['bisimulation', 'pathway'], action='store',
+            choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
+                'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
+                'modular-bisim-loop-search', 'modular-bisim-depth-first',
+                'modular-bisim-whole-graph'), metavar='<str>',
+            help="""Specify verification methods. Choose one or more from:
+            bisimulation, pathway, integrated, modular-bisimulation,
+            bisim-loop-search, bisim-depth-first, bisim-whole-graph,
+            modular-bisim-loop-search, modular-bisim-depth-first,
+            modular-bisim-whole-graph.""")
+
+    default.add_argument("--modular", action='store_true',
+            help="""After enumeration of the full system, enumerate individual
+            CRN modules separately, to identify crosstalk between reactions.
+            This is turned on automatically when using modular-bisimulation
+            verification.""")
+
+    default.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
+            help="Specify time in seconds to wait for verification to complete.")
+
+    return parser
+
+def main():
     """Compare multiple tranlation schemes for a given CRN. """
+    parser = argparse.ArgumentParser()
+    get_nuskellCMP_args(parser)
+    get_peppercorn_args(parser)
+    args = parser.parse_args()
+
     # ~~~~~~~~~~~~~
     # Logging Setup 
     # ~~~~~~~~~~~~~
@@ -341,7 +389,6 @@ def main(args):
     # *************** #
     # Check arguments #
     # _______________ #
-
     if args.pyplot and (args.pyplot[-4:] not in ('.pdf', '.png', '.eps')):
         raise SystemExit('Please choose a file format (*.pdf, *png, *eps) for your plot: {}'.format(
             args.pyplot))
@@ -352,11 +399,9 @@ def main(args):
     # ***************** #
     # Process CSV input #
     # _________________ #
-
     if args.from_csv:
         logger.info('# Parsing data from file ... ')
         df = pd.DataFrame().from_csv(args.from_csv)
-
     else:
         # ***************** #
         # Process CRN input #
@@ -464,110 +509,6 @@ def main(args):
     if args.pyplot:
         single_plot(df, pfile=args.pyplot)
 
-
-def get_nuskellCMP_args(parser):
-    """ A collection of arguments for Nuskell """
-    parser.add_argument('--version', action = 'version', version = '%(prog)s ' + __version__)
-    parser.add_argument("-v", "--verbose", action = 'count', default = 0,
-            help = "Print logging output. -vv increases verbosity level.")
-
-    input = parser.add_argument_group('NuskellCMP Input Arguments')
-
-    input.add_argument("--ts-dir", action='store', metavar='<path/to/dir>',
-            help="""Specify path to the translation scheme directory. Only
-            files that have a *.ts ending will be compared.""")
-
-    input.add_argument("--crn-dir", action='store', metavar='<path/to/dir>',
-            help="""Specify path to a CRN directory. Only files that have a
-            *.crn ending will be compared.""")
-
-    input.add_argument("--reference", action='store', metavar='<path/to/file>',
-            help="Specify a translation scheme that serves as a reference.")
-
-    input.add_argument("--from-csv", action='store', metavar='<path/to/file>',
-            help="Read results from a *.CSV file. All other inputs are ignored.")
-
-    default = parser.add_argument_group('NuskellCMP Output Arguments')
-
-    default.add_argument("--pyplot", default='', action='store', metavar='<path/to/file>',
-            help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
-
-    default.add_argument("--to-csv", action='store', default='', metavar='<path/to/file>',
-            help="Print results to a *.CSV file.")
-
-    # NOTE: changing the equivalence notions would break normalization and
-    # plotting.
-    default.add_argument("--verify", nargs='+', default=['bisimulation', 'pathway'], action='store',
-            choices=('bisimulation', 'pathway', 'integrated', 'modular-bisimulation',
-                'bisim-loop-search', 'bisim-depth-first', 'bisim-whole-graph',
-                'modular-bisim-loop-search', 'modular-bisim-depth-first',
-                'modular-bisim-whole-graph'), metavar='<str>',
-            help="""Specify verification methods. Choose one or more from:
-            bisimulation, pathway, integrated, modular-bisimulation,
-            bisim-loop-search, bisim-depth-first, bisim-whole-graph,
-            modular-bisim-loop-search, modular-bisim-depth-first,
-            modular-bisim-whole-graph.""")
-
-    default.add_argument("--modular", action='store_true',
-            help="""After enumeration of the full system, enumerate individual
-            CRN modules separately, to identify crosstalk between reactions.
-            This is turned on automatically when using modular-bisimulation
-            verification.""")
-
-    default.add_argument("--verify-timeout", type=int, default=30, metavar='<int>',
-            help="Specify time in seconds to wait for verification to complete.")
-
-    return parser
-
-
-def get_peppercorn_args(parser):
-    """Selected arguments for the peppercorn interface. """
-    peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
-    peppercorn.add_argument('--max-complex-size', default=50, type=int, metavar='<int>',
-            help="""Maximum number of strands allowed in a complex (used to prevent polymerization)""")
-    peppercorn.add_argument('--max-complex-count', default=1000, type=int, metavar='<int>',
-            help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
-    peppercorn.add_argument('--max-reaction-count', default=10000, type=int, metavar='<int>',
-            help="""Maximum number of reactions that may be enumerated before the enumerator halts.""")
-
-    peppercorn.add_argument('--reject-remote', action='store_true',
-            help="Discard remote toehold mediated 3-way and 4-way branch migration reactions.")
-    peppercorn.add_argument('--ignore-branch-3way', action='store_true',
-            help="Ignore 3-way branch migration events during enumeration.")
-    peppercorn.add_argument('--ignore-branch-4way', action='store_true',
-            help="Ignore 4-way branch migration events during enumeration.")
-
-    # TODO: explain these options in more detail!
-    peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, metavar='<int>',
-            help="""Maximum number of bases that will be released spontaneously in a 1-1 `open` reaction""")
-    peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, metavar='<int>',
-            help="""Maximum number of bases that will be released spontaneously in a 1-n `open` reaction.""")
-    peppercorn.add_argument('--release-cutoff', type=int, default=None, metavar='<int>',
-            help="""Maximum number of bases that will be released spontaneously
-            in an `open` reaction, for either 1-1 or 1-n reactions (equivalent
-            to setting --release-cutoff-1-1 and --release-cutoff-1-n to the
-            same value)""")
-
-    peppercorn.add_argument('--no-max-helix', action='store_true',
-            help="""Do not apply 'max helix at a time' semantics to 3-way
-            branch migration reactions.""")
-
-    peppercorn.add_argument('--enum-detailed', action='store_true',
-            help="Do not condense reactions into only resting complexes")
-
-    peppercorn.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
-            help="Unimolecular reactions slower than this rate will be discarded")
-
-    peppercorn.add_argument('--k-fast', default=0.0, type=float, metavar='<flt>',
-            help="Unimolecular reactions slower than this rate will be marked as slow")
-
-    return parser
-
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    get_nuskellCMP_args(parser)
-    get_peppercorn_args(parser)
-    args = parser.parse_args()
+   main()
 
-    main(args)

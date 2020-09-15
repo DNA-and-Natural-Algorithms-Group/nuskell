@@ -1,5 +1,5 @@
 #
-#  nuskell/parser/ts_parser.py
+#  nuskell/dsdcompiler/ts_parser.py
 #  NuskellCompilerProject
 #
 # Copyright (c) 2010-2020 Caltech. All rights reserved.

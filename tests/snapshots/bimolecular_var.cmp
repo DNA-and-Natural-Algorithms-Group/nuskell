@@ -30,7 +30,7 @@ Translation scheme          CRN           enumerated pathway integrated  bisimul
     cardelli2011_NM_noGC.ts  bimol_14.crn      [c]     True    True       True          True                 240                     5                               True     
     cardelli2011_NM_noGC.ts  bimol_15.crn      [c]     True    True       True          True                 275                     5                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_01.crn  [c, rr]     None    None       True          True                 335                    13                               True     
- cardelli2013_2D_3I_noGC.ts  bimol_02.crn  [c, rr]     None    None       True          True                 375                    13                               True     
+ cardelli2013_2D_3I_noGC.ts  bimol_02.crn  [c, rr]     True    True       True          True                 375                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_03.crn  [c, rr]     None    None       True          True                 375                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_04.crn  [c, rr]     None    None       True          True                 375                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_05.crn  [c, rr]     None    None       True          True                 375                    13                               True     
@@ -39,7 +39,7 @@ Translation scheme          CRN           enumerated pathway integrated  bisimul
  cardelli2013_2D_3I_noGC.ts  bimol_08.crn  [c, rr]     None    None       True          True                 415                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_09.crn  [c, rr]     True    True       True          True                 415                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_10.crn  [c, rr]     None    None       True          True                 415                    13                               True     
- cardelli2013_2D_3I_noGC.ts  bimol_11.crn  [c, rr]     None    None       True          True                 415                    13                               True     
+ cardelli2013_2D_3I_noGC.ts  bimol_11.crn  [c, rr]     True    True       True          True                 415                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_12.crn  [c, rr]     None    None       True          True                 375                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_13.crn  [c, rr]     True    True       True          True                 415                    13                               True     
  cardelli2013_2D_3I_noGC.ts  bimol_14.crn  [c, rr]     None    None       True          True                 375                    13                               True     

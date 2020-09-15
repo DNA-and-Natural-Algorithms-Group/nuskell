@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 #
-#  test_crn_parser.py
+#  tests/dsdcompiler/test_crn_parser.py
 #  NuskellCompilerProject
 #
-from __future__ import absolute_import, division, print_function
-
 import unittest
 from nuskell.crnutils import parse_crn_string, split_reversible_reactions, Reaction
-
 
 class TestCRNparser(unittest.TestCase):
     def setUp(self):

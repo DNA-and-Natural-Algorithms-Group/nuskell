@@ -44,7 +44,7 @@ Translation scheme       CRN             enumerated pathway integrated bisimulat
       cardelli2013_2D.ts      amp_03.crn      [c]    False   False      False        False                290                     12                               False  
       cardelli2013_2D.ts      amp_04.crn      [c]    False   False      False        False                330                     12                               False  
       cardelli2013_2D.ts  amp_red_01.crn      [c]    False   False       True         True                445                     24                                True  
-      cardelli2013_2D.ts  amp_red_02.crn      [c]    False   False       None         None                615                     26                             timeout  
+      cardelli2013_2D.ts  amp_red_02.crn      [c]    False   False       True         True                615                     26                                True  
       cardelli2013_2D.ts  amp_red_03.crn      [c]    False   False       True         True                500                     24                                True  
       cardelli2013_2D.ts  amp_red_04.crn      [c]    False   False       True         True                670                     26                                True  
       cardelli2013_2D.ts    basic_01.crn      [c]     True    True       True         True                210                      8                                True  
@@ -84,16 +84,16 @@ Translation scheme       CRN             enumerated pathway integrated bisimulat
    cardelli2013_2D_3I.ts      amp_03.crn  [c, rr]     None    None       True         True                355                     11                                True  
    cardelli2013_2D_3I.ts      amp_04.crn  [c, rr]     True    True       True         True                395                     11                                True  
    cardelli2013_2D_3I.ts  amp_red_01.crn  [c, rr]     None    None       None         None                575                     22                             timeout  
-   cardelli2013_2D_3I.ts  amp_red_02.crn  [c, rr]    False    None       None         None                745                     24                             timeout  
+   cardelli2013_2D_3I.ts  amp_red_02.crn  [c, rr]     None    None       None         None                745                     24                             timeout  
    cardelli2013_2D_3I.ts  amp_red_03.crn  [c, rr]     None    None       None         None                630                     22                             timeout  
    cardelli2013_2D_3I.ts  amp_red_04.crn  [c, rr]    False   False       True         True                800                     24                                True  
    cardelli2013_2D_3I.ts    basic_01.crn      [c]    False    None       None         None                275                     77                             timeout  
-   cardelli2013_2D_3I.ts    basic_02.crn  [c, rr]     True    None      False        False                335                      9                                True  
+   cardelli2013_2D_3I.ts    basic_02.crn  [c, rr]     True    True      False        False                335                      9                                True  
    cardelli2013_2D_3I.ts    basic_03.crn  [c, rr]     True    True       True         True                295                      9                                True  
    cardelli2013_2D_3I.ts    basic_04.crn  [c, rr]     True    True       True         True                335                      9                                True  
-   cardelli2013_2D_3I.ts    basic_05.crn  [c, rr]     True    None       None         None                570                     16                                True  
-   cardelli2013_2D_3I.ts    basic_06.crn  [c, rr]     None    None       True         True                570                     16                                True  
-   cardelli2013_2D_3I.ts    basic_07.crn  [c, rr]     None    None       True         True                535                     18                                True  
+   cardelli2013_2D_3I.ts    basic_05.crn  [c, rr]     True    True       None         None                570                     16                                True  
+   cardelli2013_2D_3I.ts    basic_06.crn  [c, rr]     True    True       None         None                570                     16                                True  
+   cardelli2013_2D_3I.ts    basic_07.crn  [c, rr]     True    True       None         None                535                     18                                True  
    cardelli2013_2D_3I.ts    basic_08.crn  [c, rr]     True    True       True         True                590                     18                                True  
    cardelli2013_2D_3I.ts      red_01.crn  [c, rr]     True    True      False        False                315                     11                                True  
    cardelli2013_2D_3I.ts      red_02.crn  [c, rr]    False   False       True         True                485                     13                                True  
@@ -108,7 +108,7 @@ Translation scheme       CRN             enumerated pathway integrated bisimulat
        chen2013_2D_JF.ts  amp_red_03.crn      [c]    False   False       None         None                540                     22                             timeout  
        chen2013_2D_JF.ts  amp_red_04.crn      [c]    False   False       None         None                580                     22                             timeout  
        chen2013_2D_JF.ts    basic_01.crn      [c]    False   False       True         True                200                      7                                True  
-       chen2013_2D_JF.ts    basic_02.crn      [c]     None    None      False        False                260                      9                             timeout  
+       chen2013_2D_JF.ts    basic_02.crn      [c]    False   False      False        False                260                      9                               False  
        chen2013_2D_JF.ts    basic_03.crn      [c]    False   False       True         True                220                      9                                True  
        chen2013_2D_JF.ts    basic_04.crn      [c]    False   False      False        False                260                      9                               False  
        chen2013_2D_JF.ts    basic_05.crn      [c]    False   False       True         True                440                     16                                True  
@@ -125,7 +125,7 @@ Translation scheme       CRN             enumerated pathway integrated bisimulat
          lakin2012_3D.ts      amp_04.crn      [c]    False   False       True         True                340                      5                                True  
          lakin2012_3D.ts  amp_red_01.crn      [c]    False   False       None         None                575                    153                             timeout  
          lakin2012_3D.ts  amp_red_02.crn      [c]    False   False       True         True                575                     34                                True  
-         lakin2012_3D.ts  amp_red_03.crn      [c]     None    None       True         True                575                     34                                True  
+         lakin2012_3D.ts  amp_red_03.crn      [c]    False   False       True         True                575                     34                                True  
          lakin2012_3D.ts  amp_red_04.crn      [c]    False   False       True         True                575                     13                                True  
          lakin2012_3D.ts    basic_01.crn      [c]    False   False       True         True                340                     11                                True  
          lakin2012_3D.ts    basic_02.crn      [c]     None    None      False        False                305                     36                             timeout  
@@ -142,23 +142,23 @@ Translation scheme       CRN             enumerated pathway integrated bisimulat
       lakin2016_2D_3I.ts      amp_01.crn  [c, rr]    False   False      False        False                425                     12                               False  
       lakin2016_2D_3I.ts      amp_02.crn  [c, rr]    False   False      False        False                445                     12                               False  
       lakin2016_2D_3I.ts      amp_03.crn  [c, rr]    False   False      False        False                445                      8                               False  
-      lakin2016_2D_3I.ts      amp_04.crn      [c]    False   False       True         True                465                     26                                True  
+      lakin2016_2D_3I.ts      amp_04.crn      [c]     None    None       True         True                465                     26                                True  
       lakin2016_2D_3I.ts  amp_red_01.crn  [c, rr]    False   False       None         None                755                     24                             timeout  
       lakin2016_2D_3I.ts  amp_red_02.crn  [c, rr]    False   False       None         None                795                     24                             timeout  
       lakin2016_2D_3I.ts  amp_red_03.crn  [c, rr]    False   False       None         None                810                     24                             timeout  
       lakin2016_2D_3I.ts  amp_red_04.crn  [c, rr]    False   False       None         None                850                     24                             timeout  
       lakin2016_2D_3I.ts    basic_01.crn  [c, rr]     True    True       True         True                425                     12                                True  
-      lakin2016_2D_3I.ts    basic_02.crn  [c, rr]     None    None      False        False                405                     12                             timeout  
+      lakin2016_2D_3I.ts    basic_02.crn  [c, rr]     True    True      False        False                405                     12                                True  
       lakin2016_2D_3I.ts    basic_03.crn  [c, rr]     True    True       True         True                425                     12                                True  
       lakin2016_2D_3I.ts    basic_04.crn  [c, rr]     True    True       True         True                445                     12                                True  
       lakin2016_2D_3I.ts    basic_05.crn  [c, rr]     None    None       True         True                770                     24                                True  
       lakin2016_2D_3I.ts    basic_06.crn  [c, rr]     None    None       None         None                770                     24                             timeout  
       lakin2016_2D_3I.ts    basic_07.crn  [c, rr]     None    None       True         True                755                     24                                True  
-      lakin2016_2D_3I.ts    basic_08.crn  [c, rr]     None    None       None         None                810                     24                             timeout  
+      lakin2016_2D_3I.ts    basic_08.crn  [c, rr]     True    True       None         None                810                     24                                True  
       lakin2016_2D_3I.ts      red_01.crn  [c, rr]    False   False      False        False                405                      8                               False  
       lakin2016_2D_3I.ts      red_02.crn  [c, rr]    False   False      False        False                445                      8                               False  
       lakin2016_2D_3I.ts      red_03.crn      [c]    False   False       None         None                445                     29                             timeout  
-      lakin2016_2D_3I.ts      red_04.crn      [c]    False   False       True         True                465                     26                                True  
+      lakin2016_2D_3I.ts      red_04.crn      [c]     None    None       True         True                465                     26                                True  
           qian2011_3D.ts      amp_01.crn      [c]    False   False      False        False                190                      7                               False  
           qian2011_3D.ts      amp_02.crn      [c]    False   False      False        False                245                      7                               False  
           qian2011_3D.ts      amp_03.crn      [c]    False   False      False        False                245                      7                               False  
