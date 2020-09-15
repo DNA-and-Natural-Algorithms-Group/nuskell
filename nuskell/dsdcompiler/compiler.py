@@ -78,11 +78,11 @@ def interpret(ts_parsed, crn_parsed, formals, modular = False, one = 100):
 
     for name in formals.keys():
         if name[0] == 'f': # fuels
-            raise NuskellInterpreterError('Formal species name must not start with "f": {name}.')
+            raise NuskellInterpreterError(f'Formal species name must not start with "f": {name}.')
         elif name[0] == 'i': # intermediates
-            raise NuskellInterpreterError('Formal species name must not start with "i": {name}.')
+            raise NuskellInterpreterError(f'Formal species name must not start with "i": {name}.')
         elif name[0] == 'w': # wastes
-            raise NuskellInterpreterError('Formal species name must not start with "w": {name}.')
+            raise NuskellInterpreterError(f'Formal species name must not start with "w": {name}.')
 
     # Initialize the environment
     ts_env = NuskellEnvironment()

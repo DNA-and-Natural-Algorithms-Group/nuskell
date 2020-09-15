@@ -5,138 +5,25 @@
 import logging
 log = logging.getLogger(__name__)
 
-from collections import namedtuple, Counter
-from crnsimulator import parse_crn_string as pcs
-from crnsimulator import parse_crn_file as pcf
-from crnsimulator.crn_parser import CRNParseError
+from itertools import chain
 from dsdobjects.utils import natural_sort
+from .dsdcompiler.crn_parser import (Reaction, 
+                                     parse_crn_string, 
+                                     parse_crn_file,
+                                     CRNParseError)
+from crnverifier.utils import assign_crn_species
 
-Reaction = namedtuple('reaction', 'reactants products k_fwd k_rev')
-
-def parse_crn_string(crnstring):
-    # A wrapper for the crnsimulator version
-    return post_process(pcs(crnstring, process = False), defaultrate = 1, defaultmode = None, defaultconc = None)
-
-def parse_crn_file(crnfile):
-    # A wrapper for the crnsimulator version
-    return post_process(pcf(crnfile, process = False), defaultrate = 1, defaultmode = None, defaultconc = None)
-
-def post_process(crn, defaultrate = None, defaultmode = 'initial', defaultconc = 0):
-    """Process a parsed CRN.
-    Taken and modified from crnsimulator, drop for Python 3.x
-    """
-    def flint(inp):
-        return int(inp) if float(inp) == int(float(inp)) else float(inp)
-
-    def remove_multipliers(species):
-        flat = []
-        for s in species:
-            if len(s) == 1:
-                flat.append(s[0])
-            elif len(s) == 2:
-                ss = [s[1]] * int(s[0])
-                flat.extend(ss)
-        return flat
-
-    new = []
-    species = dict()
-    for line in crn:
-        if line[0] == 'concentration':
-            spe = line[1][0]
-            ini = 'initial' if line[2][0][0] == 'i' else 'constant'
-            num = line[3][0]
-            species[spe] = (ini, flint(num))
-            continue
-        elif len(line) == 3:
-            # No rate specified
-            t, r, p = line
-            r = remove_multipliers(r)
-            p = remove_multipliers(p)
-            if t == 'reversible':
-                new.append(Reaction(r, p, defaultrate, defaultrate))
-            elif t == 'irreversible':
-                new.append(Reaction(r, p, defaultrate, 0))
-            else:
-                raise CRNParseError('Wrong CRN format!')
-        elif len(line) == 4:
-            t, r, p, k = line
-            r = remove_multipliers(r)
-            p = remove_multipliers(p)
-            if t == 'reversible':
-                assert len(k) == 2
-                new.append(Reaction(r, p, flint(k[0]), flint(k[1])))
-            elif t == 'irreversible':
-                assert len(k) == 1
-                new.append(Reaction(r, p, flint(k[0]), 0))
-            else:
-                raise CRNParseError('Wrong CRN format!')
-        else:
-            raise CRNParseError('Wrong CRN format!')
-        for s in r + p:
-            if s not in species:
-                species[s] = (defaultmode, defaultconc)
-    return new, species
-
-def crn_to_standard(crn):
-    """
-    At the moment, nuskell is not consistent about what format to use for
-    representing a reaction. This is supposed to change, but in the meantime,
-    if you want to stick to your standard, use this function for conversion
-    *before* using crnutils, and then convert back if you must ...
-    """
-    new = []
-    for rxn in crn:
-        if isinstance(rxn, Reaction):
-            nrxn = rxn
-        else:
-            # Unify reactants and products.
-            if isinstance(rxn[0], Counter):
-                assert isinstance(rxn[1], Counter)
-                reactants = rxn[0].elements()
-                products = rxn[1].elements()
-            else:
-                assert isinstance(rxn[0], list)
-                assert isinstance(rxn[1], list)
-                reactants = rxn[0]
-                products = rxn[1]
-
-            # Unify reaction rates.
-            if len(rxn) == 2: # irreversible, no rates specified.
-                nrxn = Reaction(reactants, products, 1, 0)
-            elif len(rxn) == 3: # rates specified
-                if isinstance(rxn[2], list) and len(rxn[2]) == 2: # reversible
-                    if rxn[2][0] is None:
-                        kf = 1
-                    else:
-                        assert isinstance(rxn[2][0], (float, int)) and rxn[2][0]
-                        kf = rxn[2][0] 
-                    if rxn[2][1] is None:
-                        kr = 1
-                    else:
-                        assert isinstance(rxn[2][1], (float, int))
-                        kr = rxn[2][1] 
-                elif isinstance(rxn[2], list) and len(rxn[2]) == 1: # irreversible
-                    if rxn[2][0] is None:
-                        kf = 1
-                    else:
-                        assert isinstance(rxn[2][0], (float, int)) and rxn[2][0]
-                        kf = rxn[2][0] 
-                    kr = 0
-                else:
-                    if rxn[2] is None:
-                        kf = 1
-                    else:
-                        assert isinstance(rxn[2], (float, int)) and rxn[2]
-                        kf = rxn[2]
-                    kr = 0
-                nrxn = Reaction(reactants, products, kf, kr)
-        new.append(nrxn)
-    return new
+class CRNerror(Exception):
+    pass
 
 def genCON(species):
     for sp, data in natural_sort(species.items()):
         if None in data: continue
         yield '{} @{} {}'.format(sp, 'initial' if data[0][0] == 'i' else 'constant', data[1])
+
+def interpret(l, inter):
+    """ Replace species with their interpretation. """
+    return list(chain(*[inter.get(x, [x]) for x in l]))
 
 def genCRN(crn, reversible = True, rates = True, interpretation = None):
     """ Pretty printing of CRNs.
@@ -151,40 +38,31 @@ def genCRN(crn, reversible = True, rates = True, interpretation = None):
       Order of reactants/products may differ from the order in the crn argument.
     """
     if reversible:
-        try:
-            pcrn = combine_reversible_reactions(crn)
-        except ValueError as err:
-            crn = crn_to_standard(crn)
-            pcrn = combine_reversible_reactions(crn)
+        pcrn = combine_reversible_reactions(crn)
     else:
         pcrn = split_reversible_reactions(crn)
-
-    def inter(l):
-        l2 = []
-        for x in l:
-            l2 += interpretation.get(x, [x])
-        return l2
 
     if interpretation:
         icrn = []
         for rxn in pcrn:
-            R = inter(rxn.reactants)
-            P = inter(rxn.products)
+            R = interpret(rxn.reactants, interpretation)
+            P = interpret(rxn.products, interpretation)
             icrn.append(Reaction(R, P, rxn.k_fwd, rxn.k_rev))
-        pcrn = icrn
+        pcrn = removeDuplicates(removeTrivial(icrn))
 
-    if rates:
-        for rxn in pcrn:
-            if rxn.k_rev != 0:
-                yield '{} <=> {} [kf = {:g}, kr = {:g}]'.format(' + '.join(rxn.reactants), ' + '.join(rxn.products), rxn.k_fwd, rxn.k_rev)
+    for rxn in pcrn:
+        R = natural_sort(rxn.reactants)
+        P = natural_sort(rxn.products)
+        if rxn.k_rev == 0:
+            rate = ' [k = {:g}]'.format(rxn.k_fwd) if rates else ''
+            yield '{} -> {}{}'.format(' + '.join(R), ' + '.join(P), rate)
+        else:
+            if natural_sort([R, P]) == [R, P]: 
+                rate = ' [kf = {:g}, kr = {:g}]'.format(rxn.k_fwd, rxn.k_rev) if rates else ''
+                yield '{} <=> {}{}'.format(' + '.join(R), ' + '.join(P), rate)
             else:
-                yield '{} -> {} [k = {:g}]'.format(' + '.join(rxn.reactants), ' + '.join(rxn.products), rxn.k_fwd)
-    else:
-        for rxn in pcrn:
-            if rxn.k_rev != 0:
-                yield '{} <=> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
-            else:
-                yield '{} -> {}'.format(' + '.join(rxn[0]), ' + '.join(rxn[1]))
+                rate = ' [kf = {:g}, kr = {:g}]'.format(rxn.k_rev, rxn.k_fwd) if rates else ''
+                yield '{} <=> {}{}'.format(' + '.join(P), ' + '.join(R), rate)
 
 def split_reversible_reactions(crn):
     """
@@ -193,6 +71,8 @@ def split_reversible_reactions(crn):
     """
     new = []
     for [r, p, kf, kr] in crn:
+        if sorted(r) == sorted(p):
+            raise CRNerror('Trivial reaction found!')
         new.append(Reaction(r, p, kf, 0))
         if kr != 0:
             new.append(Reaction(p, r, kr, 0))
@@ -208,13 +88,14 @@ def combine_reversible_reactions(crn):
         [r, p, kf, kr] = rxn
         assert isinstance(r, list) and isinstance(p, list)
 
+        if sorted(r) == sorted(p):
+            raise CRNerror('Trivial reaction found!')
+
         for rxn2 in crn:
             [r2, p2, kf2, kr2] = rxn2
             if sorted(r) == sorted(p2) and sorted(p) == sorted(r2):
                 if kr or kr2:
-                    raise ValueError('Reaction specified twice!')
-                elif sorted(r) == sorted(p):
-                    removed.append(rxn2)
+                    raise CRNerror('Reaction specified twice!')
                 else:
                     removed.append(rxn2)
                     kr = kf2
@@ -231,64 +112,19 @@ def removeSpecies(crn, fuel):
                     rxn.k_fwd, rxn.k_rev) for rxn in crn]
     return crn
 
-def assign_crn_species(crn, signals, fuels = None):
-    """ Returns types of species in a given CRN.
+def removeTrivial(crn):
+    log.debug('Removing trivial reactions.')
+    # Remove all fuel species, keep rates untouched.
+    return [rxn for rxn in crn if sorted(rxn.reactants) != sorted(rxn.products)]
 
-    On the types of species in an implementation CRN:
-        - Signal species are implementation species that (are supposed to)
-          correspond to formal species in a formal CRN. 
-        - Fuel species are implementation species that are required for some
-          reactions and are assumed to be present, always.
-        - Waste species are chemically inert byproducts that never react. 
-        - Reactive waste species are byproducts of a reaction that can react,
-          but only with fuels or other reactive waste species to produce
-          exclusively (reactive) waste species. A typical example for reactive
-          wastes are so-called garbage collection mechanisms to turn an
-          undesired waste into a desired waste.
-        - Intermediate species are all other species that do not fall in any
-          above category.
+def removeDuplicates(crn):
+    log.debug('Removing duplicate reactions.')
+    # Remove all fuel species, keep rates untouched.
+    seen = []
+    new = []
+    for rxn in crn:
+        if rxn not in seen:
+            new.append(rxn)
+        seen.append(rxn)
+    return new
 
-    Logging warning:
-        - Reactive waste species found.
-
-    Returns:
-        set(): intermediates
-        set(): wastes
-        set(): reactive wastes
-    """
-    species = set().union(*[set().union(*rxn[:2]) for rxn in crn])
-    # A signal species cannot be considered waste.
-    assert isinstance(signals, set)
-    nonwastes = signals.copy()
-    wastes = set()
-
-    while True:
-        # Add x to non-waste if in any reaction x is an reactant while there
-        # are non-wastes taking part in the reaction. Reset the outer loop if 
-        # a new non-waste species is found.
-        flag = False
-        for x in species:
-            if x in nonwastes:
-                continue
-            for rxn in crn:
-                if x in rxn[0] and len(nonwastes & set(rxn[0] + rxn[1])):
-                    nonwastes.add(x)
-                    flag = True
-                    break
-        if not flag: 
-            break
-    
-    # Inert and reactive waste species.
-    wastes = species - nonwastes
-
-    # An intermediate species 
-    intermediates = species - signals - wastes
-
-    # Let's assert here, to find the problems.
-    reactive_waste = set()
-    for w in list(wastes):
-        if any(w in rxn[0] for rxn in crn):
-            log.warning(f'Found reactive waste species {w}.')
-            reactive_waste.add(w)
-
-    return intermediates, wastes, reactive_waste

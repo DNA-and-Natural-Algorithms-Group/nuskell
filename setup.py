@@ -74,13 +74,13 @@ setup(
         #'pandas', # nuskellCMP
         #'numpy',  # nuskellCMP
         'peppercornenumerator>=1.0',
-        'dsdobjects>=0.7.1',
+        'dsdobjects>=0.8',
         'crnsimulator>=0.6'],
     test_suite = 'tests',
     packages = ['nuskell', 'nuskell.dsdcompiler'],
     entry_points = {
         'console_scripts': [
-            'nuskell=nuskell.compiler:main',
+            'nuskell=nuskell.framework:main',
             'nuskellCMP=nuskell.compare_schemes:main'
             ],
         }
