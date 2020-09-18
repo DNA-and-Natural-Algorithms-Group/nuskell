@@ -69,13 +69,9 @@ setup(
         ],
     install_requires = [
         'pyparsing', 
-        #'networkx>=2.4', 
-        #'seaborn', # nuskellCMP
-        #'pandas', # nuskellCMP
-        #'numpy',  # nuskellCMP
-        'peppercornenumerator>=1.0',
         'dsdobjects>=0.8',
-        'crnsimulator>=0.6'],
+        'peppercornenumerator>=1.0',
+        'crnverifier'],
     test_suite = 'tests',
     packages = ['nuskell', 'nuskell.dsdcompiler'],
     entry_points = {

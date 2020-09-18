@@ -2,7 +2,7 @@
 #  nuskell/dsdcompiler/__init__.py
 #  NuskellCompilerProject
 #
-__version__ = "v0.8"
+__version__ = "0.8"
 """
 A sub-package that compiles CRNs into DSD systems using translation schemes.
 

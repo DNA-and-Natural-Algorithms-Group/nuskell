@@ -1,26 +1,27 @@
-# Nuskell: Nucleic acid strand displacement compiler
+# Nuskell: nucleic acid strand displacement compiler
 
-``Nuskell`` compiles formal chemical reaction networks (CRNs) into domain-level
-strand displacement (DSD) systems. As there are many ways to do such a 
-translation, we provides a library of ``translation schemes`` (i.e. variations
-of CRN-to-DSD translations) that the user can select from. 
+``Nuskell`` is software framework to compile formal chemical reaction networks
+(CRNs) into domain-level strand displacement (DSD) systems.  As there are many
+ways to do such a translation, we provide a library of [translation schemes]
+(i.e. variations of CRN-to-DSD translations) that the user can select from. 
 
 In order to proof/disproof the correctness of a particular translation,
-``Nuskell`` includes the domain-level reaction enumerator ``Peppercorn``
-[Badelt et al. (2020)] to find intended and unintended domain-level reaction
-pathways and then provides two notions of stochastic trajectory-type CRN
-equivalence: bisimulation [Johnson et al. (2019)] and pathway decomposition
-[Shin et al.  (2019)].
-
-The domain-level reactions and their approximate rates can be exported in form
-of an ODE system to simulate the dynamics of the compiled DSD network.
+``Nuskell`` includes 
+the domain-level reaction enumeration package [Peppercorn][] [[Badelt et al. (2020)]] and 
+the CRN verification package [crnverifier][].
+Peppercorn is used to find intended and potentially unintended reaction
+pathways, the crnverifier then checks if the implementation CRN is a 
+correct implementation of the formal CRN using the
+stochastic trajectory-type CRN correctness notions 
+of bisimulation [[Johnson et al. (2019)]] and pathway decomposition
+[[Shin et al.  (2019)]].
 
 ### Examples
 
 Implement a formal CRN using a particular translation-scheme:
 
 ```
-  $ echo "A + B <=> X + Y; X -> A" | nuskell --ts scheme.ts --verify modular-bisimulation
+  $ echo "A + B <=> X + Y; X -> A" | nuskell --ts srinivas2017.ts --verify crn-bisimulation
 ```
 for options see:
 ```
@@ -38,7 +39,11 @@ Detailed information about translation schemes can be found in the ``/schemes`` 
 A preview of the documentation for release v1.0 can be found at: [documentation].
 
 ## Version
-0.6
+0.8 -- basically a complete rewrite, python>=3.7 only.
+    * nuskell.dsdcompiler is now an independent subpackage to compile from CRN to DSD.
+    * crnverifier is now an independent package and therefore a dependency.
+    * enumeration interface updated to peppercornenumerator 1.0.
+    * nuskell now uses the prototype objects provided by the dsdobjects library.
 
 ### Authors
   - Stefan Badelt
@@ -57,6 +62,9 @@ Stefan Badelt, Seung Woo Shin, Robert F. Johnson, Qing Dong, Chris Thachuk, and 
 
 
 [//]: References
+[Peppercorn]: <https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator>
+[crnverifier]: <https://github.com/DNA-and-Natural-Algorithms-Group/crnverifier>
+[translation schemes]: <https://github.com/DNA-and-Natural-Algorithms-Group/nuskell/tree/master/schemes>
 [Badelt et al. (2017)]: <https://doi.org/10.1007/978-3-319-66799-7_15>
 [Badelt et al. (2020)]: <https://doi.org/10.1098/rsif.2019.0866>
 [Shin et al. (2019)]: <https://doi.org/10.1016/j.tcs.2017.10.011> 
