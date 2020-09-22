@@ -418,6 +418,9 @@ def main():
         intermediates = [x for x in complexes.values() if x.name[0] == 'i']
         signals = [x for x in complexes.values() if x.name[0] not in ('f', 'i', 'w')]
 
+        logger.info(f"Enumerated CRN: \n  " + \
+                    '\n  '.join([rxn.full_string() for rxn in reactions]))
+
         if args.pilfile:
             with open(enumpil, 'w') as pil:
                 write_pil(complexes, reactions,
@@ -493,9 +496,8 @@ def main():
         for meth in args.verify:
             logger.info(header("Verification method: {}".format(meth)))
             if 'modular-' in meth and len(fcrns) > 1:
-                import copy # Temporary to fix a bug in testModules
                 v, i = verify_modules(fcrns, icrns, formals, meth[8:], 
-                                      interpretation = copy.deepcopy(interpretation), 
+                                      interpretation = interpretation, 
                                       timeout = args.verify_timeout)
             else:
                 if 'modular' in meth: meth = meth[8:]

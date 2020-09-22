@@ -59,20 +59,16 @@ def verify(fcrn, icrn, formals, method, interpretation = None, timeout = 0):
     try:
         if 'crn-bisimulation' in method:
             if method[-2:] == '-ls':
-                permissive_check = 'whole-graph'
+                permissive_check = 'loopsearch'
             elif method[-2:] == '-rs':
-                permissive_check = 'depth-first'
+                permissive_check = 'reactionsearch'
             else:
-                permissive_check = 'whole-graph'
+                permissive_check = 'graphsearch'
             v, i = crn_bisimulation_test(fcrn, 
                                          icrn, 
                                          formals,
                                          interpretation = interpretation,
                                          permissive = permissive_check) 
-            if v:
-                i = {k: list(v.elements()) for k, v in i.items()}
-            else:
-                i = {k: list(v.elements()) for k, v in i[0].items()}
         elif method == 'pathway-decomposition':
             v = pathway_decomposition_eq([fcrn, icrn], formals)
             i = None
@@ -104,20 +100,16 @@ def verify_modules(fcrns, icrns, formals, method, interpretation = None, timeout
     try:
         if 'crn-bisimulation' in method:
             if method[-2:] == '-ls':
-                permissive_check = 'whole-graph'
+                permissive_check = 'loopsearch'
             elif method[-2:] == '-rs':
-                permissive_check = 'depth-first'
+                permissive_check = 'reactionsearch'
             else:
-                permissive_check = 'whole-graph'
+                permissive_check = 'graphsearch'
             v, i = modular_crn_bisimulation_test(fcrns, 
                                                  icrns, 
                                                  formals,
                                                  interpretation = interpretation, 
                                                  permissive = permissive_check)
-            if v:
-                i = {k: list(v.elements()) for k, v in i.items()}
-            else:
-                i = {k: list(v.elements()) for k, v in i[2].items()}
         else:
             raise RuntimeError('Unsupported verification method.')
     except TimeoutError:
