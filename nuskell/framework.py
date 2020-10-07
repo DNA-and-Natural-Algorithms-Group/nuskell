@@ -94,7 +94,7 @@ def get_peppercorn_args(parser):
     """ Selected arguments for the peppercorn interface. """
     peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
     peppercorn.add_argument('--max-complex-size', default=50, type=int, metavar='<int>',
-            help="""Maximum number of strands allowed in a complex (used to prevent polymerization)""")
+            help="""Maximum number of strands allowed in a complex (to prevent polymerization).""")
     peppercorn.add_argument('--max-complex-count', default=1000, type=int, metavar='<int>',
             help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
     peppercorn.add_argument('--max-reaction-count', default=10000, type=int, metavar='<int>',
@@ -107,34 +107,27 @@ def get_peppercorn_args(parser):
     peppercorn.add_argument('--ignore-branch-4way', action='store_true',
             help="Ignore 4-way branch migration events during enumeration.")
 
-    # TODO: explain these options in more detail!
-    peppercorn.add_argument('--release-cutoff-1-1', type=int, default=6, metavar='<int>',
-            help="""Maximum number of bases that will be released spontaneously in a 1-1 `open` reaction""")
-    peppercorn.add_argument('--release-cutoff-1-n', type=int, default=6, metavar='<int>',
-            help="""Maximum number of bases that will be released spontaneously in a 1-n `open` reaction.""")
+    peppercorn.add_argument('--release-cutoff-1-1', type=int, default=7, metavar='<int>',
+            help="""Maximum number of bases that will be released spontaneously in a 1-1 `open` reaction.""")
+    peppercorn.add_argument('--release-cutoff-1-2', type=int, default=7, metavar='<int>',
+            help="""Maximum number of bases that will be released spontaneously in a 1-2 `open` reaction.""")
     peppercorn.add_argument('--release-cutoff', type=int, default=None, metavar='<int>',
             help="""Maximum number of bases that will be released spontaneously
-            in an `open` reaction, for either 1-1 or 1-n reactions (equivalent
-            to setting --release-cutoff-1-1 and --release-cutoff-1-n to the
-            same value)""")
+            in an `open` reaction, for either 1-1 or 1-2 reactions (equivalent
+            to setting --release-cutoff-1-1 and --release-cutoff-1-2 to the
+            same value).""")
 
     peppercorn.add_argument('--no-max-helix', action='store_true',
             help="""Do not apply 'max helix at a time' semantics to 3-way branch migration reactions.""")
 
-    # NOTE: Output formatting: this option is not directly passed on to peppercorn
     peppercorn.add_argument('--enum-detailed', action='store_true',
-                            help="Do not condense reactions into only resting complexes")
-
-    # NOTE: The option --no-rates was removed, because peppercorn always computes
-    # rates, but you may choose to ignore them for condensed reaction graphs.
-    # k-fast enables to prune the condensed network, leaving the default of 0 M/s, has
-    # the same effect.
+            help="Do not condense the reaction network.")
 
     peppercorn.add_argument('--k-slow', default=0.0, type=float, metavar='<flt>',
-                            help="Unimolecular reactions slower than this rate will be discarded")
+            help="Unimolecular reactions with a rate constant lower than k-slow will be discarded.")
 
     peppercorn.add_argument('--k-fast', default=0.0, type=float, metavar='<flt>',
-                            help="Unimolecular reactions slower than this rate will be marked as slow")
+            help="Unimolecular reactions with a rate constant lower than k-fast will be slow.")
 
     return parser
 
@@ -195,17 +188,17 @@ def get_nuskell_args(parser):
     verify.add_argument("--verify", nargs = '+', default = [], action = 'store',
             choices = ('crn-bisimulation', 
                        'crn-bisimulation-ls', 
-                       'crn-bisimulation-rs', 
+                       'crn-bisimulation-bf', 
                        'modular-crn-bisimulation', 
                        'modular-crn-bisimulation-ls', 
-                       'modular-crn-bisimulation-rs', 
+                       'modular-crn-bisimulation-bf', 
                        'pathway-decomposition', 
                        'compositional-hybrid',
                        'integrated-hybrid'), metavar = '<str>', 
             help="""Specify verification methods. Choose one or more from:
-            crn-bisimulation, crn-bisimulation-ls, crn-bisimulation-gs, 
+            crn-bisimulation, crn-bisimulation-ls, crn-bisimulation-bf, 
             modular-crn-bisimulation, 
-            modular-crn-bisimulation-ls, modular-crn-bisimulation-gs, 
+            modular-crn-bisimulation-ls, modular-crn-bisimulation-bf, 
             pathway-decomposition, integrated-hybrid, compositional-hybrid.""")
 
     verify.add_argument("--modular", action = 'store_true',

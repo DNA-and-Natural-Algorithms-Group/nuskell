@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 
 from peppercornenumerator import enumerate_pil
 from peppercornenumerator.objects import PepperComplex
+from peppercornenumerator.enumerator import FAST_REACTIONS
+from peppercornenumerator.reactions import branch_3way, branch_4way
 from dsdobjects import clear_memory, DSDDuplicationError
 from dsdobjects.core import DSD_Complex
 
@@ -76,10 +78,14 @@ def enumerate_solution(complexes, args, prefix = 'i'):
     # known complexes, domains, etc. Otherwise we get duplication errors.
     clear_memory() 
 
+    kwargs = get_peppercorn_args(args)
+    print(kwargs)
+
     enum_obj, enum_pil = enumerate_pil(tmp_pil, 
                                        detailed = args.enum_detailed, 
                                        condensed = not args.enum_detailed, 
-                                       enumconc = args.concentration_units)
+                                       enumconc = args.concentration_units,
+                                       **kwargs)
     
     clear_memory() 
     # Now we get the new NuskellComplex objects.  If you enumerate multiple
@@ -280,53 +286,33 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
         complexes = {k: v for k, v in complexes.items() if k in total}
     return interpretation, complexes, reactions
 
-def set_peppercorn_args(enum, args):
+def get_peppercorn_args(args):
     """Transfer options to self._enumerator object.
     Do NOT change default values here. These are supposed to be the defaults of
     peppercorn!  Defaults for nuskell or any other script using this library are
     set with the argparse object of your script, e.g. nuskell: scripts/nuskell.
     """
+    kwargs = dict()
 
-    if hasattr(args, 'max_complex_size'):
-        enum.max_complex_size = args.max_complex_size
-    else:
-        enum.max_complex_size = 20
+    kwargs['max_complex_size'] = args.max_complex_size
+    kwargs['max_complex_count'] = args.max_complex_count
+    kwargs['max_reaction_count'] = args.max_reaction_count
+    kwargs['reject_remote'] = args.reject_remote
+    kwargs['max_helix'] = not args.no_max_helix
+    if args.ignore_branch_3way:
+        if branch_3way in FAST_REACTIONS[1]:
+            FAST_REACTIONS[1].remove(branch_3way)
+        log.info('No 3-way branch migration.')
+    if args.ignore_branch_4way:
+        if branch_4way in FAST_REACTIONS[1]:
+            FAST_REACTIONS[1].remove(branch_4way)
+        log.info('No 4-way branch migration.')
 
-    if hasattr(args, 'max_complex_count'):
-        enum.max_complex_count = args.max_complex_count
-    else:
-        enum.max_complex_count = 1000
+    kwargs['release_cutoff_1_1'] = args.release_cutoff_1_1
+    kwargs['release_cutoff_1_2'] = args.release_cutoff_1_2
+    if args.release_cutoff:
+        kwargs['release_cutoff'] = args.release_cutoff
+    kwargs['k_slow'] = args.k_slow
+    kwargs['k_fast'] = args.k_fast
 
-    if hasattr(args, 'max_reaction_count'):
-        enum.max_reaction_count = args.max_reaction_count
-    else:
-        enum.max_reaction_count = 5000
-
-    if hasattr(args, 'reject_remote'):
-        enum.reject_remote = args.reject_remote
-    else:
-        enum.reject_remote = False
-
-    if hasattr(args, 'ignore_branch_3way') and args.ignore_branch_3way:
-        if reactions.branch_3way in enum.FAST_REACTIONS:
-            enum.FAST_REACTIONS.remove(reactions.branch_3way)
-
-    if hasattr(args, 'ignore_branch_4way') and args.ignore_branch_4way:
-        if reactions.branch_4way in enum.FAST_REACTIONS:
-            enum.FAST_REACTIONS.remove(reactions.branch_4way)
-
-    if hasattr(args, 'release_cutoff_1_1'):
-        enum.release_cutoff_1_1 = args.release_cutoff_1_1
-    else:
-        enum.release_cutoff_1_1 = 6
-
-    if hasattr(args, 'release_cutoff_1_N'):
-        enum.release_cutoff_1_N = args.release_cutoff_1_N
-    else:
-        enum.release_cutoff_1_N = 6
-
-    if hasattr(args, 'release_cutoff'):
-        if args.release_cutoff is not None:
-            enum.release_cutoff_1_1 = args.release_cutoff
-            enum.release_cutoff_1_N = args.release_cutoff
-            enum.release_cutoff = args.release_cutoff
+    return kwargs

@@ -63,17 +63,17 @@ setup(
     license = 'MIT',
     classifiers = [
         'Development Status :: 4 - Beta',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Intended Audience :: Science/Research',
         ],
+    python_requires = '>=3.8',
     install_requires = [
         'pyparsing', 
         'dsdobjects>=0.8',
         'peppercornenumerator>=1.0',
-        'crnverifier'],
-    test_suite = 'tests',
+        'crnverifier>=0.2'],
     packages = ['nuskell', 'nuskell.dsdcompiler'],
+    test_suite = 'tests',
     entry_points = {
         'console_scripts': [
             'nuskell=nuskell.framework:main',
