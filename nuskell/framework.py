@@ -31,18 +31,15 @@ from .crnutils import (parse_crn_string, Reaction,
                        removeTrivial,
                        genCRN)
 
-
 class InvalidSchemeError(Exception):
     """Raise Error: Cannot find translation scheme."""
     def __init__(self, ts_file, builtin=None):
-        self.message = "Cannot find translation scheme: {}\n".format(ts_file)
-
+        self.message = f"Cannot find translation scheme: {ts_file}\n"
         if builtin:
             self.message += "You may want to use one of the built-in schemes instead:\n"
-            self.message += "Schemes in {}:\n".format(builtin)
+            self.message += f"Schemes in {builtin}:\n"
             for s in sorted(os.listdir(builtin)):
                 self.message += " * {}\n".format(s)
-
         super(InvalidSchemeError, self).__init__(self.message)
 
 class colors:
@@ -89,6 +86,9 @@ class ColorFormatter(logging.Formatter):
                 levelname + self.RESET
 
         return super(ColorFormatter, self).format(record)
+
+def header(msg):
+    return ' {} '.format(msg).center(80, '*')
 
 def get_peppercorn_args(parser):
     """ Selected arguments for the peppercorn interface. """
@@ -213,9 +213,6 @@ def get_nuskell_args(parser):
 
     return parser
 
-def header(msg):
-    return ' {} '.format(msg).center(80, '*')
-
 def set_handle_verbosity(h, v):
     if v == 0:
         h.setLevel(logging.WARNING)
@@ -230,17 +227,67 @@ def simulate_me(icrn):
     # A wrapper for enumeration? -> dsdenumerate.py
     raise NotImplementedError
 
+def find_scheme_file(ts):
+    if not os.path.isfile(ts):
+        builtin = 'schemes/' + ts
+        try:
+            ts = pkg_resources.resource_filename('nuskell', builtin)
+        except KeyError:
+            schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
+            raise InvalidSchemeError(ts, schemedir)
+    return ts
+
+def assign_species(complexes):
+    fuels = [x for x in complexes.values() if x.name[0] == 'f']
+    wastes = [x for x in complexes.values() if x.name[0] == 'w']
+    intermediates = [x for x in complexes.values() if x.name[0] == 'i']
+    signals = [x for x in complexes.values() if x.name[0] not in ('f', 'i', 'w')]
+    return fuels, wastes, intermediates, signals
+
+def get_verification_crn(reactions, fuels, signals):
+    # Prepare the verification CRN - Step 1: 
+    fuels = set([x.name for x in fuels]) 
+    signals = set([x.name for x in signals])
+    icrn = [Reaction([str(x) for x in rxn.reactants], 
+                     [str(x) for x in rxn.products], 
+                     rxn.rate.constant, 0) for rxn in reactions]
+    log.debug(f"Implementation CRN:\n  " + \
+                '\n  '.join(natural_sort(genCRN(icrn, reversible = True))))
+
+    # Prepare the verification CRN - Step 2: 
+    icrn = removeSpecies(icrn, fuels)
+    intermediates, wastes, _ = assign_crn_species(icrn, signals)
+    icrn = removeTrivial(removeSpecies(icrn, wastes))
+    return icrn, fuels, wastes
+
+def get_verification_modules(fcrn, mreactions, fuels, wastes):
+    fcrns = [[m] for m in fcrn]
+    icrns = []
+    for e, module in enumerate(mreactions, 1):
+        mcrn = [Reaction([str(x) for x in rxn.reactants], 
+                         [str(x) for x in rxn.products], 
+                         rxn.rate.constant, 0) for rxn in module]
+        mcrn = removeTrivial(removeSpecies(mcrn, fuels | wastes))
+        icrns.append(mcrn)
+        log.info(f"Implementation Module {e}:\n  " + \
+                    '\n  '.join(natural_sort(
+                                genCRN(mcrn, reversible = True, rates = False))))
+    return fcrns, icrns
+
 def main():
-    """ The Nuskell compiler.
+    """ The nuskell compiler framework commandline interface.
 
-      - translate formal CRNs into domain-level strand displacement systems.
-      - verify the equivalence between formal CRN and implementation CRN.
+    Translates formal chemical reaction networks (CRNs) into domain-level
+    strand displacement (DSD) systems. Enumerates DSD systems using the
+    domain-level reaction enumerator "peppercorn". Verifies the correctness of
+    the traslation using the notions of "pathway decomposition", "crn
+    bisimulation", or hybrid notions thereof using the Python package
+    "crnverifier". Use nuskell --help for options. 
 
-    Output:
-      - Domain-level DSD circuits printed into .pil and/or .dna files
-      - Verbose information to STDOUT
-      - verification results
-      - simulatior scripts
+    Nuskell can report every stage of the compilation by printing the
+    corresponding *.pil file. After initial translation, this file only
+    contains signal and fuel species. After enumeration it contains also
+    the (potentially processed) enumerated reaction network.
     """
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
@@ -252,7 +299,7 @@ def main():
     # ~~~~~~~~~~~~~
     # Logging Setup 
     # ~~~~~~~~~~~~~
-    title = "Nuskell Domain-level System Compiler {}".format(__version__)
+    title = f"Nuskell Domain-level System Compiler {__version__}"
     if args.verbose >= 3: # Get root logger.
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
@@ -279,7 +326,7 @@ def main():
 
     if args.schemes:
         schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-        print("Listing schemes in: {}".format(schemedir))
+        print(f"Listing schemes in: {schemedir}")
         for s in sorted(os.listdir(schemedir)):
             print("   --ts {}".format(s))
         raise SystemExit
@@ -294,70 +341,50 @@ def main():
     if not args.modular:
         args.modular = any(map(lambda x: 'modular' in x, args.verify))
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Parse and process input CRN
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    input_crn = sys.stdin.readlines()
-    input_crn = "".join(input_crn)
+    input_crn = "".join(sys.stdin.readlines())
     fcrn, fsc = parse_crn_string(input_crn)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~
     # Initialize the TestTube
     # ~~~~~~~~~~~~~~~~~~~~~~~
     if args.ts:  # Translate CRN using a translation scheme
-        logger.info(header("Translating"))
-
-        if not os.path.isfile(args.ts):
-            builtin = 'schemes/' + args.ts
-            try:
-                args.ts = pkg_resources.resource_filename('nuskell', builtin)
-            except KeyError:
-                schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-                raise InvalidSchemeError(args.ts, schemedir)
-
-        solution, modules = translate(input_crn, args.ts,
-                                      modular = args.modular)
-    #elif args.readpil:  # Parse information from a PIL file (cannot give modules!)
-    #    logger.info(header("Parsing file {}".format(args.readpil)))
-    #    solution = TestTube()
-    #    TestTubeIO(solution).load_pil(args.readpil, is_file = True)
-    #    # Assign fuel complexes and signal complexes.
-
-    #    # signals = species that correspond to formal species in the formal CRN
-    #    # fuels   = all non-signal species that have concentration > 0 nM
-    #    for cplx in solution.complexes:
-    #        if cplx.name in fsc:
-    #            solution.nodes[cplx]['ctype'] = 'signal'
-    #        elif cplx.concentration is not None:
-    #            solution.nodes[cplx]['ctype'] = 'fuel'
+        ts = find_scheme_file(args.ts)
+        log.info(header("Translating using scheme {ts}"))
+        solution, modules = translate(input_crn, ts, modular = args.modular)
+    elif args.readpil:  # Parse information from a PIL file 
+        if args.modular:
+            raise NotImplementedError('Modular verification cannot be used in combiation with --readpil input.')
+        log.info(header(f"Parsing file {args.readpil}"))
+        dom, solution, rms, det, con = load_pil(args.readpil)
+        if det:
+            log.warning(f'Ignoring {len(det)} detailed reactions in {args.readpil}.')
+        if con:
+            log.warning(f'Ignoring {len(con)} condensed reactions in {args.readpil}.')
+        if rms:
+            log.warning(f'Ignoring {len(rms)} resting macrostates in {args.readpil}.')
     else:
-        # At some point Nuskell should choose translation schemes automatically,
-        # but we are not there yet ... use nuskellCMP for such things.
-        logger.error("Please specify a translation scheme, see option --ts.")
+        log.error("Please specify a translation scheme, see option --ts.")
         schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-        logger.error("For exaple the schemes in: {}".format(schemedir))
+        log.error("For exaple the schemes in: {}".format(schemedir))
         for s in sorted(os.listdir(schemedir)):
             print("   --ts {}".format(s))
         raise SystemExit
 
-    fuels = [x for x in solution.values() if x.name[0] == 'f']
-    wastes = [x for x in solution.values() if x.name[0] == 'w']
-    intermediates = [x for x in solution.values() if x.name[0] == 'i']
-    signals = [x for x in solution.values() if x.name[0] not in ('f', 'i', 'w')]
+    fuels, wastes, intermediates, signals = assign_species(solution)
 
     if args.ts and intermediates:
         raise SystemExit('EXIT: solution contains intermediate species.')
-
     if signals == []:
         raise SystemExit('EXIT: solution does not contain signals.')
 
-    logger.info(f"Formal species: {', '.join(natural_sort(fsc))}")
-    logger.info("Signal Complexes:")
-    for cplx in natural_sort(signals):
-        logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
-    logger.info("Fuel Complexes:")
-    for cplx in natural_sort(fuels):
-        logger.info('   {} = {}'.format(cplx.name, cplx.kernel_string))
+    log.info(f"Formal species: {', '.join(natural_sort(fsc))}")
+    log.info("Signal Complexes:\n" + '\n'.join(
+        [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natural_sort(signals)]))
+    log.info("Fuel Complexes:\n" + '\n'.join(
+        [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natural_sort(fuels)]))
 
     if dnafile:
         with open(dnafile, 'w') as dna:
@@ -386,31 +413,27 @@ def main():
             ' '.join(natural_sort(map(str, fuels)))))
 
     if args.verify or args.enumerate:
-        logger.info(header("Enumerating reaction pathways"))
+        log.info(header("Enumerating reaction pathways."))
         complexes, reactions = enumerate_solution(solution, args)
 
         if not reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
 
-        logger.info(f"After enumeration: {len(complexes)} species, {len(reactions)} reactions")
+        log.info(f"After enumeration: " + \
+                "{len(complexes)} species, {len(reactions)} reactions")
 
         # Only for debugging.
-        logger.debug('\n' + write_pil(complexes, reactions, fh = None,
+        log.debug('\n' + write_pil(complexes, reactions, fh = None,
                                molarity = args.concentration_units))
 
-        logger.info("Removing unnecessary complexes with history domains.")
+        log.info("Removing unnecessary complexes with history domains.")
         # History domains within constant and intermediate species will not get replaced.
         interpretation, complexes, reactions = interpret_species(complexes, 
                                                                 reactions,
                                                                 fsc.keys(),
                                                                 prune = True)
-        
         # Update species assignments
-        fuels = [x for x in complexes.values() if x.name[0] == 'f']
-        wastes = [x for x in complexes.values() if x.name[0] == 'w']
-        intermediates = [x for x in complexes.values() if x.name[0] == 'i']
-        signals = [x for x in complexes.values() if x.name[0] not in ('f', 'i', 'w')]
-
+        fuels, wastes, intermediates, signals = assign_species(complexes)
         if args.pilfile:
             with open(enumpil, 'w') as pil:
                 write_pil(complexes, reactions,
@@ -423,17 +446,19 @@ def main():
         else:
             print("Enumeration successfull. Use --pilfile to inspect or modify.")
 
-        print(" - {:3d} species\n - {:3d} reactions".format(len(complexes), len(reactions)))
+        print(" - {:3d} species\n - {:3d} reactions".format(len(complexes), 
+                                                            len(reactions)))
         print(" - {:3d} signal species".format(len(signals)))
         print(" - {:3d} fuel species".format(len(fuels)))
         print(" - {:3d} intermediate species".format(len(intermediates + wastes)))
-        print(' - {:3d} distinct strands in the system'.format(len(get_strands(complexes))))
+        print(' - {:3d} distinct strands in the system'.format(
+                                                        len(get_strands(complexes))))
         print(' - {:3d} nucleotides to be designed\n'.format(sum(
             sum(map(lambda d: d.length, s)) for s in get_strands(complexes))))
 
         if args.modular:
-            logger.info("")
-            logger.info("Modular network enumeration ...")
+            log.info("")
+            log.info("Modular network enumeration ...")
             mcomplexes, mreactions = enumerate_modules(modules, 
                                                        interpretation,
                                                        complexes,
@@ -441,54 +466,32 @@ def main():
                                                        args)
             print(f"Split reaction enumeration into {len(mcomplexes)} modules:")
             for e in range(len(mcomplexes)):
-                print(f' - module {e+1}: {len(mcomplexes[e])} complexes and {len(mreactions[e])} reactions.')
+                print(f' - module {e+1}: {len(mcomplexes[e])} complexes',
+                                   f'and {len(mreactions[e])} reactions.')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Verify equivalence of CRNs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if args.verify: # Needs genCRN, removeSpecies, assign_crn_species, split_rev_reactions, ...
-        # TODO: clean_crn!
+    if args.verify:
         logger.info(header("Verification using: {}".format(args.verify)))
         formals = set(fsc.keys())
-        fuels = set([x.name for x in fuels])
-
-        logger.info(f"Formal CRN with {len(formals)} species:\n  " + \
+        log.info(f"Formal CRN with {len(formals)} species:\n  " + \
                     '\n  '.join(genCRN(fcrn, reversible = True)))
-
-        icrn = [Reaction([str(x) for x in rxn.reactants], 
-                         [str(x) for x in rxn.products], 
-                         rxn.rate.constant, 0) for rxn in reactions]
-        logger.debug(f"Implementation CRN:\n  " + \
-                    '\n  '.join(natural_sort(genCRN(icrn, reversible = True))))
-
-        icrn = removeSpecies(icrn, fuels)
-        intermediates, wastes, _ = assign_crn_species(icrn, set(map(str, signals)))
-        icrn = removeTrivial(removeSpecies(icrn, wastes))
-        logger.info(f"Implementation CRN (no fuels, no wastes, no rates): \n  " + \
-                    '\n  '.join(natural_sort(genCRN(icrn, reversible = True, rates = False))))
-        logger.info("Partial interpretation:\n  " + \
-                    '\n  '.join(f"{k} => {', '.join(v)}" \
-                        for k, v in natural_sort(interpretation.items())))
+        icrn, fuels, wastes = get_verification_crn(reactions, fuels, signals)
+        log.info(f"Implementation CRN (no fuels, no wastes, no rates): \n  " + \
+            '\n  '.join(natural_sort(genCRN(icrn, reversible = True, rates = False))))
+        log.info("Partial interpretation:\n  " + \
+                '\n  '.join(f"{k} => {', '.join(v)}" \
+                    for k, v in natural_sort(interpretation.items())))
 
         if args.modular:
-            fcrns = [[m] for m in fcrn]
-            icrns = []
-            for e, module in enumerate(mreactions, 1):
-                mcrn = [Reaction([str(x) for x in rxn.reactants], 
-                                 [str(x) for x in rxn.products], 
-                                 rxn.rate.constant, 0) for rxn in module]
-                mcrn = removeTrivial(removeSpecies(mcrn, fuels | wastes))
-                icrns.append(mcrn)
-                logger.info(f"Implementation Module {e}:\n  " + \
-                            '\n  '.join(natural_sort(
-                                        genCRN(mcrn, reversible = True, rates = False))))
+            fcrns, icrns = get_verification_modules(fcrn, mreactions, fuels, wastes)
 
         for meth in args.verify:
-            logger.info(header("Verification method: {}".format(meth)))
+            log.info(header("Verification method: {}".format(meth)))
             if 'modular-' in meth and len(fcrns) > 1:
-                import copy # Temporary to fix a bug in testModules
                 v, i = verify_modules(fcrns, icrns, formals, meth[8:], 
-                                      interpretation = copy.deepcopy(interpretation), 
+                                      interpretation = interpretation, 
                                       timeout = args.verify_timeout)
             else:
                 if 'modular' in meth: meth = meth[8:]
@@ -496,11 +499,11 @@ def main():
                               interpretation = interpretation, 
                               timeout = args.verify_timeout)
 
-            if i:
-                logger.info(f"Returned interpretation for {meth}:\n  " + \
+            if v:
+                log.info(f"Returned interpretation for {meth}:\n  " + \
                             '\n  '.join(f"{k} => {', '.join(v)}" \
                                 for k, v in natural_sort(i.items())))
-                logger.info(f"Interpreted CRN: \n  " + \
+                log.info(f"Interpreted CRN: \n  " + \
                     '\n  '.join(natural_sort(genCRN(icrn, 
                                                     reversible = True, 
                                                     rates = False,
@@ -514,6 +517,7 @@ def main():
             elif v is None:
                 print(f"No verification result for {meth}.", 
                       f"Verification did not terminate within {args.verify_timeout} seconds.")
+
 
 if __name__ == '__main__':
    main()

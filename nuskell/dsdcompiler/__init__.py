@@ -13,4 +13,5 @@ import logging
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 from .compiler import translate
+from .interpreter import NuskellExit
 

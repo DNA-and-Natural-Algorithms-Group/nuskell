@@ -64,7 +64,6 @@ def enumerate_modules(modules, interpretation, solution, reactions, args):
 
 def enumerate_solution(complexes, args, prefix = 'i'):
     """
-    # TODO: pass arguments for peppercorn!
     """
     PepperComplex.PREFIX = prefix
 
@@ -79,8 +78,6 @@ def enumerate_solution(complexes, args, prefix = 'i'):
     clear_memory() 
 
     kwargs = get_peppercorn_args(args)
-    print(kwargs)
-
     enum_obj, enum_pil = enumerate_pil(tmp_pil, 
                                        detailed = args.enum_detailed, 
                                        condensed = not args.enum_detailed, 
