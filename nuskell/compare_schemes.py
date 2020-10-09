@@ -10,10 +10,6 @@ import os
 import sys
 import argparse
 import pkg_resources
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from numpy import nan
 
 from dsdobjects import clear_memory, DSDDuplicationError
 from peppercornenumerator import (CondensationError, 
@@ -45,38 +41,31 @@ from .crnutils import (parse_crn_string, Reaction,
                        removeTrivial,
                        genCRN)
 
-def process_directories(crndir, schemedir):
-    crns = []
-    if crndir is None:
-        log.info("Compiling single CRN:")
+def process_input(crns, schemes):
+    mycrns = []
+    if crns is None:
+        print("Reading single CRN from STDIN.")
         input_crn = sys.stdin.readlines()
         input_crn = "".join(input_crn)
-        crns.append((input_crn, input_crn))
-        log.info("")
+        mycrns.append((input_crn, input_crn))
     else:
-        if crndir[-1] != '/': 
-            crndir += '/'
-        log.info("Compiling CRNs in: {}".format(crndir))
-        for crnfile in [x for x in os.listdir(crndir) if x[-4:] == '.crn']:
-            log.info(' *{}'.format(crnfile))
-            with open(crndir + crnfile) as cf:
+        for crnfile in crns:
+            log.info(f'Processing {crnfile=}.')
+            with open(crnfile) as cf:
                 input_crn = ''.join(cf.readlines())
-            crns.append((crnfile, input_crn))
+            mycrns.append((crnfile, input_crn))
         log.info("")
 
-    if schemedir is None:
-        log.info("Comparing default schemes:")
-        schemedir = pkg_resources.resource_filename('nuskell', 'schemes') + '/'
+    myschemes = []
+    if schemes is None:
+        print("Comparing default schemes.")
+        schemedir = pkg_resources.resource_filename('nuskell/dsdcompiler', 'schemes') + '/'
+        for ts in [s for s in sorted(os.listdir(schemedir)) if s[-3:] == '.ts']:
+            log.info(f'Adding {ts}.')
+            schemes.append(schemedir + ts)
     else:
-        if schemedir[-1] != '/': schemedir += '/'
-        log.info("Comparing schemes in: {}".format(schemedir))
-
-    schemes = []
-    for ts in [s for s in sorted(os.listdir(schemedir)) if s[-3:] == '.ts']:
-        log.info('  {}'.format(ts))
-        schemes.append(schemedir + ts)
-    log.info("")
-    return crns, schemes
+        myschemes = schemes
+    return mycrns, myschemes
 
 def compare_schemes(crns, schemes, args = None):
     """ Compare different schemes for different CRNs.
@@ -96,7 +85,7 @@ def compare_schemes(crns, schemes, args = None):
         ts = find_scheme_file(tsn)
         for (name, input_crn) in crns:
             clear_memory()
-            current = [name, tsn] # Make named tuple
+            current = [tsn, name] # Make named tuple
             log.info(f"Compiling CRN {name} using translation scheme {ts}.")
 
             fcrn, fsc = parse_crn_string(input_crn)
@@ -108,7 +97,7 @@ def compare_schemes(crns, schemes, args = None):
             except NuskellExit as e:
                 log.error(e)
                 log.error(f"Exiting translation for {name} and {ts}.")
-                current.extend([None] * len(vnotions) + [None, None, None])
+                current.extend([None] * len(args.verify) + [None, None, None])
                 plotdata.append(current)
                 continue
 
@@ -150,23 +139,28 @@ def compare_schemes(crns, schemes, args = None):
                     args.reject_remote = False
                 except PolymerizationError as e:
                     log.error(e)
-                    current.extend([None] * len(vnotions) + [None, None, None])
+                    current.extend([None] * len(args.verify) + [None, None, None])
                     plotdata.append(current)
                     continue
 
             if not reactions:
                 log.error("No DSD reactions have been enumerated ({name=}, {ts=}).")
-                current.extend([None] * len(vnotions) + [None, None, None])
+                current.extend([None] * len(args.verify) + [None, None, None])
                 plotdata.append(current)
                 continue
             current.append(semantics)
-
+            cost = sum(sum(map(lambda d: d.length, s)) for s in get_strands(complexes))
+            current.append(cost)
+            speed = len(reactions)
+            current.append(speed)
+ 
             # VERIFY
             formals = set(fsc.keys())
             icrn, fuels, wastes = get_verification_crn(reactions, fuels, signals)
             if args.modular:
                 fcrns, icrns = get_verification_modules(fcrn, mreactions, fuels, wastes)
 
+            equiv = False
             for meth in args.verify:
                 if 'modular-' in meth and len(fcrns) > 1:
                     v, i = verify_modules(fcrns, icrns, formals, meth[8:], 
@@ -178,46 +172,37 @@ def compare_schemes(crns, schemes, args = None):
                                   interpretation = interpretation, 
                                   timeout = args.verify_timeout)
                 current.append(v)
-
-            cost = sum(sum(map(lambda d: d.length, s)) for s in get_strands(complexes))
-            current.append(cost)
-            speed = len(icrn)
-            current.append(speed)
+                if equiv is True:
+                    pass
+                elif v is True:
+                    equiv = True
+                elif v is None:
+                    equiv = 'timeout'
+            current.append(equiv)
             plotdata.append(current)
     return plotdata
 
 def get_nuskellCMP_args(parser):
-    """ A collection of arguments for Nuskell """
-    parser.add_argument('--version', action = 'version', version = '%(prog)s ' + __version__)
+    """ A collection of arguments for NuskellCMP """
+    parser.add_argument('--version', action = 'version', 
+                        version = '%(prog)s ' + __version__)
     parser.add_argument("-v", "--verbose", action = 'count', default = 0,
             help = "Print logging output. -vv increases verbosity level.")
 
-    input = parser.add_argument_group('NuskellCMP Input Arguments')
-
-    input.add_argument("--ts-dir", action='store', metavar='<path/to/dir>',
-            help="""Specify path to the translation scheme directory. Only
-            files that have a *.ts ending will be compared.""")
-
-    input.add_argument("--crn-dir", action='store', metavar='<path/to/dir>',
-            help="""Specify path to a CRN directory. Only files that have a
-            *.crn ending will be compared.""")
-
-    input.add_argument("--reference", action='store', metavar='<path/to/file>',
-            help="Specify a translation scheme that serves as a reference.")
-
-    input.add_argument("--from-csv", action='store', metavar='<path/to/file>',
-            help="Read results from a *.CSV file. All other inputs are ignored.")
-
-    default = parser.add_argument_group('NuskellCMP Output Arguments')
-
-    default.add_argument("--pyplot", default='', action='store', metavar='<path/to/file>',
-            help="Specify name of plot file. Choose from fileformats *.pdf or *.png")
-
-    default.add_argument("--to-csv", action='store', default='', metavar='<path/to/file>',
-            help="Print results to a *.CSV file.")
+    inp = parser.add_argument_group('NuskellCMP Input Arguments')
+    inp.add_argument("--schemes", action='store', nargs = '+', 
+            help="""A list of one or more translation schemes.""")
+    inp.add_argument("--crns", action='store', nargs = '+', 
+            help="""A list of one or more CRNs.""")
 
     # Choose a verification method.
-    default.add_argument("--verify", nargs = '+', default = [], action = 'store',
+    out = parser.add_argument_group('NuskellCMP Output Arguments')
+    out.add_argument("--verify", nargs = '+', action = 'store',
+            default = ['crn-bisimulation', 
+                       'modular-crn-bisimulation', 
+                       'pathway-decomposition', 
+                       'compositional-hybrid',
+                       'integrated-hybrid'], 
             choices = ('crn-bisimulation', 
                        'crn-bisimulation-ls', 
                        'crn-bisimulation-bf', 
@@ -232,22 +217,14 @@ def get_nuskellCMP_args(parser):
             modular-crn-bisimulation, 
             modular-crn-bisimulation-ls, modular-crn-bisimulation-bf, 
             pathway-decomposition, integrated-hybrid, compositional-hybrid.""")
-
-    default.add_argument("-u", "--concentration-units", default='nM', action='store',
-            choices=('M', 'mM', 'uM', 'nM', 'pM'),
-            help="""Specify default concentration units when writing results to 
-            ouptut files (reaction rates, initial concentrations). """)
-
-    default.add_argument("--modular", action = 'store_true',
-            #help="""After enumeration of the full system, enumerate individual
-            #CRN modules separately, to identify crosstalk between reactions.
-            #This is turned on automatically when using bisimulation
-            #verification.""")
-            help=argparse.SUPPRESS)
-
-    default.add_argument("--verify-timeout", type = int, default = 30, metavar = '<int>',
+    out.add_argument("--verify-timeout", type = int, default = 30, metavar = '<int>',
             help="Specify time in seconds to wait for verification to complete.")
 
+    out.add_argument("-u", "--concentration-units", default='nM', action='store',
+            choices=('M', 'mM', 'uM', 'nM', 'pM'),
+            help=argparse.SUPPRESS)
+    out.add_argument("--modular", action = 'store_true',
+            help=argparse.SUPPRESS)
     return parser
 
 def main():
@@ -288,49 +265,20 @@ def main():
     # ***************** #
     # Process CSV input #
     # _________________ #
-    if args.from_csv:
-        logger.info('# Parsing data from file ... ')
-        df = pd.DataFrame().from_csv(args.from_csv)
-    else:
-        crns, schemes = process_directories(args.crn_dir, args.ts_dir)
+    crns, schemes = process_input(args.crns, args.schemes)
 
-        # ********* #
-        # MAIN LOOP #
-        # _________ #
+    # ********* #
+    # MAIN LOOP #
+    # _________ #
 
-        plotdata = compare_schemes(crns, schemes, args = args)
+    plotdata = compare_schemes(crns, schemes, args = args)
 
-        # Results:
-        for row in plotdata:
-            print(row)
-
-        idx = list(zip(list(zip(*plotdata))[0], list(zip(*plotdata))[1]))
-        df = pd.DataFrame(plotdata, index = idx,
-                          columns = ['Translation scheme', 
-                                     'CRN', 
-                                     'enumerated'] + args.verify + [
-                                     'number of nucleotides', 
-                                     'reactions in condensed network'])
-    # Save to portable format:
-    if args.to_csv:
-        df.to_csv(path_or_buf=args.to_csv)
-
-    def equiv(x):
-        if True in x:
-            return True
-        elif (nan in x) or (None in x):
-            return 'timeout'
-        else:
-            return False
-
-    # Add column that combines equivalence notions.
-    e = list(map(equiv, zip(*map(lambda x: df[x], args.verify))))
-    df['equivalent'] = e
-    df = df.sort_values(['Translation scheme', 'CRN'], ascending = [True, True])
-    print(df.to_string(index=False, justify='left'))
-
-    if args.pyplot:
-        single_plot(df, pfile=args.pyplot)
+    # Results:
+    dfheader = ['scheme', 'CRN', 'enumerated', '# nuc', '# rxns'
+               ] + args.verify + ['equivalent']
+    print(dfheader)
+    for row in plotdata:
+        print(row)
 
 if __name__ == '__main__':
    main()

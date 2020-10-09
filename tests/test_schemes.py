@@ -3,6 +3,7 @@
 #  test_schemes.py
 #  NuskellCompilerProject
 #
+import warnings
 import os
 import filecmp
 import unittest
@@ -18,12 +19,30 @@ import subprocess as sub
 # This is not a regular unittest, run overnight to check consistency of results
 # before every release.
 #
+
+try: 
+    import pandas as pd
+except ImportError as err:
+    log.warning('')
 SKIP = False
+
+    #if args.from_csv:
+    #    logger.info('# Parsing data from file ... ')
+    #    df = pd.read_csv(args.from_csv, index_col = 0, na_values = None)
+    #else:
+    #df = pd.DataFrame(plotdata, columns = dfheader)
+
+    ## Save to portable format:
+    #if args.to_csv:
+    #    df.to_csv(path_or_buf=args.to_csv)
+
+    #print(df.to_string(index=False, justify='left'))
+
 
 @unittest.skipIf(SKIP, "slow tests are disabled by default")
 class SinlgeSnapshotCMP(unittest.TestCase):
     def setUp(self):
-        self.exe = 'scripts/nuskellCMP'
+        self.exe = 'nuskellCMP'
         self.lit = 'schemes/literature'
         self.var = 'schemes/variants'
 
@@ -49,7 +68,7 @@ class SinlgeSnapshotCMP(unittest.TestCase):
         # Options
         call = self.call
         call.extend(['--ts-dir', ts_dir])
-        call.extend(['--max-complex-size',      str(20)])
+        call.extend(['--max-complex-size',      str(10)])
         call.extend(['--max-complex-count',   str(5000)])
         call.extend(['--max-reaction-count', str(10000)])
 
