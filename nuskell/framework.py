@@ -431,6 +431,9 @@ def main():
                                                                 prune = True)
         # Update species assignments
         fuels, wastes, intermediates, signals = assign_species(complexes)
+        logger.info(f"Enumerated CRN: \n  " + \
+                    '\n  '.join([rxn.full_string() for rxn in reactions]))
+
         if args.pilfile:
             with open(enumpil, 'w') as pil:
                 write_pil(complexes, reactions,
@@ -483,9 +486,10 @@ def main():
 
         if args.modular:
             fcrns, icrns = get_verification_modules(fcrn, mreactions, fuels, wastes)
-            for mcrn in enumerate(icrns, 1):
+            for e, mcrn in enumerate(icrns, 1):
                 log.info(f"Implementation Module {e}:\n  " + \
-                        '\n  '.join(natural_sort(genCRN(mcrn, reversible = True, rates = False))))
+                        '\n  '.join(natural_sort(genCRN(mcrn, 
+                            reversible = True, rates = False))))
         for meth in args.verify:
             log.info(header("Verification method: {}".format(meth)))
             if 'modular-' in meth and len(fcrns) > 1:
