@@ -1,4 +1,4 @@
 pyparsing
 dsdobjects>=0.8
 peppercornenumerator>=1.0
-crnverifier
+crnverifier>=0.2

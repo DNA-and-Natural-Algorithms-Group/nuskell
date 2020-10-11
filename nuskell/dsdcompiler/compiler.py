@@ -9,13 +9,62 @@
 import logging
 log = logging.getLogger(__name__)
 
+import os
+import pkg_resources
+
 from .crn_parser import parse_crn_file, parse_crn_string
 from .ts_parser import parse_ts_string, parse_ts_file
 from .interpreter import NuskellEnvironment 
 from .objects import NuskellComplex
+SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
 
 class NuskellInterpreterError(Exception):
     pass
+
+class InvalidSchemeError(Exception):
+    def __init__(self, ts_file):
+        self.message = f"Cannot find translation scheme: {ts_file}\n"
+        schemes = get_builtin_schemes()
+        for k, v in schemes.items():
+            log.error(f'Listing installed schemes: "{k}"')
+            for s in v:
+                log.error(f"   --ts {s}")
+        super(InvalidSchemeError, self).__init__(self.message)
+
+def get_builtin_schemes():
+    global SCHEME_DIRS
+    schemes = dict()
+    for d in SCHEME_DIRS:
+        builtin = pkg_resources.resource_filename(__name__, d)
+        schemes[builtin] = sorted(os.listdir(builtin))
+    return schemes
+
+def get_canonical_schemes():
+    # Candidates for "default" translation schemes.
+    return {'canonical': ['soloveichik2010.ts',
+                          'qian2011_3D_var1.ts', 
+                          'cardelli2011_NM.ts',
+                          'cardelli2011_NM_noGC.ts',
+                          'lakin2012_3D_var1.ts',
+                          'cardelli2013_2D_3I_noGC.ts',
+                          'chen2013_2D_JF_var1.ts',
+                          'srinivas2015.ts']}
+
+def find_scheme_file(ts):
+    global SCHEME_DIRS
+    if not os.path.isfile(ts):
+        for d in SCHEME_DIRS:
+            builtin = d + ts
+            try:
+                tsx = pkg_resources.resource_filename(__name__, builtin)
+                if os.path.exists(tsx):
+                    ts = tsx
+                    break
+            except KeyError as err:
+                pass
+        else:
+            raise InvalidSchemeError(ts)
+    return ts
 
 def translate(input_crn, ts_file, modular = False):
     """ CRN-to-DSD translation wrapper function.
@@ -35,6 +84,7 @@ def translate(input_crn, ts_file, modular = False):
       The first object contains signal and fuel species of the full DSD
       system, followed by the modular system specifications.
     """
+    ts_file = find_scheme_file(ts_file)
     ts = parse_ts_file(ts_file)
     crn, fs = parse_crn_string(input_crn)
     solution, modules = interpret(ts, crn, fs, modular = modular)

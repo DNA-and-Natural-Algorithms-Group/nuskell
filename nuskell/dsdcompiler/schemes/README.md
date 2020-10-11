@@ -481,16 +481,6 @@ the formal CRN input. For example, answer the following questions:
     #
     ```
 
-
-
-
- 
-
-### ./implementations
-  * `song2016-add.ts` Figure 3-5 of [Song et al. (2016)]
-
-  * `song2016-subtract.ts` Figure 6-8 of [Song et al. (2016)]
-
 [//]: References
 [Turberfield et al. (2003)]: <http://dx.doi.org/10.1103/PhysRevLett.90.118102>
 [Zhang et al. (2007)]: <http://dx.doi.org/10.1126/science.1148532>

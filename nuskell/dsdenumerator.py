@@ -62,14 +62,13 @@ def enumerate_modules(modules, interpretation, solution, reactions, args):
         mreactions.append(mr)
     return mcomplexes, mreactions
 
-def enumerate_solution(complexes, args, prefix = 'i'):
+def enumerate_solution(complexes, args, molarity = 'nM', prefix = 'i'):
     """
     """
     PepperComplex.PREFIX = prefix
 
     # A wrapper for enumeration? -> dsdenumerate.py
-    tmp_pil = write_pil(complexes, None, fh = None,
-                        molarity = args.concentration_units)
+    tmp_pil = write_pil(complexes, None, fh = None, molarity = molarity)
 
     # Memory management.
     backupCM = DSD_Complex.MEMORY
@@ -81,7 +80,7 @@ def enumerate_solution(complexes, args, prefix = 'i'):
     enum_obj, enum_pil = enumerate_pil(tmp_pil, 
                                        detailed = args.enum_detailed, 
                                        condensed = not args.enum_detailed, 
-                                       enumconc = args.concentration_units,
+                                       enumconc = molarity,
                                        **kwargs)
     
     clear_memory() 

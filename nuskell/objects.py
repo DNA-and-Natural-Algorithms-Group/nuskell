@@ -10,5 +10,3 @@ from dsdobjects import DSDDuplicationError
 from dsdobjects.prototypes import Macrostate as NuskellMacrostate
 from dsdobjects.prototypes import Reaction as NuskellReaction
 
-#NuskellReaction.RTYPES.add('formal')
-

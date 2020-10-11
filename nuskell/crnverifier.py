@@ -11,7 +11,7 @@ import logging
 log = logging.getLogger(__name__)
 
 import signal
-from .crnutils import split_reversible_reactions as split
+from .crnutils import split_reversible_rxns
 from crnverifier import (pathway_decomposition_eq,
                          crn_bisimulation_test, 
                          integrated_hybrid_test,
@@ -50,8 +50,8 @@ def verify(fcrn, icrn, formals, method, interpretation = None, timeout = 0):
       bool: True if equivalent, False otherwise.
 
     """
-    fcrn = [list(rxn[:2]) for rxn in split(fcrn)]
-    icrn = [list(rxn[:2]) for rxn in split(icrn)]
+    fcrn = [list(rxn[:2]) for rxn in split_reversible_rxns(fcrn)]
+    icrn = [list(rxn[:2]) for rxn in split_reversible_rxns(icrn)]
 
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(timeout)
@@ -91,8 +91,8 @@ def verify(fcrn, icrn, formals, method, interpretation = None, timeout = 0):
 
 def verify_modules(fcrns, icrns, formals, method, interpretation = None, timeout = 0):
     """ Choose from different algorithms for modular CRN bisimulation. """
-    fcrns = [[list(rxn[:2]) for rxn in split(mod)] for mod in fcrns]
-    icrns = [[list(rxn[:2]) for rxn in split(mod)] for mod in icrns]
+    fcrns = [[list(rxn[:2]) for rxn in split_reversible_rxns(mod)] for mod in fcrns]
+    icrns = [[list(rxn[:2]) for rxn in split_reversible_rxns(mod)] for mod in icrns]
 
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(timeout)

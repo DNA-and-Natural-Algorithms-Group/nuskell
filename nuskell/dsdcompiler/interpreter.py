@@ -22,10 +22,10 @@ log = logging.getLogger(__name__)
 from copy import copy
 from .objects import NuskellDomain, NuskellComplex, DSD_Complex, DSDDuplicationError
 
-class NuskellEnvError(Exception):
+class NuskellExit(SystemExit):
     pass
 
-class NuskellExit(SystemExit):
+class NuskellEnvError(Exception):
     pass
 
 class void:

@@ -6,45 +6,32 @@
 import logging
 log = logging.getLogger(__name__)
 
-import os
 import sys
 import argparse
-import pkg_resources
-
+from itertools import chain
 from dsdobjects import clear_memory, DSDDuplicationError
 from peppercornenumerator import (CondensationError, 
                                   PolymerizationError)
 
 from . import __version__
+from .ioutils import get_strands
+from .crnutils import parse_crn_string 
+from .dsdcompiler import translate, get_builtin_schemes, NuskellExit
 from .framework import (get_peppercorn_args, 
                         set_handle_verbosity,
-                        get_verification_crn,
-                        get_verification_modules,
-                        find_scheme_file,
                         enumerate_solution,
                         enumerate_modules,
+                        interpret_species,
+                        get_verification_crn,
+                        get_verification_modules,
                         verify,
                         verify_modules,
-                        interpret_species,
                         assign_species)
-from .dsdcompiler import translate, NuskellExit
-from .ioutils import (natural_sort, 
-                      write_pil,
-                      load_pil,
-                      get_strands,
-                      write_vdsd)
-from .crnutils import (parse_crn_string, Reaction, 
-                       parse_crn_file, 
-                       split_reversible_reactions, 
-                       assign_crn_species,
-                       removeSpecies,
-                       removeTrivial,
-                       genCRN)
 
 def process_input(crns, schemes):
     mycrns = []
     if crns is None:
-        print("Reading single CRN from STDIN.")
+        log.info("Reading single CRN from STDIN.")
         input_crn = sys.stdin.readlines()
         input_crn = "".join(input_crn)
         mycrns.append((input_crn, input_crn))
@@ -54,18 +41,12 @@ def process_input(crns, schemes):
             with open(crnfile) as cf:
                 input_crn = ''.join(cf.readlines())
             mycrns.append((crnfile, input_crn))
-        log.info("")
+    log.info("")
 
-    myschemes = []
     if schemes is None:
-        print("Comparing default schemes.")
-        schemedir = pkg_resources.resource_filename('nuskell/dsdcompiler', 'schemes') + '/'
-        for ts in [s for s in sorted(os.listdir(schemedir)) if s[-3:] == '.ts']:
-            log.info(f'Adding {ts}.')
-            schemes.append(schemedir + ts)
-    else:
-        myschemes = schemes
-    return mycrns, myschemes
+        schemes = get_builtin_schemes()
+        schemes = list(chain(*(schemes.values())))
+    return mycrns, schemes
 
 def compare_schemes(crns, schemes, args = None):
     """ Compare different schemes for different CRNs.
@@ -80,13 +61,13 @@ def compare_schemes(crns, schemes, args = None):
     Returns:
         A dataframe.
     """
-    plotdata = []  # Scheme, CRN, Cost, Speed
-    for tsn in schemes:
-        ts = find_scheme_file(tsn)
+    plotdata = [['scheme', 'CRN', 'enumerated', '# nuc', '# rxns'
+                ] + args.verify + ['equivalent']]
+    for ts in schemes:
         for (name, input_crn) in crns:
             clear_memory()
-            current = [tsn, name] # Make named tuple
-            log.info(f"Compiling CRN {name} using translation scheme {ts}.")
+            current = [ts, name] # Make named tuple
+            log.info(f"Compiling CRN {name=} using translation scheme {ts=}.")
 
             fcrn, fsc = parse_crn_string(input_crn)
 
@@ -123,7 +104,7 @@ def compare_schemes(crns, schemes, args = None):
                 log.warning(f"Changing enumeration parameters to reject-remote ({name=}, {ts=}).")
                 try:
                     args.reject_remote = True
-                    complexes, reactions = enumerate_solution(solution, args)
+                    complexes, reactions = enumerate_solution(solution, args, prefix = 'p')
                     interpretation, complexes, reactions = interpret_species(complexes, 
                                                                     reactions,
                                                                     fsc.keys(),
@@ -148,7 +129,7 @@ def compare_schemes(crns, schemes, args = None):
                 current.extend([None] * len(args.verify) + [None, None, None])
                 plotdata.append(current)
                 continue
-            current.append(semantics)
+            current.append(':'.join(semantics))
             cost = sum(sum(map(lambda d: d.length, s)) for s in get_strands(complexes))
             current.append(cost)
             speed = len(reactions)
@@ -217,27 +198,28 @@ def get_nuskellCMP_args(parser):
             modular-crn-bisimulation, 
             modular-crn-bisimulation-ls, modular-crn-bisimulation-bf, 
             pathway-decomposition, integrated-hybrid, compositional-hybrid.""")
-    out.add_argument("--verify-timeout", type = int, default = 30, metavar = '<int>',
-            help="Specify time in seconds to wait for verification to complete.")
-
-    out.add_argument("-u", "--concentration-units", default='nM', action='store',
-            choices=('M', 'mM', 'uM', 'nM', 'pM'),
-            help=argparse.SUPPRESS)
     out.add_argument("--modular", action = 'store_true',
             help=argparse.SUPPRESS)
+    out.add_argument("--verify-timeout", type = int, default = 30, metavar = '<int>',
+            help="Specify time in seconds to wait for verification to complete.")
     return parser
 
-def main():
-    """Compare multiple tranlation schemes for a given CRN. """
+def parse_args(args):
     parser = argparse.ArgumentParser()
     get_nuskellCMP_args(parser)
     get_peppercorn_args(parser)
-    args = parser.parse_args()
+    args = parser.parse_args(args)
+    if not args.modular:
+        args.modular = any(map(lambda x: 'modular' in x, args.verify))
+    return args
 
+def main():
+    """Compare multiple tranlation schemes for a given CRN. """
+    args = parse_args(sys.argv[1:])
     # ~~~~~~~~~~~~~
     # Logging Setup 
     # ~~~~~~~~~~~~~
-    title = "NuskellCMP - Comparison of translation schemes {}".format(__version__)
+    title = f"NuskellCMP - Comparison of translation schemes {__version__}"
     if args.verbose >= 3: # Get root logger.
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
@@ -256,12 +238,6 @@ def main():
     logger.info(title)
     logger.info("")
 
-    # *************** #
-    # Check arguments #
-    # _______________ #
-    if not args.modular:
-        args.modular = any(map(lambda x: 'modular' in x, args.verify))
-
     # ***************** #
     # Process CSV input #
     # _________________ #
@@ -274,9 +250,6 @@ def main():
     plotdata = compare_schemes(crns, schemes, args = args)
 
     # Results:
-    dfheader = ['scheme', 'CRN', 'enumerated', '# nuc', '# rxns'
-               ] + args.verify + ['equivalent']
-    print(dfheader)
     for row in plotdata:
         print(row)
 

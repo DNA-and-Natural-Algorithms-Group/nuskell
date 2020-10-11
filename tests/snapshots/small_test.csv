@@ -1,0 +1,5 @@
+,scheme,CRN,enumerated,# nuc,# rxns,crn-bisimulation,modular-crn-bisimulation,pathway-decomposition,compositional-hybrid,integrated-hybrid,equivalent
+0,soloveichik2010.ts,tests/crns/bimol/bimol_07.crn,c,340,4,True,True,False,True,True,True
+1,soloveichik2010.ts,tests/crns/bimol/bimol_08.crn,c,300,4,True,True,False,True,True,True
+2,qian2011_3D_var1.ts,tests/crns/bimol/bimol_07.crn,c,425,10,True,True,True,True,True,True
+3,qian2011_3D_var1.ts,tests/crns/bimol/bimol_08.crn,c,390,10,True,True,True,True,True,True

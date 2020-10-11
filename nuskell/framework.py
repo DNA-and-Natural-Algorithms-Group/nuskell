@@ -13,10 +13,9 @@ log = logging.getLogger(__name__)
 import os
 import sys
 import argparse
-import pkg_resources
 
 from . import __version__
-from .dsdcompiler import translate
+from .dsdcompiler import translate, get_builtin_schemes
 from .dsdenumerator import enumerate_solution, enumerate_modules, interpret_species
 from .crnverifier import verify, verify_modules
 from .ioutils import (natural_sort, 
@@ -25,22 +24,10 @@ from .ioutils import (natural_sort,
                       get_strands,
                       write_vdsd)
 from .crnutils import (parse_crn_string, Reaction, 
-                       split_reversible_reactions, 
                        assign_crn_species,
-                       removeSpecies,
-                       removeTrivial,
+                       remove_species,
+                       cleanup_rxns,
                        genCRN)
-
-class InvalidSchemeError(Exception):
-    """Raise Error: Cannot find translation scheme."""
-    def __init__(self, ts_file, builtin=None):
-        self.message = f"Cannot find translation scheme: {ts_file}\n"
-        if builtin:
-            self.message += "You may want to use one of the built-in schemes instead:\n"
-            self.message += f"Schemes in {builtin}:\n"
-            for s in sorted(os.listdir(builtin)):
-                self.message += " * {}\n".format(s)
-        super(InvalidSchemeError, self).__init__(self.message)
 
 class colors:
     RED = '\033[91m'
@@ -93,11 +80,11 @@ def header(msg):
 def get_peppercorn_args(parser):
     """ Selected arguments for the peppercorn interface. """
     peppercorn = parser.add_argument_group('Peppercorn Reaction Enumerator Arguments')
-    peppercorn.add_argument('--max-complex-size', default=50, type=int, metavar='<int>',
+    peppercorn.add_argument('--max-complex-size', default=10, type=int, metavar='<int>',
             help="""Maximum number of strands allowed in a complex (to prevent polymerization).""")
-    peppercorn.add_argument('--max-complex-count', default=1000, type=int, metavar='<int>',
+    peppercorn.add_argument('--max-complex-count', default=5_000, type=int, metavar='<int>',
             help="""Maximum number of complexes that may be enumerated before the enumerator halts.""")
-    peppercorn.add_argument('--max-reaction-count', default=10000, type=int, metavar='<int>',
+    peppercorn.add_argument('--max-reaction-count', default=10_000, type=int, metavar='<int>',
             help="""Maximum number of reactions that may be enumerated before the enumerator halts.""")
 
     peppercorn.add_argument('--reject-remote', action='store_true',
@@ -223,21 +210,8 @@ def set_handle_verbosity(h, v):
     elif v >= 3:
         h.setLevel(logging.NOTSET)
 
-def simulate_me(icrn):
-    # A wrapper for enumeration? -> dsdenumerate.py
-    raise NotImplementedError
-
-def find_scheme_file(ts):
-    if not os.path.isfile(ts):
-        builtin = 'schemes/' + ts
-        try:
-            ts = pkg_resources.resource_filename('nuskell', builtin)
-        except KeyError:
-            schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-            raise InvalidSchemeError(ts, schemedir)
-    return ts
-
 def assign_species(complexes):
+    """ The nuskell naming standard for all types of species. """
     fuels = [x for x in complexes.values() if x.name[0] == 'f']
     wastes = [x for x in complexes.values() if x.name[0] == 'w']
     intermediates = [x for x in complexes.values() if x.name[0] == 'i']
@@ -255,9 +229,9 @@ def get_verification_crn(reactions, fuels, signals):
                 '\n  '.join(natural_sort(genCRN(icrn, reversible = True))))
 
     # Prepare the verification CRN - Step 2: 
-    icrn = removeSpecies(icrn, fuels)
+    icrn = remove_species(icrn, fuels)
     intermediates, wastes, _ = assign_crn_species(icrn, signals)
-    icrn = removeTrivial(removeSpecies(icrn, wastes))
+    icrn = cleanup_rxns(remove_species(icrn, wastes))
     return icrn, fuels, wastes
 
 def get_verification_modules(fcrn, mreactions, fuels, wastes):
@@ -267,7 +241,7 @@ def get_verification_modules(fcrn, mreactions, fuels, wastes):
         mcrn = [Reaction([str(x) for x in rxn.reactants], 
                          [str(x) for x in rxn.products], 
                          rxn.rate.constant, 0) for rxn in module]
-        mcrn = removeTrivial(removeSpecies(mcrn, fuels | wastes))
+        mcrn = cleanup_rxns(remove_species(mcrn, fuels | wastes))
         icrns.append(mcrn)
     return fcrns, icrns
 
@@ -293,9 +267,9 @@ def main():
     parser = get_peppercorn_args(parser)
     args = parser.parse_args()
 
-    # ~~~~~~~~~~~~~
-    # Logging Setup 
-    # ~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~ #
+    # Logging Setup #
+    # ~~~~~~~~~~~~~ #
     title = f"Nuskell Domain-level System Compiler {__version__}"
     if args.verbose >= 3: # Get root logger.
         logger = logging.getLogger()
@@ -322,15 +296,16 @@ def main():
     logger.info("")
 
     if args.schemes:
-        schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-        print(f"Listing schemes in: {schemedir}")
-        for s in sorted(os.listdir(schemedir)):
-            print("   --ts {}".format(s))
+        schemes = get_builtin_schemes()
+        for k, v in schemes.items():
+            print(f'Listing installed schemes: "{k}"')
+            for s in v:
+                print(f"   --ts {s}")
         raise SystemExit
 
-    # ~~~~~~~~~~~~~~~~~~~
-    # Argument processing
-    # ~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~ #
+    # Argument processing #
+    # ~~~~~~~~~~~~~~~~~~~ #
     comppil = args.output + '_sys.pil' if args.pilfile else None
     enumpil = args.output + '_enum.pil' if args.pilfile else None
     dnafile = args.output + '.dna' if args.dnafile else None
@@ -338,24 +313,23 @@ def main():
     if not args.modular:
         args.modular = any(map(lambda x: 'modular' in x, args.verify))
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Parse and process input CRN
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+    # Parse and process input CRN #
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
     input_crn = "".join(sys.stdin.readlines())
     fcrn, fsc = parse_crn_string(input_crn)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~
-    # Initialize the TestTube
-    # ~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~ #
+    # Do the translation #
+    # ~~~~~~~~~~~~~~~~~~ #
     if args.ts:  # Translate CRN using a translation scheme
-        ts = find_scheme_file(args.ts)
-        log.info(header("Translating using scheme {ts}"))
-        solution, modules = translate(input_crn, ts, modular = args.modular)
+        log.info(header(f"Translating using scheme {args.ts}"))
+        solution, modules = translate(input_crn, args.ts, modular = args.modular)
     elif args.readpil:  # Parse information from a PIL file 
         if args.modular:
             raise NotImplementedError('Modular verification cannot be used in combiation with --readpil input.')
         log.info(header(f"Parsing file {args.readpil}"))
-        dom, solution, rms, det, con = load_pil(args.readpil)
+        dom, solution, rms, det, con = load_pil(args.readpil, is_file = True)
         if det:
             log.warning(f'Ignoring {len(det)} detailed reactions in {args.readpil}.')
         if con:
@@ -364,10 +338,11 @@ def main():
             log.warning(f'Ignoring {len(rms)} resting macrostates in {args.readpil}.')
     else:
         log.error("Please specify a translation scheme, see option --ts.")
-        schemedir = pkg_resources.resource_filename('nuskell', 'schemes')
-        log.error("For exaple the schemes in: {}".format(schemedir))
-        for s in sorted(os.listdir(schemedir)):
-            print("   --ts {}".format(s))
+        schemes = get_builtin_schemes()
+        for k, v in schemes.items():
+            log.error(f'Listing installed schemes: "{k}"')
+            for s in v:
+                log.error(f"   --ts {s}")
         raise SystemExit
 
     fuels, wastes, intermediates, signals = assign_species(solution)
@@ -411,13 +386,13 @@ def main():
 
     if args.verify or args.enumerate:
         log.info(header("Enumerating reaction pathways."))
-        complexes, reactions = enumerate_solution(solution, args)
+        complexes, reactions = enumerate_solution(solution, args, molarity = args.concentration_units)
 
         if not reactions:
             raise SystemExit('No DSD reactions have been enumerated.')
 
-        log.info(f"After enumeration: " + \
-                "{len(complexes)} species, {len(reactions)} reactions")
+        log.info("After enumeration: " + \
+                f"{len(complexes)} species, {len(reactions)} reactions")
 
         # Only for debugging.
         log.debug('\n' + write_pil(complexes, reactions, fh = None,
@@ -469,9 +444,9 @@ def main():
                 print(f' - module {e+1}: {len(mcomplexes[e])} complexes',
                                    f'and {len(mreactions[e])} reactions.')
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Verify equivalence of CRNs
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+    # Verify correctness of implementation CRN #
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
     if args.verify:
         logger.info(header("Verification using: {}".format(args.verify)))
         formals = set(fsc.keys())

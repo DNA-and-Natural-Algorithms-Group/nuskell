@@ -9,7 +9,7 @@ In order to proof/disproof the correctness of a particular translation,
 ``Nuskell`` includes 
 the domain-level reaction enumeration package [Peppercorn][] [[Badelt et al. (2020)]] and 
 the CRN verification package [crnverifier][].
-Peppercorn is used to find intended and potentially unintended reaction
+Peppercorn finds intended and potentially unintended reaction
 pathways, the crnverifier then checks if the implementation CRN is a 
 correct implementation of the formal CRN using the
 stochastic trajectory-type CRN correctness notions 
@@ -28,7 +28,7 @@ for options see:
   $ nuskell --help
 ```
 ## Translation Schemes
-Detailed information about translation schemes can be found in the ``/schemes`` directory.
+Detailed information about translation schemes can be found in the ``schemes`` directory.
  
 ## Installation
 ```
@@ -39,7 +39,7 @@ Detailed information about translation schemes can be found in the ``/schemes`` 
 A preview of the documentation for release v1.0 can be found at: [documentation].
 
 ## Version
-0.8 -- basically a complete rewrite, python>=3.7 only.
+0.8 -- basically a complete rewrite, python>=3.8 only.
     * nuskell.dsdcompiler is now an independent subpackage to compile from CRN to DSD.
     * crnverifier is now an independent package and therefore a dependency.
     * enumeration interface updated to peppercornenumerator 1.0.
@@ -64,7 +64,7 @@ Stefan Badelt, Seung Woo Shin, Robert F. Johnson, Qing Dong, Chris Thachuk, and 
 [//]: References
 [Peppercorn]: <https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator>
 [crnverifier]: <https://github.com/DNA-and-Natural-Algorithms-Group/crnverifier>
-[translation schemes]: <https://github.com/DNA-and-Natural-Algorithms-Group/nuskell/tree/master/schemes>
+[translation schemes]: <https://github.com/DNA-and-Natural-Algorithms-Group/nuskell/tree/master/nuskell/dsdcompiler/schemes>
 [Badelt et al. (2017)]: <https://doi.org/10.1007/978-3-319-66799-7_15>
 [Badelt et al. (2020)]: <https://doi.org/10.1098/rsif.2019.0866>
 [Shin et al. (2019)]: <https://doi.org/10.1016/j.tcs.2017.10.011> 

@@ -30,7 +30,6 @@ def load_pil(data, is_file = False):
     doms, cplxs, rms, det, con = oio.read_pil(data, is_file)
     return doms, cplxs, rms, det, con 
 
-
 def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc = None, ts = None):
     """ Write the contents of solution into a PIL file (kernel notation).
 
@@ -120,7 +119,7 @@ def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc =
     return ''.join(out)
 
 def write_vdsd(solution, fh = None, molarity = 'nM', crn = None, fsc = None, ts = None):
-    """ Write the contents of solution into VisualDSD \*.dna format.
+    r""" Write the contents of solution into VisualDSD \*.dna format.
 
     Args:
         solution (dict): A dictionary containing all the complexes in solution.

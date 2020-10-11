@@ -10,7 +10,7 @@ from nuskell.dsdcompiler.compiler import translate
 class Test_Workflow(unittest.TestCase):
     def test_compile(self):
         crn = 'A + B -> C + D; A + A <=> C + A; C @i 5'
-        ts = 'schemes/literature/soloveichik2010.ts'
+        ts = 'soloveichik2010.ts'
 
         solution, modules = translate(crn, ts, modular = True)
 
@@ -20,7 +20,6 @@ class Test_Workflow(unittest.TestCase):
         assert len(s) == 4
         assert len(f) == 9
         assert len(modules) == 2
-
         assert solution['A'].concentration is None
         assert solution['C'].concentration.mode == 'initial'
         assert solution['C'].concentration.value == 5

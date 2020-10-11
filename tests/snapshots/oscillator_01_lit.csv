@@ -1,0 +1,12 @@
+,scheme,CRN,enumerated,# nuc,# rxns,crn-bisimulation,modular-crn-bisimulation,pathway-decomposition,compositional-hybrid,integrated-hybrid,equivalent
+0,cardelli2011_FJ.ts,tests/crns/oscillator_01.crn,c,1485,78,,False,False,,,timeout
+1,cardelli2011_NM.ts,tests/crns/oscillator_01.crn,c,1290,69,,False,False,,,timeout
+2,cardelli2013_2D.ts,tests/crns/oscillator_01.crn,c,810,42,False,False,False,False,False,False
+3,cardelli2013_2D_2TGC.ts,tests/crns/oscillator_01.crn,c,990,45,False,False,,,,timeout
+4,cardelli2013_2D_3I.ts,tests/crns/oscillator_01.crn,c:rr,1005,39,,False,,,,timeout
+5,chen2013_2D_JF.ts,tests/crns/oscillator_01.crn,c,900,39,False,False,False,False,False,False
+6,lakin2012_3D.ts,tests/crns/oscillator_01.crn,c,810,108,True,True,False,False,False,True
+7,lakin2016_2D_3I.ts,tests/crns/oscillator_01.crn,c:rr,1155,36,,False,,,,timeout
+8,qian2011_3D.ts,tests/crns/oscillator_01.crn,c,630,27,False,False,False,False,False,False
+9,soloveichik2010.ts,tests/crns/oscillator_01.crn,c,780,27,True,True,False,True,True,True
+10,srinivas2015.ts,tests/crns/oscillator_01.crn,c,780,33,True,True,False,True,True,True

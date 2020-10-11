@@ -9,7 +9,7 @@ from dsdobjects import (clear_memory,
                         DSDObjectsError,
                         DSDDuplicationError)
 from dsdobjects.core import DL_Domain, DSD_Complex
-from dsdobjects.prototypes import Complex
+from dsdobjects.prototypes import Complex as NuskellComplex
 
 class NuskellObjectError(Exception):
     pass
@@ -93,7 +93,4 @@ class NuskellDomain(DL_Domain):
     def is_complement(self):
         """ bool: The domain is a complement: (e.g. A* rather than A). """
         return self._name[-1:] == '*'
-
-class NuskellComplex(Complex):
-    pass
 

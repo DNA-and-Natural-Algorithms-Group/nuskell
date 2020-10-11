@@ -12,6 +12,8 @@ programming language (a language to formulate CRN to DSD translation schemes).
 import logging
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-from .compiler import translate
+from .compiler import (translate, 
+                       get_builtin_schemes,
+                       InvalidSchemeError)
 from .interpreter import NuskellExit
 
