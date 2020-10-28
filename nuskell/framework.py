@@ -272,6 +272,7 @@ def main():
     # ~~~~~~~~~~~~~ #
     title = f"Nuskell Domain-level System Compiler {__version__}"
     if args.verbose >= 3: # Get root logger.
+        args.verbose -= 2
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
         lformat = '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s'

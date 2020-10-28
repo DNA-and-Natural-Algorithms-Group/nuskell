@@ -10,6 +10,7 @@ import sys
 import argparse
 from itertools import chain
 from dsdobjects import clear_memory, DSDDuplicationError
+from dsdobjects.core import DSD_Complex
 from peppercornenumerator import (CondensationError, 
                                   PolymerizationError)
 
@@ -78,12 +79,13 @@ def compare_schemes(crns, schemes, args = None):
             except NuskellExit as e:
                 log.error(e)
                 log.error(f"Exiting translation for {name} and {ts}.")
-                current.extend([None] * len(args.verify) + [None, None, None])
+                current.extend([None, None, None] + [None] * (len(args.verify)+1))
                 plotdata.append(current)
                 continue
 
             # ENUMERATE
             try:
+                backupCM = DSD_Complex.MEMORY
                 semantics = ['d'] if args.enum_detailed else ['c']
                 complexes, reactions = enumerate_solution(solution, args)
                 interpretation, complexes, reactions = interpret_species(complexes, 
@@ -98,6 +100,7 @@ def compare_schemes(crns, schemes, args = None):
                                                                reactions,
                                                                args)
             except PolymerizationError as e:
+                DSD_Complex.MEMORY = backupCM
                 # NOTE: Many PolymerizationErrors are easiest to fix with
                 # --reject-remote enumeration semantics, but that is not a
                 # guarantee it that it will work.
@@ -115,18 +118,18 @@ def compare_schemes(crns, schemes, args = None):
                                                                    interpretation,
                                                                    complexes,
                                                                    reactions,
-                                                                   args)
+                                                                   args, prefix = 'pm')
                     semantics.append('rr')
                     args.reject_remote = False
                 except PolymerizationError as e:
                     log.error(e)
-                    current.extend([None] * len(args.verify) + [None, None, None])
+                    current.extend([None, None, None] + [None] * (len(args.verify)+1))
                     plotdata.append(current)
                     continue
 
             if not reactions:
                 log.error("No DSD reactions have been enumerated ({name=}, {ts=}).")
-                current.extend([None] * len(args.verify) + [None, None, None])
+                current.extend([None, None, None] + [None] * (len(args.verify)+1))
                 plotdata.append(current)
                 continue
             current.append(':'.join(semantics))
@@ -221,6 +224,7 @@ def main():
     # ~~~~~~~~~~~~~
     title = f"NuskellCMP - Comparison of translation schemes {__version__}"
     if args.verbose >= 3: # Get root logger.
+        args.verbose -= 2
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter(

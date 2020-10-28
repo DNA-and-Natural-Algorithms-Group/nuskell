@@ -12,9 +12,14 @@ verification of *all* builtin schemes for some selected CRNs in
 This is not a regular unittest, run overnight to check consistency of results
 before every release.
 """
-import logging
-logger = logging.getLogger('nuskell')
-logger.setLevel(logging.INFO)
+#import logging
+#logger = logging.getLogger('peppercornenumerator')
+#logger.setLevel(logging.DEBUG)
+#fh = logging.FileHandler('tests/test_schemes.log')
+#fh.setLevel(logging.DEBUG)
+#formatter = logging.Formatter('[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s')
+#fh.setFormatter(formatter)
+#logger.addHandler(fh)
 
 import os
 import unittest
@@ -28,7 +33,7 @@ from nuskell.compare_schemes import (parse_args,
                                      compare_schemes)
 
 SKIP = False # These are only skipped for debugging, or if pandas is missing.
-SKIP_SLOW = True # These here are slow tests, which should be skipped by default!
+SKIP_SLOW = False # These here are slow tests, which should be skipped by default!
 
 try: 
     import pandas as pd
@@ -70,6 +75,8 @@ def compare_snapshots(cmp_file, new_file, crns, schemes, args = None):
 
 @unittest.skipIf(SKIP, "missing pandas requirement.")
 class QuickSnapshotCMP(unittest.TestCase):
+    def tearDown(self):
+        clear_memory()
     def test_small_nuskellCMP(self):
         # Exisiting & generated data files.
         cmp_file = 'tests/snapshots/small_test.csv'
@@ -80,7 +87,8 @@ class QuickSnapshotCMP(unittest.TestCase):
         # Output
         compare_snapshots(cmp_file, new_file, crns, schemes)
 
-    def dont_test_bigger_nuskellCMP(self):
+    @unittest.skipIf(SKIP_SLOW, "slow tests are disabled by default")
+    def test_bigger_nuskellCMP(self):
         # Exisiting & generated data files.
         cmp_file = 'tests/snapshots/bigger_test.csv'
         new_file = 'tests/snapshots/bigger_test.new'

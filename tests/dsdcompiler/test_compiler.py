@@ -5,9 +5,13 @@
 #
 
 import unittest
+from dsdobjects.core import clear_memory
 from nuskell.dsdcompiler.compiler import translate
 
 class Test_Workflow(unittest.TestCase):
+    def tearDown(self):
+        clear_memory()
+
     def test_compile(self):
         crn = 'A + B -> C + D; A + A <=> C + A; C @i 5'
         ts = 'soloveichik2010.ts'

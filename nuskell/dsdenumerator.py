@@ -22,7 +22,7 @@ from .objects import NuskellReaction
 class DSDenumerationError(Exception):
     pass
 
-def enumerate_modules(modules, interpretation, solution, reactions, args):
+def enumerate_modules(modules, interpretation, solution, reactions, args, prefix = 'm'):
     """ Enumerate all modules, but replaces wildcard species with other signal species.
     """
     seen = set()
@@ -38,11 +38,17 @@ def enumerate_modules(modules, interpretation, solution, reactions, args):
                     if cplx.name in module:
                         del module[cplx.name]
 
-        mc, mr = enumerate_solution(module, args, prefix = 'm')
+        mc, mr = enumerate_solution(module, args, prefix = prefix)
         # after enumeration, make sure there were no new 'm' species found.
         for mcplx in list(mc.values()):
             for scplx in solution.values():
                 if scplx == mcplx:
+                    if scplx.name != mcplx.name:
+                        print(f'{scplx.name}, {mcplx.name}, {prefix=}')
+                        print(f'{scplx}, {mcplx}')
+                        print(f'{e}, {list(map(str, module))=}')
+                        print(f'{interpretation=}')
+                        print(f'{list(map(str, solution))=}')
                     assert scplx.name == mcplx.name
                     break
             else:
