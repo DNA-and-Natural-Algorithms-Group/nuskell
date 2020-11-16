@@ -5,7 +5,7 @@
 #
 
 import unittest
-from dsdobjects.core import clear_memory
+from nuskell.dsdcompiler.objects import clear_memory
 from nuskell.dsdcompiler.compiler import translate
 
 class Test_Workflow(unittest.TestCase):
@@ -25,12 +25,12 @@ class Test_Workflow(unittest.TestCase):
         assert len(f) == 9
         assert len(modules) == 2
         assert solution['A'].concentration is None
-        assert solution['C'].concentration.mode == 'initial'
-        assert solution['C'].concentration.value == 5
-        assert solution['C'].concentration.unit == 'nM'
-        assert solution['f1'].concentration.mode == 'constant'
-        assert solution['f1'].concentration.value == 100
-        assert solution['f1'].concentration.unit == 'nM'
+        assert solution['C'].concentration[0] == 'initial'
+        assert solution['C'].concentration[1] == 5
+        assert solution['C'].concentration[2] == 'nM'
+        assert solution['f1'].concentration[0] == 'constant'
+        assert solution['f1'].concentration[1] == 100
+        assert solution['f1'].concentration[2] == 'nM'
 
 
 if __name__ == '__main__':

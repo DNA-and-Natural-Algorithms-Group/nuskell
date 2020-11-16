@@ -19,8 +19,8 @@ in the respective namespace.
 import logging
 log = logging.getLogger(__name__)
 
-from copy import copy
-from .objects import NuskellDomain, NuskellComplex, DSD_Complex, DSDDuplicationError
+from copy import deepcopy
+from .objects import NuskellDomain, NuskellComplex, SingletonError
 
 class NuskellExit(SystemExit):
     pass
@@ -72,7 +72,7 @@ def flatten(l):
         return flatten(l[0]) + flatten(l[1:])
     return l[:1] + flatten(l[1:])
 
-class NusComplex(DSD_Complex):
+class ComplexFragment:
     """ A nucleic acid complex, i.e. a (sequence, structure) pair.
 
     This is an extension of dsdobjects.core.DSD_Complex(), which stores an
@@ -85,19 +85,10 @@ class NusComplex(DSD_Complex):
       sequence (List[str]): Domain Objects
       structure (List[str]): A list of dot-parens characters ".(.+)."
     """
-    def __new__(cls, attr=dict(), *kargs, **kwargs):
-        # The new method returns the present instance of an object, if it exists
-        self = DSD_Complex.__new__(cls)
-        try:
-            super(NusComplex, self).__init__(*kargs, **kwargs)
-            self.attributes = attr
-        except DSDDuplicationError as e:
-            return e.existing
-        return self
-
-    def __init__(self, attr=dict(), *kargs, **kwargs):
-        # Remove default initialziation to get __new__ to work
-        pass
+    def __init__(self, sequence, structure, attr = None):
+        self.sequence = sequence
+        self.structure = structure
+        self.attributes = dict() if attr is None else attr
 
     @property
     def flatten_cplx(self):
@@ -115,7 +106,7 @@ class NusComplex(DSD_Complex):
                 return s, c
             elif s == '+' and c == '+':
                 return s, c
-            elif isinstance(s, NusComplex):
+            elif isinstance(s, ComplexFragment):
                 assert (c == '~')
                 return s.sequence, s.structure
             elif isinstance(s, list):
@@ -123,21 +114,19 @@ class NusComplex(DSD_Complex):
                 # map returns a list of [[seq, str], ..]
                 # zip transposes this into tuples
                 # ([seq1,seq2,...]),([str1,str2,...])
-                return [list(a) for a in zip(*map(lambda i: resolve(s[i], '~'),
-                                                  range(len(s))))]
+                return [list(a) for a in zip(*map(lambda i: resolve(s[i], '~'), range(len(s))))]
             elif s == '?':
                 assert (c in ['(', '.', ')'])
-                return NuskellDomain(prefix='h', dtype='long'), c
-                # return s, c
+                return NuskellDomain(prefix = 'h', dtype = 'long'), c
             else:
                 raise NotImplementedError
 
         newseq = []
         newstr = []
-        for i in range(len(self._sequence)):
-            if self._sequence[i] == [] and self._structure[i] == '~':
+        for i in range(len(self.sequence)):
+            if self.sequence[i] == [] and self.structure[i] == '~':
                 continue
-            se, ss = resolve(self._sequence[i], self._structure[i])
+            se, ss = resolve(self.sequence[i], self.structure[i])
             newseq.append(se)
             newstr.append(ss)
 
@@ -154,14 +143,12 @@ class NusComplex(DSD_Complex):
             else:
                 start = False
 
-        self._sequence = newseq
-        self._structure = newstr
-        return self._sequence, self._structure
+        self.sequence = newseq
+        self.structure = newstr
+        return self.sequence, self.structure
 
 class NuskellExpressions:
-    """ Builtin expressions for Nuskell translation schemes.  
-    """
-    # Say something about special trailer functions here?
+    """ Builtin expressions for Nuskell translation schemes. """
 
     def interpret_expr(self, expr):
         """Recursive interpretation the body of a global variable."""
@@ -177,78 +164,65 @@ class NuskellExpressions:
                      "<=": lambda x, y: x <= y}
 
         keywords = {
-            'id': lambda self, content: (self._env, self._ref_binding(content[0])),
-            'if': self._if,  # return self._env, value
-            'or': self._or,  # return self._env, operand1 or operand2
-            'and': self._and,  # return self._env, operand1 and operand2
-            'num': lambda self, content: (self._env, int(content[0])),
-            'quote': lambda self, content: (self._env, content[0]),
-            'dict': self._dict,
-            'dna': self._dna,  # return self._env, NusComplex()
-            'list': self._list,  # return self._env, content
-            'where': self._where,  # return self._env, value
-            'uminus': self._uminus,  # return self._env, -value (integer only!)
+            'id': lambda content: self.ref_binding(content[0]),
+            'num': lambda content: int(content[0]),
+            'quote': lambda content: content[0],
         }
 
         tag = expr[0]
         content = expr[1:]
 
         if tag in operators.keys():
-            self._env, operand1 = self.interpret_expr(content[0])
-            self._env, operand2 = self.interpret_expr(content[1])
-            return self._env, operators[tag](operand1, operand2)
+            operand1 = self.interpret_expr(content[0])
+            operand2 = self.interpret_expr(content[1])
+            return operators[tag](operand1, operand2)
 
         elif tag == 'trailer':
-            trailerkeys = {
-                'apply': self._apply,
-                'index': self._index,
-                'attribute': self._attribute
-            }
-            # function call, list attribute of an object
-            self._env, head = self.interpret_expr(content[0])
-
+            # Only the result of the last evaluation is returned.  That allows
+            # for calculating things in the earlier runs and return only the
+            # intersting part at last. => see translate_formal_species
+            head = self.interpret_expr(content[0])
+            body = content[1:]
             for x in content[1:]:
-                key = x[0]
-                args = x[1:]
-                self._env, head = trailerkeys[key](self, head, args)
-            return self._env, head
+                key, args = x[0], x[1:]
+                assert key in ('apply', 'index', 'attribute')
+                head = getattr(self, key)(head, args)
+            return head
 
         elif tag in keywords.keys():
-            return keywords[tag](self, content)
-
+            return keywords[tag](content)
         else:
-            raise NuskellEnvError("Unknown expression: `" + tag + "'")
-            return self._env, None
+            assert tag in ('if', 'or', 'and', 'dict', 'list', 'dna', 'uminus', 'where')
+            return getattr(self, '_'+tag)(content)
 
     # Context-dependent
-    @staticmethod
-    def _if(theenv, content):
+    def _if(self, content):
         """ Evaluate a (nested) if clause. """
         while len(content) > 1:
-            theenv._env, test = theenv.interpret_expr(content[0])
+            test = self.interpret_expr(content[0])
             if test:
-                theenv._env, value = theenv.interpret_expr(content[1])
-                return theenv._env, value
+                value = self.interpret_expr(content[1])
+                return value
             else:
                 content = content[2:]
-        theenv._env, value = theenv.interpret_expr(content[0])
-        return theenv._env, value
+        value = self.interpret_expr(content[0])
+        return value
 
-    def _or(self, theenv, content):
-        theenv._env, operand1 = theenv.interpret_expr(content[0])
+    def _or(self, content):
+        operand1 = self.interpret_expr(content[0])
         if operand1:
-            return theenv._env, operand1
-        theenv._env, operand2 = theenv.interpret_expr(content[1])
-        return theenv._env, operand1 or operand2
+            return operand1
+        operand2 = self.interpret_expr(content[1])
+        return operand1 or operand2
 
-    def _and(self, theenv, content):
-        theenv._env, operand1 = theenv.interpret_expr(content[0])
+    def _and(self, content):
+        operand1 = self.interpret_expr(content[0])
         if not operand1:
-            return theenv._env, False
-        theenv._env, operand2 = theenv.interpret_expr(content[1])
-        return theenv._env, operand1 and operand2
+            return False
+        operand2 = self.interpret_expr(content[1])
+        return operand1 and operand2
 
-    def _dict(self, theenv, content):
+    def _dict(self, content):
         kwargs = {}
         for asign in content:
             if asign[1][0] == 'num':
@@ -256,9 +230,14 @@ class NuskellExpressions:
             if asign[1][0] == 'quote':
                 asign[1][1] = asign[1][1][1:-1]
             kwargs[asign[0][1]] = asign[1][1]
-        return theenv._env, kwargs
+        return kwargs
 
-    def _dna(self, theenv, content):
+    def _list(self, content):
+        for i in range(len(content)):
+            content[i] = self.interpret_expr(content[i])
+        return content
+
+    def _dna(self, content):
         domains = content[0]
         dotparen = content[1]
         attributes = {}
@@ -267,56 +246,43 @@ class NuskellExpressions:
                 starred = (len(domains[i]) == 2)
                 dom = domains[i][0]
                 # Get the binding for e.g.: ['id', 'd13']
-                theenv._env, dom_value = theenv.interpret_expr(dom)
+                dom_value = self.interpret_expr(dom)
                 attributes[dom[1]] = dom_value
                 if starred:
                     dom_value = ~dom_value
                 domains[i] = dom_value
-        return theenv._env, NusComplex(sequence = domains, 
-                                       structure = dotparen,
-                                       attr = attributes,
-                                       memorycheck = False)
+        return ComplexFragment(domains, dotparen, attributes)
 
-    def _list(self, theenv, content):
-        for i in range(len(content)):
-            theenv._env, content[i] = theenv.interpret_expr(content[i])
-        return theenv._env, content
-
-    def _where(self, theenv, content):
-        theenv._create_level()
-        if len(content) > 1:
-            # if this is not a trivial where clause
-            for asgn in content[1]:
-                id_list = asgn[0]
-                value = asgn[1]
-
-                theenv._env, value = theenv.interpret_expr(value)
-                id_list = self._bfunc_Obj.remove_id_tags(id_list)
-
-                for key, value in self._bfunc_Obj.asgn_pattern_match(
-                        id_list, value):
-                    theenv._create_binding(key, value)
-
-        theenv._env, value = theenv.interpret_expr(content[0])
-        theenv._destroy_level()
-        return theenv._env, value
-
-    def _uminus(self, theenv, content):
-        theenv._env, value = theenv.interpret_expr(content[0])
+    def _uminus(self, content):
+        value = self.interpret_expr(content[0])
         if not isinstance(value, int):
-            raise NuskellEnvError(
-                "The unary minus operator can only be used with integers.")
-        return theenv._env, -value
+            raise NuskellEnvError("The unary minus operator can only be used with integers.")
+        return -value
+
+    def _where(self, content):
+        self._create_level()
+        if len(content) > 1:
+            for asgn in content[1]:
+                assert len(asgn) == 2 # to make the next line prettier
+                id_list, value = asgn[0], asgn[1]
+                value = self.interpret_expr(value)
+                id_list = self._fun.remove_id_tags(id_list)
+
+                for key, value in self._fun.asgn_pattern_match(id_list, value):
+                    self.create_binding(key, value)
+
+        value = self.interpret_expr(content[0])
+        self._destroy_level()
+        return value
 
     # trailer functions
-    def _apply(self, theenv, head, args):
+    def apply(self, head, args):
         for i in range(len(args)):
-            theenv._env, args[i] = theenv.interpret_expr(args[i])
-        theenv._env, head = theenv._eval_func(head, args)
-        return theenv._env, head
+            args[i] = self.interpret_expr(args[i])
+        return self._eval_func(head, args)
 
-    def _index(self, theenv, head, args):
-        theenv._env, subscript = theenv.interpret_expr(args[0])
+    def index(self, head, args):
+        subscript = self.interpret_expr(args[0])
         if not isinstance(head, list):
             raise NuskellEnvError("Only lists can be indexed.")
         if not isinstance(subscript, int):
@@ -326,17 +292,17 @@ class NuskellExpressions:
         except IndexError:
             raise NuskellEnvError(
                 "Error in translation scheme, expected element but got empty list.")
-        return theenv._env, head
+        return head
 
-    def _attribute(self, theenv, head, args):
+    def attribute(self, head, args):
         identifier = args[0][1]  # strip the tag
-        if isinstance(head, NusComplex):
+        if isinstance(head, ComplexFragment):
             head = head.attributes[identifier]
         elif identifier in head.__dict__:
             head = head.__dict__[identifier]
         else:
             raise NuskellEnvError(f"The attribute '{identifier}' could not be found.")
-        return theenv._env, head
+        return head
 
 class NuskellFunctions:
     """ Builtin functions of Nuskell translation schemes.
@@ -349,10 +315,20 @@ class NuskellFunctions:
     ################################
     ### Builtin-function section ###
     ################################
-
-    def __init__(self, *kargs, **kwargs):
-        super(NuskellFunctions, self).__init__(*kargs, **kwargs)
-
+    def __init__(self, env):
+        env.create_binding("print", NusFunction(["s"], "print"))
+        env.create_binding("abort", NusFunction(["s"], "abort"))
+        env.create_binding("tail", NusFunction(["l"], "tail"))
+        env.create_binding("flip", NusFunction(["l", "n"], "flip"))
+        env.create_binding("long", NusFunction([], "long"))
+        env.create_binding("short", NusFunction([], "short"))
+        env.create_binding("infty", NusFunction(["species"], "infty"))
+        env.create_binding("unique", NusFunction(["l"], "unique"))
+        env.create_binding("complement", NusFunction(["l"], "complement"))
+        env.create_binding("rev_reactions", NusFunction(["crn"], "rev_reactions"))
+        env.create_binding("irrev_reactions", NusFunction(["crn"], "irrev_reactions"))
+        env.create_binding("empty", [])
+ 
     def eval_builtin_functions(self, f, args):
         """Evaluate built-in functions.
 
@@ -412,7 +388,7 @@ class NuskellFunctions:
     def _print(self, args):
         """ Print statment, primarily to debug nuskell scripts. """
         for a in args:
-            if isinstance(a, NusComplex) or isinstance(a, NuskellComplex):
+            if isinstance(a, ComplexFragment) or isinstance(a, NuskellComplex):
                 print(list(map(str, a.sequence)))
             else:
                 print(str(a), end = '')
@@ -468,21 +444,25 @@ class NuskellFunctions:
         This function assigns infinite concentration to the complex, which
         is a placeholder until we have come to a more reasonable solution.
         """
-        if not isinstance(args[0], NusComplex):
+        if not isinstance(args[0], ComplexFragment):
             raise NuskellEnvError("The argument of 'infty' should be a complex")
-        args[0].flatten_cplx
-        if args[0].sequence == [] and args[0].structure == []:
-            return []
+
+        cplxL = []
+        frag = args[0]
+        frag.flatten_cplx
+        if frag.sequence == [] or frag.structure == []:
+            assert frag.sequence == [] and frag.structure == []
+            pass
         else:
-            try : 
-                final = NuskellComplex(args[0].sequence, 
-                                       args[0].structure, 
-                                       prefix = 'final')
-                final.concentration = ('constant', float('inf'), 'nM')
-                return [final]
-            except DSDDuplicationError as e:
-                final = e.existing
-                return []
+            try: 
+                fuel = NuskellComplex(frag.sequence, 
+                                      frag.structure, 
+                                      prefix = 'f')
+                fuel.concentration = ('constant', float('inf'), 'nM')
+                cplxL.append(fuel)
+            except SingletonError as e:
+                pass
+        return cplxL
 
     @staticmethod
     def complement(args):
@@ -500,12 +480,10 @@ class NuskellFunctions:
             # args[0] forces us to introduce additional lists ...
             for i in range(len(x)):
                 x[i] = [x[i]]
-            return list(reversed(map(self._complement, x)))
+            return list(reversed(map(self.complement, x)))
         elif isinstance(x, Domain):
             log.warning(f'Untested function: {~x}')
             return ~x
-        elif isinstance(x, NusComplex):
-            raise NotImplementedError
         elif x == "(":
             return ")"
         elif x == ")":
@@ -573,16 +551,11 @@ class NuskellFunctions:
     @staticmethod
     def remove_id_tags(l):
         """ Helper function to remove all tags from the given id_list. """
-        kwd = l[0]
-        if kwd == "idlist":
-            return list(map(NuskellFunctions.remove_id_tags, l[1:]))
-        elif kwd == "id":
-            return l[1]
-        else:
-            raise NuskellEnvError("Could not remove id tags.")
+        assert l[0] in ('idlist', 'id')
+        return l[1] if l[0] == 'id' else list(map(NuskellFunctions.remove_id_tags, l[1:]))
 
 class NuskellEnvironment(NuskellExpressions):
-    """The Nuskell language environment.
+    """ The Nuskell language environment.
 
     :obj:`NuskellEnvironment()` interprets the Nuskell language using low-level
     instructions, and executes the formal and main functions of translation
@@ -596,19 +569,16 @@ class NuskellEnvironment(NuskellExpressions):
     def __init__(self):
         # Setup the builtin functions.
         self._env = [{}]
-        self._bfunc_Obj = self._init_builtin_functions()
+        self._fun = NuskellFunctions(self)
 
     # Public functions #
     def interpret(self, code):
-        """Build the Environment (the final namespace).
+        """ Setup the environment (the final namespace).
 
         Creates bindings for variables and functions defined in the body of the
-        translation scheme.
-
-        Note:
-          All keywords (class, function, macro, module) are treated the same,
-          only the **global** keyword is special, as global expressions are
-          **interpreted first** and then bound.
+        translation scheme. All keywords (class, function, macro, module) are
+        treated the same, only the **global** keyword is special, as global
+        expressions are **interpreted first** and then bound.
         """
         for stmt in code:
             kwd = stmt[0]
@@ -617,14 +587,14 @@ class NuskellEnvironment(NuskellExpressions):
             if kwd == "global":
                 # create binding to interpretation of the expression
                 id_list = body[0]
-                id_list = self._bfunc_Obj.remove_id_tags(id_list)
+                id_list = self._fun.remove_id_tags(id_list)
 
                 value = body[1]
-                self._env, value = self.interpret_expr(value)
+                value = self.interpret_expr(value)
 
-                for key, value in self._bfunc_Obj.asgn_pattern_match(id_list, 
+                for key, value in self._fun.asgn_pattern_match(id_list, 
                                                                      value):
-                    self._create_binding(key, value)
+                    self.create_binding(key, value)
             else:
                 # create binding to the function, without interpretation
                 # e.g. kwd = module; id = 'rxn'; args = ['r']; body_ =
@@ -634,7 +604,7 @@ class NuskellEnvironment(NuskellExpressions):
                 # remove 'id' tags from args
                 args = list(map(lambda x: x[1], body[1]))
                 body_ = body[2]  # the ['where' [...]] part
-                self._create_binding(id, NusFunction(args, body_))
+                self.create_binding(id, NusFunction(args, body_))
 
     def translate_formal_species(self, fs_list):
         """ Apply the formal() function to the formal species in the input CRN.
@@ -643,18 +613,19 @@ class NuskellEnvironment(NuskellExpressions):
         function is applied to every formal species in the input CRN.
 
         Returns:
-          [dict()] A dictionary of key=name, value=:obj:`NusComplex()`
+          [dict()] A dictionary of key=name, value=:obj:`ComplexFragemnt()`
         """
         formal_species_objects = list(map(Species, fs_list))
 
         # compile the formal species
-        self._create_binding("__formalspecies__", formal_species_objects)
+        self.create_binding("__formalspecies__", formal_species_objects)
 
         # map(formal, __formalspecies__)
-        self._env, fs_result = self.interpret_expr(["trailer",
-                                                    ["id", "map"], ["apply",
-                                                                    ["id", "formal"],
-                                                                    ["id", "__formalspecies__"]]])
+        fs_result = self.interpret_expr(
+                # tag         head           content
+                #                            key       args
+                ["trailer", ["id", "map"], ["apply", ["id", "formal"], 
+                                                     ["id", "__formalspecies__"]]])
 
         self.formal_species_dict = {}
         for i in range(len(fs_list)):
@@ -690,8 +661,8 @@ class NuskellEnvironment(NuskellExpressions):
         modules = []
         if modular:
             for module in crn_objects:
-                self._create_binding("__crn__", [module])
-                self._env, self.constant_species_solution = self.interpret_expr(
+                self.create_binding("__crn__", [module])
+                self.constant_species_solution = self.interpret_expr(
                     ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
                 modules.append(self.constant_species_solution)
 
@@ -703,138 +674,79 @@ class NuskellEnvironment(NuskellExpressions):
             modules.insert(0, unified_solution)
 
         else:
-            self._create_binding("__crn__", crn_objects)
-            self._env, self.constant_species_solution = self.interpret_expr(
+            self.create_binding("__crn__", crn_objects)
+            self.constant_species_solution = self.interpret_expr(
                 ["trailer", ["id", "main"], ["apply", ["id", "__crn__"]]])
             modules = [self.constant_species_solution]
 
         return modules
 
-    # Private Functions #
-    def _init_builtin_functions(self):
-        """ Initialized built-in Nuskell functions.
-
-        Add a binding for every builtin-fuction to the environment.
-
-        Returns:
-          [:obj:`NuskellFunctions()`] Execution object for built-in Nuskell
-          functions.
-        """
-        self._create_binding("print", NusFunction(["s"], "print"))
-        self._create_binding("abort", NusFunction(["s"], "abort"))
-        self._create_binding("tail", NusFunction(["l"], "tail"))
-        self._create_binding("flip", NusFunction(["l", "n"], "flip"))
-        self._create_binding("long", NusFunction([], "long"))
-        self._create_binding("short", NusFunction([], "short"))
-        self._create_binding("infty", NusFunction(["species"], "infty"))
-        self._create_binding("unique", NusFunction(["l"], "unique"))
-        #self._create_binding("complement", NusFunction(["l"], "complement"))
-        self._create_binding(
-            "rev_reactions", NusFunction(
-                ["crn"], "rev_reactions"))
-        self._create_binding(
-            "irrev_reactions", NusFunction(
-                ["crn"], "irrev_reactions"))
-        self._create_binding("empty", [])
-        return NuskellFunctions()
-
-    def _create_binding(self, name, value):
-        """ Create binding of a Nuskell function.
-
-        Adds a binding to the last level of function bindings.
-
+    def create_binding(self, name, value):
+        """ Create binding of a Nuskell function in the last level.
         Args:
           name (str): Name of the function.
-          value (...): A built-in data type (Function, dict, Species,
-            Domain, Reaction, Complex, etc ...), either as single value or list
-
-        Returns:
-          An updated environment inclding the function binding in the top-level.
+          value (...): anything, really.
         """
-
-        bindings = (NusFunction, dict, Species, NuskellDomain, Reaction, NusComplex,
-                    void, int, list)
-        if isinstance(value, list):
-            assert all(isinstance(s, bindings) for s in value)
-        else:
-            assert isinstance(value, bindings)
-
         self._env[-1][name] = value
 
     # Private environment modification functions #
     def _create_level(self):
-        """
-        Create a new level for function bindings.
+        """ Create a new level for function bindings.
 
-        Note:
-          This commonly initializes a level for a 'where' statement or the
-          evaluation of a not built-in function call.
+        This typically starts the encapulation of contents for a 'where'
+        statement or a 'trailer' function.
         """
         # interpret_expr -> _where
-        # interpret_expr -> _trailer -> _apply -> _eval_func
+        # interpret_expr -> _trailer -> apply -> _eval_func
         self._env.append({})
 
     def _destroy_level(self):
-        """
-        Revert to previous level of function bindings.
+        """ Revert to previous level of function bindings.
 
-        Note:
-          This commonly closes a 'where' environment or the evaluation of a
-          not built-in function call.
+        This commonly closes a 'where' environment or a 'trailer' function.
         """
         # interpret_expr -> _where
-        # interpret_expr -> _trailer -> _apply -> _eval_func
+        # interpret_expr -> _trailer -> apply -> _eval_func
         self._env.pop()
 
-    def _ref_binding(self, name):
-        """
-        Search levels of function bindings from last to first to find a reference.
+    def ref_binding(self, fname):
+        """ Search levels (reversed) for function bindings given the reference.
 
         Args:
-          name (str) : Name of a function
+            fname (str): Name of a function
 
         Returns:
-          Function binding (self._env[?][name])
+            Function binding (self._env[?][fname])
         """
         for level in reversed(self._env):
-            if name in level.keys():
-                return level[name]
-        raise NuskellEnvError("Cannot find a binding for `" + name + "'.")
+            if fname in level.keys():
+                return level[fname]
+        raise NuskellEnvError(f"Cannot find a function binding for `{fname}'.")
 
     def _eval_func(self, f, args):
-        """
-        Evaluate a function.
+        """ Evaluate a function.
 
-        The function can either be one of the built-in functions or a module,
-        class, macro, etc. as specified in the translation scheme.
+        A function (or module, class, macro, etc.) as specified in the 
+        translation scheme.
 
         Args:
-          f (:obj:`NusFunction()`): The function to evaluate
+          f (:obj:`NusFunction()`): The function to evaluate.
           args (list): A list of arguments for the function.
         """
         if not isinstance(f, NusFunction):
-            raise NuskellEnvError(str(f) + "is not a function.")
+            raise NuskellEnvError(f"`{f}' cannot be evaluated.")
 
-        if isinstance(f.body, str):  # the function is a built-in function
-            return self._env, self._bfunc_Obj.eval_builtin_functions(
-                f.body, args)
+        if isinstance(f.body, str): # the function is a built-in function
+            return self._fun.eval_builtin_functions(f.body, args)
+        else:
+            if len(f.args) != len(args): # Used to be > ... why?
+                raise NuskellEnvError(f"`{f.name}' requires {len(f.args)} arguments but got: {args}.")
 
-        def hardcopy_list(l):
-            if not isinstance(l, list):
-                return copy(l)
-            return list(map(hardcopy_list, l))
+            self._create_level()
+            for i in range(len(f.args)):
+                name, value = f.args[i], args[i]
+                self.create_binding(name, value)
+            value = self.interpret_expr(deepcopy(f.body))
+            self._destroy_level()
+            return value
 
-        if len(f.args) > len(args):
-            raise NuskellEnvError("The function `" + f.name + "' requires at least "
-                                  + str(len(f.args)) + " arguments but only found " + str(args) +
-                                  " arguments.")
-
-        self._create_level()
-        for i in range(len(f.args)):
-            arg_name = f.args[i]
-            arg_value = args[i]
-            self._create_binding(arg_name, arg_value)
-
-        self._env, value = self.interpret_expr(hardcopy_list(f.body))
-        self._destroy_level()
-        return self._env, value

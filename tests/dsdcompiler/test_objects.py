@@ -7,21 +7,20 @@
 import os
 import sys
 import unittest
-from nuskell.dsdcompiler.objects import NuskellDomain, clear_memory
-from nuskell.dsdcompiler.objects import NuskellComplex
-
+from nuskell.dsdcompiler.objects import (SingletonError, 
+                                         NuskellDomain, 
+                                         NuskellComplex,
+                                         clear_memory)
 
 SKIP = False
 
 @unittest.skipIf(SKIP, "skipping tests")
-class NuskellDomainObjectTest(unittest.TestCase):
-    def setUp(self):
-        pass
+class TestNuskellDomain(unittest.TestCase):
     def tearDown(self):
         clear_memory()
 
     def test_ComplementDomainInit(self):
-        foo = NuskellDomain('foo', dtype='long')
+        foo = NuskellDomain('foo', dtype = 'long')
         bar = ~foo
         moo = ~foo
 
@@ -33,16 +32,8 @@ class NuskellDomainObjectTest(unittest.TestCase):
         self.assertTrue(bar.is_complement, "bar is complement")
         self.assertFalse(foo.is_complement, "foo is complement")
 
-    def test_domains_of_domains(self):
-        d1aa = NuskellDomain('d1aa', dtype='short')
-        d1ab = NuskellDomain('d1ab', dtype='short')
-
-        with self.assertRaises(NotImplementedError):
-            d1a = d1aa + d1ab
-
-
 @unittest.skipIf(SKIP, "skipping tests")
-class NuskellComplexObjectTest(unittest.TestCase):
+class TestNuskellComplex(unittest.TestCase):
     def setUp(self):
         self.d1 = NuskellDomain('d1', dtype='short')
         self.d2 = NuskellDomain('d2', dtype='short')
@@ -64,55 +55,64 @@ class NuskellComplexObjectTest(unittest.TestCase):
                             self.d1c, self.d3c, self.d1c, self.d2], 
                 structure = list('..(+(+))..'))
 
-        self.assertEqual(foo.sequence, 
+        self.assertEqual(list(foo.sequence), 
                    [self.d1, self.d2, self.d3, '+', self.d1, '+', 
                     self.d1c, self.d3c, self.d1c, self.d2])
-        self.assertEqual(foo.lol_sequence, 
+        self.assertEqual(list(foo.strand_table), 
                   [[self.d1, self.d2, self.d3], [self.d1], 
                    [self.d1c, self.d3c, self.d1c, self.d2]])
 
-        bar = NuskellComplex(
-                sequence = [self.d1c, self.d3c, self.d1c, self.d2, '+', 
-                            self.d1, self.d2, self.d3, '+', self.d1], 
-                structure = list('((..+..)+)'), memorycheck=False)
+        try:
+            bar = NuskellComplex([self.d1c, self.d3c, self.d1c, self.d2, '+', self.d1, self.d2, self.d3, '+', self.d1], list('((..+..)+)'))
+        except SingletonError as err:
+            bar = err.existing
 
-        self.assertEqual(foo, bar)
         self.assertTrue(foo == bar)
-        self.assertFalse(foo is bar)
+        self.assertTrue(foo is bar)
 
     def test_names(self):
-        foo = NuskellComplex(
-                sequence = [self.d1, self.d2, self.d3, '+', self.d1, '+', 
-                            self.d1c, self.d3c, self.d1c, self.d2], 
-                structure = list('..(+(+))..'))
-        self.assertEqual(foo.name, 'cplx0')
+        NuskellComplex.PREFIX = 'cplx'
+        NuskellComplex.ID = 0
+        foo = NuskellComplex([self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                                self.d1c, self.d3c, self.d1c, self.d2], 
+                             list('..(+(+))..'))
+        assert foo.name == 'cplx0'
+        assert foo.name != 'foo'
 
-        foo.name = 'bar'
-        foo.name = 'foo'
-        self.assertEqual(foo.name, 'foo')
-        self.assertSetEqual(set(NuskellComplex.NAMES.keys()), set(['foo']))
+        with self.assertRaises(SingletonError):
+            foo.name = 'foo'
 
-        foo.name = 'bar'
-        self.assertEqual(foo.name, 'bar')
-        self.assertSetEqual(set(NuskellComplex.NAMES.keys()), set(['bar']))
+        seq = list(foo.sequence)
+        sst = list(foo.structure)
+        del foo
+
+        foo = NuskellComplex([self.d1, self.d2, self.d3, '+', self.d1, '+', 
+                              self.d1c, self.d3c, self.d1c, self.d2], list('..(+(+))..'), name = 'foo')
+        assert foo.name == 'foo'
 
     def test_rotations(self):
-        foo = NuskellComplex(
-                sequence = [self.d1, self.d2, self.d3, '+', self.d1, '+', 
-                            self.d1c, self.d3c, self.d1c, self.d2], 
+        d1, d2, d3 = self.d1, self.d2, self.d3
+        d1c, d2c, d3c = self.d1c, self.d2c, self.d3c
+        foo = NuskellComplex([d1, d2, d3, '+', d1, '+', d1c, d3c, d1c, d2], 
                 structure = list('..(+(+))..'))
-        self.assertEqual(foo.rotate_once(), foo)
-        self.assertEqual(foo.sequence, 
-                   [self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2, '+', 
-                    self.d1, self.d2, self.d3])
-        self.assertEqual(foo.structure, list('(+)(..+..)'))
 
-        for r in foo.rotate():
-            self.assertEqual(r, foo)
-        self.assertEqual(foo.sequence, 
-                   [self.d1, '+', self.d1c, self.d3c, self.d1c, self.d2, '+', 
-                    self.d1, self.d2, self.d3])
-        self.assertEqual(foo.structure, list('(+)(..+..)'))
+        seq1 = [d1,  d2,  d3,  '+', d1,  '+', d1c, d3c, d1c, d2] 
+        sst1 = ['.', '.', '(', '+', '(', '+', ')', ')', '.', '.']
+        seq2 = [d1,  '+', d1c, d3c, d1c, d2,  '+',d1,  d2,  d3,] 
+        sst2 = ['(', '+', ')', '(', '.', '.', '+','.', '.', ')']
+        seq3 = [d1c, d3c, d1c, d2,  '+',d1,  d2,  d3, '+', d1] 
+        sst3 = ['(', '(', '.', '.', '+','.', '.', ')', '+', ')']
+
+        for e, r in enumerate(foo.rotate()):
+            if e == 0:
+                assert r[0] == seq1
+                assert r[1] == sst1
+            elif e == 1:
+                assert r[0] == seq2
+                assert r[1] == sst2
+            else:
+                assert r[0] == seq3
+                assert r[1] == sst3
 
 if __name__ == '__main__':
     unittest.main()

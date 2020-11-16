@@ -163,21 +163,21 @@ def interpret(ts_parsed, crn_parsed, formals, modular = False, one = 100):
     log.debug("Compiled signal species:")
     for k, v in fs_result.items():
         v.flatten_cplx  # NusComplex-specific function.
-        cplx = NuskellComplex(v.sequence, v.structure, name = k)
+        seq = v.sequence
+        sst = v.structure
+        del v
+        cplx = NuskellComplex(seq, sst, name = k)
         cplx.concentration = None if None in formals[k] else (*formals[k], 'nM')
         log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
         solution[cplx.name] = cplx
         fs_result[k] = cplx
 
-    num = 1
     log.debug("Compiled fuel species:")
     for cplx in sorted(cs_solution):
-        cplx.name = 'f' + str(num)
         assert cplx.concentration == ('constant', float('inf'), 'nM')
         cplx.concentration = ('constant', 1*one, 'nM')
         log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
         solution[cplx.name] = cplx
-        num += 1
 
     rxnmodules = []
     for e, csm in enumerate(cs_modules[1:]):
