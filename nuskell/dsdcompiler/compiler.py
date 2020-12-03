@@ -87,8 +87,7 @@ def translate(input_crn, ts_file, modular = False):
     ts_file = find_scheme_file(ts_file)
     ts = parse_ts_file(ts_file)
     crn, fs = parse_crn_string(input_crn)
-    solution, modules = interpret(ts, crn, fs, modular = modular)
-    return solution, modules
+    return interpret(ts, crn, fs, modular = modular)
 
 def ts_code_snippet():
     """ Builtin funtions for the nuskell language.
@@ -151,7 +150,6 @@ def interpret(ts_parsed, crn_parsed, formals, modular = False, one = 100):
 
     # translate the crn using the main() function
     cs_modules = ts_env.translate_reactions(crn_parsed, modular = modular)
-
     if not modular:
         assert len(cs_modules) == 1
     cs_solution = cs_modules[0]
@@ -161,22 +159,18 @@ def interpret(ts_parsed, crn_parsed, formals, modular = False, one = 100):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     solution = dict()
     log.debug("Compiled signal species:")
-    for k, v in fs_result.items():
-        v.flatten_cplx  # NusComplex-specific function.
-        seq = v.sequence
-        sst = v.structure
-        del v
-        cplx = NuskellComplex(seq, sst, name = k)
+    for k, cplx in fs_result.items():
+        assert cplx.name == k
+        assert cplx.concentration is None
         cplx.concentration = None if None in formals[k] else (*formals[k], 'nM')
-        log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
-        solution[cplx.name] = cplx
-        fs_result[k] = cplx
+        log.debug(f"{repr(cplx)} - {cplx.concentration}")
+        solution[k] = cplx
 
     log.debug("Compiled fuel species:")
     for cplx in sorted(cs_solution):
         assert cplx.concentration == ('constant', float('inf'), 'nM')
         cplx.concentration = ('constant', 1*one, 'nM')
-        log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
+        log.debug(f"{repr(cplx)} - {cplx.concentration}")
         solution[cplx.name] = cplx
 
     rxnmodules = []
@@ -192,14 +186,18 @@ def interpret(ts_parsed, crn_parsed, formals, modular = False, one = 100):
                 raise NuskellInterpreterError("Cannot find signal species of module in solution.")
             if k in rxn:
                 module[cplx.name] = cplx
-            log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
+            log.debug(f"{repr(cplx)} - {cplx.concentration}")
 
         for cplx in sorted(csm):
             if cplx.name not in solution:
                 raise NuskellInterpreterError("Cannot find fuel species of module in solution.")
             module[cplx.name] = cplx
-            log.debug(f"{type(cplx)} - {cplx} {cplx.kernel_string} {cplx.concentration}")
+            log.debug(f"{repr(cplx)} - {cplx.concentration}")
         rxnmodules.append(module)
+
+    fs_result.clear()
+    [m.clear() for m in cs_modules]
+    del ts_env, cplx
     return solution, rxnmodules
 
 if __name__ == '__main__':

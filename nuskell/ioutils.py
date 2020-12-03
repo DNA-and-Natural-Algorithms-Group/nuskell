@@ -1,4 +1,6 @@
-import dsdobjects.objectio as oio
+
+from dsdobjects.objectio import set_io_objects, clear_io_objects
+from dsdobjects.objectio import read_pil as dsd_read_pil
 from dsdobjects.utils import natural_sort
 
 from . import __version__
@@ -17,18 +19,24 @@ def get_domains(complexes):
 def get_strands(complexes):
     """ Return a set of strands present in the TestTube. """
     strands = set()
-    [strands.add(tuple(s)) for cplx in complexes.values() for s in cplx.lol_sequence]
+    [strands.add(tuple(s)) for cplx in complexes.values() for s in cplx.strand_table]
     return strands
 
 def load_pil(data, is_file = False):
     """ Parses a string or file written in PIL notation! """
-    oio.LogicDomain = NuskellDomain
-    oio.Complex = NuskellComplex
-    oio.Reaction = NuskellReaction
-    oio.Macrostate = NuskellMacrostate
+    # We only assign reactions in a postprocessing step,
+    # because there are no macrostates in nuskell.
+    set_io_objects(D = NuskellDomain, C = NuskellComplex)
+    out = dsd_read_pil(data, is_file)
+    clear_io_objects()
 
-    doms, cplxs, rms, det, con = oio.read_pil(data, is_file)
-    return doms, cplxs, rms, det, con 
+    cxs = {k: v for k, v in out['complexes'].items()}
+    rms = {k: v for k, v in out['macrostates'].items()}
+    det = set(list(out['det_reactions']))
+    con = set(list(out['con_reactions']))
+    [o.clear() for o in out.values()]
+    out.clear()
+    return cxs, rms, det, con 
 
 def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc = None, ts = None):
     """ Write the contents of solution into a PIL file (kernel notation).
@@ -73,9 +81,9 @@ def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc =
         output_string("#\n")
 
     # Print Domains
-    output_string("\n# Domain Specifications\n")
     seen = set()
     domains = get_domains(solution.values())
+    output_string("\n# Domain Specifications\n")
     for d in natural_sort(domains):
         if d.is_complement:
             dom = ~d
@@ -114,7 +122,8 @@ def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc =
     if reactions is not None:
         output_string("\n# Reactions ({})\n".format(len(reactions)))
         for rxn in natural_sort(reactions):
-            output_string("reaction {:s}\n".format(rxn.full_string(molarity, 's')))
+            rxn.rate_constant = rxn.rateformat(f'/{molarity}' * (rxn.arity[0] - 1) + f'/s')
+            output_string(f"{rxn.reaction_string}\n")
 
     return ''.join(out)
 

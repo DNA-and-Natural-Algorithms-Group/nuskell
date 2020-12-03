@@ -40,9 +40,9 @@ A preview of the documentation for release v1.0 can be found at: [documentation]
 
 ## Version
 0.8 -- basically a complete rewrite, python>=3.8 only.
-    * nuskell.dsdcompiler is now an independent subpackage to compile from CRN to DSD.
+    * nuskell.dsdcompiler is now a subpackage to compile from CRN to DSD.
     * crnverifier is now an independent package and therefore a dependency.
-    * enumeration interface updated to peppercornenumerator 1.0.
+    * enumeration interface updated to peppercornenumerator-v1.1.
     * nuskell now uses the prototype objects provided by the dsdobjects library.
 
 ### Authors

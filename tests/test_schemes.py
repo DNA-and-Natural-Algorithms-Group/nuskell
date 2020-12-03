@@ -12,24 +12,24 @@ verification of *all* builtin schemes for some selected CRNs in
 This is not a regular unittest, run overnight to check consistency of results
 before every release.
 """
-#import logging
-#logger = logging.getLogger('peppercornenumerator')
-#logger.setLevel(logging.DEBUG)
-#fh = logging.FileHandler('tests/test_schemes.log')
-#fh.setLevel(logging.DEBUG)
-#formatter = logging.Formatter('[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s')
-#fh.setFormatter(formatter)
-#logger.addHandler(fh)
+import logging
+logger = logging.getLogger('nuskell')
+logger.setLevel(logging.INFO)
+fh = logging.FileHandler('tests/test_schemes.log')
+fh.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s')
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 import os
 import unittest
 from itertools import chain
 
 import nuskell.dsdcompiler.compiler as comp
+from nuskell.objects import clear_memory
 from nuskell.dsdcompiler import get_builtin_schemes
 from nuskell.compare_schemes import (parse_args, 
                                      process_input,
-                                     clear_memory,
                                      compare_schemes)
 
 SKIP = False # These are only skipped for debugging, or if pandas is missing.
@@ -77,6 +77,7 @@ def compare_snapshots(cmp_file, new_file, crns, schemes, args = None):
 class QuickSnapshotCMP(unittest.TestCase):
     def tearDown(self):
         clear_memory()
+
     def test_small_nuskellCMP(self):
         # Exisiting & generated data files.
         cmp_file = 'tests/snapshots/small_test.csv'

@@ -178,9 +178,6 @@ class NuskellExpressions:
             return operators[tag](operand1, operand2)
 
         elif tag == 'trailer':
-            # Only the result of the last evaluation is returned.  That allows
-            # for calculating things in the earlier runs and return only the
-            # intersting part at last. => see translate_formal_species
             head = self.interpret_expr(content[0])
             body = content[1:]
             for x in content[1:]:
@@ -296,7 +293,7 @@ class NuskellExpressions:
 
     def attribute(self, head, args):
         identifier = args[0][1]  # strip the tag
-        if isinstance(head, ComplexFragment):
+        if isinstance(head, ComplexFragment) or isinstance(head, NuskellComplex):
             head = head.attributes[identifier]
         elif identifier in head.__dict__:
             head = head.__dict__[identifier]
@@ -337,7 +334,7 @@ class NuskellFunctions:
           args (list): The arguments for the function call.
 
         Raises:
-          NuskellEnvError: "Function could not be found."
+          NuskellEnvError: "Function not found."
 
         Returns:
           The results form f(args)
@@ -613,24 +610,26 @@ class NuskellEnvironment(NuskellExpressions):
         function is applied to every formal species in the input CRN.
 
         Returns:
-          [dict()] A dictionary of key=name, value=:obj:`ComplexFragemnt()`
+          [dict()] A dictionary of key=name, value=:obj:`ComplexFragment()`
         """
-        formal_species_objects = list(map(Species, fs_list))
-
-        # compile the formal species
-        self.create_binding("__formalspecies__", formal_species_objects)
+        # A binding formal CRN species
+        self.create_binding("__formalspecies__", list(map(Species, fs_list)))
 
         # map(formal, __formalspecies__)
         fs_result = self.interpret_expr(
                 # tag         head           content
                 #                            key       args
-                ["trailer", ["id", "map"], ["apply", ["id", "formal"], 
+                ["trailer", ["id", "map"], ["apply", ["id", "formal"], # from the ts!
                                                      ["id", "__formalspecies__"]]])
 
-        self.formal_species_dict = {}
-        for i in range(len(fs_list)):
-            self.formal_species_dict[fs_list[i]] = fs_result[i]
+        def make_complex(frag, name):
+            frag.flatten_cplx
+            cplx = NuskellComplex(frag.sequence, frag.structure, name = name)
+            cplx.attributes = frag.attributes
+            return cplx
 
+        self.formal_species_dict = {fs_list[i]: 
+                    make_complex(fs_result[i], fs_list[i]) for i in range(len(fs_list))}
         return self.formal_species_dict
 
     def translate_reactions(self, crn_parsed, modular=False):
@@ -741,7 +740,6 @@ class NuskellEnvironment(NuskellExpressions):
         else:
             if len(f.args) != len(args): # Used to be > ... why?
                 raise NuskellEnvError(f"`{f.name}' requires {len(f.args)} arguments but got: {args}.")
-
             self._create_level()
             for i in range(len(f.args)):
                 name, value = f.args[i], args[i]

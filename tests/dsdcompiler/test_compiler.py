@@ -5,10 +5,13 @@
 #
 
 import unittest
-from nuskell.dsdcompiler.objects import clear_memory
+from nuskell.dsdcompiler.objects import clear_memory, NuskellComplex
 from nuskell.dsdcompiler.compiler import translate
 
 class Test_Workflow(unittest.TestCase):
+    def setUp(self):
+        NuskellComplex.ID = 1
+
     def tearDown(self):
         clear_memory()
 

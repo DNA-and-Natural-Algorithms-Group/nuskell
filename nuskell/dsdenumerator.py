@@ -9,15 +9,15 @@
 import logging
 log = logging.getLogger(__name__)
 
+import gc
+from itertools import chain
 from peppercornenumerator import enumerate_pil
-from peppercornenumerator.objects import PepperComplex
-from peppercornenumerator.enumerator import FAST_REACTIONS
+from peppercornenumerator.enumerator import UNI_REACTIONS
 from peppercornenumerator.reactions import branch_3way, branch_4way
-from dsdobjects import clear_memory, DSDDuplicationError
-from dsdobjects.core import DSD_Complex
 
-from .ioutils import write_pil, load_pil
-from .objects import NuskellReaction
+from .ioutils import write_pil, load_pil, get_domains
+from .objects import NuskellComplex, NuskellMacrostate, NuskellReaction, SingletonError
+from .objects import show_memory
 
 class DSDenumerationError(Exception):
     pass
@@ -37,8 +37,11 @@ def enumerate_modules(modules, interpretation, solution, reactions, args, prefix
                     module[k] = newc
                     if cplx.name in module:
                         del module[cplx.name]
+                    del newc
+            del cplx
 
-        mc, mr = enumerate_solution(module, args, prefix = prefix)
+        mc, mr = enumerate_solution(module, args, named = solution, prefix = prefix)
+
         # after enumeration, make sure there were no new 'm' species found.
         for mcplx in list(mc.values()):
             for scplx in solution.values():
@@ -50,88 +53,110 @@ def enumerate_modules(modules, interpretation, solution, reactions, args, prefix
                         print(f'{interpretation=}')
                         print(f'{list(map(str, solution))=}')
                     assert scplx.name == mcplx.name
+                    del scplx
                     break
             else:
                 raise DSDenumerationError(f'Module complex {mcplx} not found in overall solution!')
-
+            del mcplx
         log.debug(f'Module {e}:\n' + write_pil(mc, mr))
         mcomplexes.append(mc)
         mreactions.append(mr)
         seen |= set(mr)
+        del module
 
     assert set(reactions).issuperset(seen)
     mr = set(reactions) - seen
     if len(mr):
-        mc = {x.name: x for rxn in mr for x in rxn.reactants + rxn.products}
+        mc = {x.name: x for rxn in mr for x in chain(rxn.reactants, rxn.products)}
         log.debug(f'Module (crosstalk):\n' + write_pil(mc, mr))
         mcomplexes.append(mc)
         mreactions.append(mr)
+    seen.clear()
     return mcomplexes, mreactions
 
-def enumerate_solution(complexes, args, molarity = 'nM', prefix = 'i'):
+def enumerate_solution(complexes, args, named = None, molarity = 'nM', prefix = 'i'):
     """
     """
-    PepperComplex.PREFIX = prefix
-
-    # A wrapper for enumeration? -> dsdenumerate.py
+    assert all(isinstance(x, NuskellComplex) for x in complexes.values())
     tmp_pil = write_pil(complexes, None, fh = None, molarity = molarity)
 
-    # Memory management.
-    backupCM = DSD_Complex.MEMORY
-    # Since the enumerator uses DSDObjects, we need to clear the memory of
-    # known complexes, domains, etc. Otherwise we get duplication errors.
-    clear_memory() 
+    # We want to pass also the named complexes ...
+    if named is not None:
+        tmp_pil += "\n# Named complexes ...\n"
+        domains = get_domains(complexes.values())
+        for cx in named.values():
+            if cx.name in complexes:
+                del cx
+                continue
+            if not all(d in domains for d in cx.domains):
+                continue
+            tmp_pil += "{:s} = {:s} @c 0 nM\n".format(cx.name, cx.kernel_string)
+            del cx
+        del domains
+    #print(tmp_pil)
 
     kwargs = get_peppercorn_args(args)
-    enum_obj, enum_pil = enumerate_pil(tmp_pil, 
-                                       detailed = args.enum_detailed, 
-                                       condensed = not args.enum_detailed, 
+    enum_obj, enum_pil = enumerate_pil(tmp_pil,
+                                       detailed = args.enum_detailed,
+                                       condensed = not args.enum_detailed,
+                                       complex_prefix = prefix,
                                        enumconc = molarity,
                                        **kwargs)
-    
-    clear_memory() 
+    del enum_obj
     # Now we get the new NuskellComplex objects.  If you enumerate multiple
-    # times, e.g. because you enumerate some modules separately, then you 
-    # want to make sure that the same complexes have the same name.
-    dom, clx, rms, det, con = load_pil(enum_pil)
+    # times, e.g. because you enumerate some modules separately, then you want
+    # to make sure that the same complexes have the same name.
+    reactions = set()
 
-    complexes = dict()
-    reactions = []
+    cxs, rms, det, con = load_pil(enum_pil)
     if args.enum_detailed:
-        #assert all([x in clx for x in complexes]) # w.o. renaming. 
-        for name, obj in clx.items(): # The new complexes.
-            if obj.canonical_form in backupCM:
-                # That should take care of MEMORY management.
-                if obj.name != backupCM[obj.canonical_form].name:
-                    obj.name = backupCM[obj.canonical_form].name
-            complexes[obj.name] = obj
-        reactions = det
-    else:
-        # assert all([x in rms for x in complexes]) # w.o. renaming
-        for name, rms in rms.items():
-            obj = rms.canonical_complex
-            if obj.canonical_form in backupCM:
-                # That should take care of MEMORY management.
-                if obj.name != backupCM[obj.canonical_form].name:
-                    obj.name = backupCM[obj.canonical_form].name
-            complexes[obj.name] = obj
- 
-        for rxn in con:
-            # We extract take objects with the correct names.
-            reactants = [DSD_Complex.MEMORY[x.canonical_form] for x in rxn.reactants]
-            products = [DSD_Complex.MEMORY[x.canonical_form] for x in rxn.products]
+        for name, cx in cxs.items(): # The new complexes.
             try:
-                new = NuskellReaction(reactants, products, rxn.rtype, rxn.rate)
-            except DSDDuplicationError as err:
-                # NOTE: well those reactions don't distinguish complexes and
-                # macrotates, unfortunately, so let's overwrite it.
-                new = NuskellReaction(reactants, products, 
-                                      rxn.rtype, rxn.rate, 
-                                      memorycheck = False)
-                err.existing = new
-            reactions.append(new)
-    # Now at last make sure that we remain 
-    DSD_Complex.MEMORY.update(backupCM)
+                obj = NuskellComplex(None, None, name = name)
+            except SingletonError as err:
+                obj = NuskellComplex(list(cx.sequence), list(cx.structure), name = name)
+                del err
+            complexes[obj.name] = obj
+            del obj, cx
+        for drxn in det:
+            reactants = [complexes[s.name] for s in drxn.reactants]
+            products = [complexes[s.name] for s in drxn.products]
+            try:
+                obj = NuskellReaction(reactants, products, drxn.rtype)
+            except SingletonError as err:
+                obj = err.existing
+                del err
+            obj.rate_constant = (drxn.rate_constant)
+            reactions.add(obj)
+            del drxn, obj, reactants, products
+    else:
+        for name, rm in rms.items():
+            cx = rm.representative
+            assert name == cx.name
+            try:
+                obj = NuskellComplex(None, None, name = name)
+            except SingletonError as err:
+                obj = NuskellComplex(list(cx.sequence), list(cx.structure), name = name)
+                del err
+            complexes[obj.name] = obj
+            del obj, rm, cx
+ 
+        for crxn in con:
+            # We extract take objects with the correct names.
+            reactants = [complexes[s.name] for s in crxn.reactants]
+            products = [complexes[s.name] for s in crxn.products]
+            try:
+                obj = NuskellReaction(reactants, products, crxn.rtype)
+            except SingletonError as err:
+                obj = err.existing
+                del err
+            obj.rate_constant = crxn.rate_constant
+            reactions.add(obj)
+            del crxn, obj, reactants, products
+    cxs.clear()
+    rms.clear()
+    det.clear()
+    con.clear()
     return complexes, reactions
 
 def interpret_species(complexes, reactions, fspecies, prune = True):
@@ -172,7 +197,7 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
     """
     # Make sure that complexes and reactions point to the same objects
     assert all(id(x) in map(id, complexes.values()) for rxn in reactions \
-                                                     for x in rxn._reactants + rxn._products)
+                                                    for x in chain(rxn.reactants, rxn.products))
 
     def patternMatch(x, y, ignore='?'):
         """Matches two complexes if they are the same, ignoring history domains.
@@ -187,7 +212,7 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
 
         Returns: True/False
         """
-        if len(x.sequence) != len(y.sequence):
+        if len(list(x.sequence)) != len(list(y.sequence)):
             return False
 
         def pM_check(pMx, pMy):
@@ -214,21 +239,18 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
             return True
 
     def get_matching_complexes(regex, hist):
-        """Find all matching complexes. """
-        regseq = regex.sequence
-        regstr = regex.structure
-
+        """ Find all matching complexes. """
         matching = []
         for cplx in complexes.values():
             if regex.name == cplx.name:
                 continue
-            elif patternMatch(regex, cplx, ignore=hist):
+            elif patternMatch(regex, cplx, ignore = hist):
                 matching.append(cplx)
         return matching
 
     # Find and rename signal species with history domains.
-    need_to_prune = False
     interpretation = dict()
+    need_to_prune = False
     for fs in fspecies:
         if fs not in complexes:
             log.warning(f'No complex found with name of formal species: {fs}')
@@ -243,8 +265,10 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
             if matches:
                 need_to_prune = True
                 for e, m in enumerate(matches, 1):
+                    newname = fs + '_' + str(e) + '_'
+                    log.debug(f'Changing intermediate name {m.name} to signal name {newname}.')
                     del complexes[m.name] # Remove intermediate name from the dictionary.
-                    m.name = fs + '_' + str(e) + '_'
+                    m.name = newname
                     interpretation[m.name] = [fs]
                     complexes[m.name] = m
                 del complexes[fs] # Remove wildcard complex from the dictionary.
@@ -256,6 +280,11 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
                 interpretation[cplx.name] = [fs]
         else:
             interpretation[cplx.name] = [fs]
+
+    for rxn in reactions:
+        if rxn.name != rxn.auto_name:
+            log.debug(f'Updating reaction name from {rxn.name} to {rxn.auto_name}.')
+            rxn.name = rxn.auto_name
 
     log.debug('Interpretation: \n' + '\n'.join(
               [f'{k}: {v}' for k, v in interpretation.items()]))
@@ -275,17 +304,22 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
         while prev != total:
             prev = set(total) # force a copy?
             for rxn in reactions:
-                r = set(map(str, rxn.reactants))
-                p = set(map(str, rxn.products))
-                #log.debug(f'R {r}, P {p}')
+                r = set([x.name for x in rxn.reactants])
+                p = set([x.name for x in rxn.products])
+                log.debug(f'R {r}, P {p}')
                 if r.intersection(total) == r: 
                     total |= p
                 #log.debug(f'Total = {total}')
         assert set(map(str, complexes.values())).issuperset(total)
         # Now filter all reactions that are possible from the pruned state space ...
-        reactions = [r for r in reactions if set(map(str, r.reactants)).issubset(total)]
+        new_reactions = [r for r in reactions if set(x.name for x in r.reactants).issubset(total)]
         # and remove all the left-over complexes from the graph.
-        complexes = {k: v for k, v in complexes.items() if k in total}
+        new_complexes = {k: v for k, v in complexes.items() if k in total}
+        reactions.clear() # A horror, but it needs to be done ...
+        complexes.clear() # A horror, but it needs to be done ...
+        reactions = new_reactions
+        complexes = new_complexes
+
     return interpretation, complexes, reactions
 
 def get_peppercorn_args(args):
@@ -302,12 +336,12 @@ def get_peppercorn_args(args):
     kwargs['reject_remote'] = args.reject_remote
     kwargs['max_helix'] = not args.no_max_helix
     if args.ignore_branch_3way:
-        if branch_3way in FAST_REACTIONS[1]:
-            FAST_REACTIONS[1].remove(branch_3way)
+        if branch_3way in UNI_REACTIONS[1]:
+            UNI_REACTIONS[1].remove(branch_3way)
         log.info('No 3-way branch migration.')
     if args.ignore_branch_4way:
-        if branch_4way in FAST_REACTIONS[1]:
-            FAST_REACTIONS[1].remove(branch_4way)
+        if branch_4way in UNI_REACTIONS[1]:
+            UNI_REACTIONS[1].remove(branch_4way)
         log.info('No 4-way branch migration.')
 
     kwargs['release_cutoff_1_1'] = args.release_cutoff_1_1

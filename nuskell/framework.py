@@ -222,9 +222,9 @@ def get_verification_crn(reactions, fuels, signals):
     # Prepare the verification CRN - Step 1: 
     fuels = set([x.name for x in fuels]) 
     signals = set([x.name for x in signals])
-    icrn = [Reaction([str(x) for x in rxn.reactants], 
-                     [str(x) for x in rxn.products], 
-                     rxn.rate.constant, 0) for rxn in reactions]
+    icrn = [Reaction([x.name for x in rxn.reactants], 
+                     [x.name for x in rxn.products], 
+                     rxn.rate_constant[0], 0) for rxn in reactions]
     log.debug(f"Implementation CRN:\n  " + \
                 '\n  '.join(natural_sort(genCRN(icrn, reversible = True))))
 
@@ -238,9 +238,9 @@ def get_verification_modules(fcrn, mreactions, fuels, wastes):
     fcrns = [[m] for m in fcrn]
     icrns = []
     for e, module in enumerate(mreactions, 1):
-        mcrn = [Reaction([str(x) for x in rxn.reactants], 
-                         [str(x) for x in rxn.products], 
-                         rxn.rate.constant, 0) for rxn in module]
+        mcrn = [Reaction([x.name for x in rxn.reactants], 
+                         [x.name for x in rxn.products], 
+                         rxn.rate_constant[0], 0) for rxn in module]
         mcrn = cleanup_rxns(remove_species(mcrn, fuels | wastes))
         icrns.append(mcrn)
     return fcrns, icrns
@@ -330,13 +330,16 @@ def main():
         if args.modular:
             raise NotImplementedError('Modular verification cannot be used in combiation with --readpil input.')
         log.info(header(f"Parsing file {args.readpil}"))
-        dom, solution, rms, det, con = load_pil(args.readpil, is_file = True)
+        solution, rms, det, con = load_pil(args.readpil, is_file = True)
         if det:
             log.warning(f'Ignoring {len(det)} detailed reactions in {args.readpil}.')
+            del det # It's always a good idea to release Singleton objects.
         if con:
             log.warning(f'Ignoring {len(con)} condensed reactions in {args.readpil}.')
+            del con # It's always a good idea to release Singleton objects.
         if rms:
             log.warning(f'Ignoring {len(rms)} resting macrostates in {args.readpil}.')
+            del rms # It's always a good idea to release Singleton objects.
     else:
         log.error("Please specify a translation scheme, see option --ts.")
         schemes = get_builtin_schemes()
@@ -389,7 +392,7 @@ def main():
         log.info(header("Enumerating reaction pathways."))
         complexes, reactions = enumerate_solution(solution, args, molarity = args.concentration_units)
 
-        if not reactions:
+        if not len(reactions):
             raise SystemExit('No DSD reactions have been enumerated.')
 
         log.info("After enumeration: " + \
@@ -408,7 +411,7 @@ def main():
         # Update species assignments
         fuels, wastes, intermediates, signals = assign_species(complexes)
         logger.info(f"Enumerated CRN: \n  " + \
-                    '\n  '.join([rxn.full_string() for rxn in reactions]))
+                    '\n  '.join([rxn.reaction_string for rxn in reactions]))
 
         if args.pilfile:
             with open(enumpil, 'w') as pil:

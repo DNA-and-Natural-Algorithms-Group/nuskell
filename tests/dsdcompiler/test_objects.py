@@ -79,13 +79,9 @@ class TestNuskellComplex(unittest.TestCase):
         assert foo.name == 'cplx0'
         assert foo.name != 'foo'
 
-        with self.assertRaises(SingletonError):
-            foo.name = 'foo'
-
+        foo.name = 'foo'
         seq = list(foo.sequence)
         sst = list(foo.structure)
-        del foo
-
         foo = NuskellComplex([self.d1, self.d2, self.d3, '+', self.d1, '+', 
                               self.d1c, self.d3c, self.d1c, self.d2], list('..(+(+))..'), name = 'foo')
         assert foo.name == 'foo'

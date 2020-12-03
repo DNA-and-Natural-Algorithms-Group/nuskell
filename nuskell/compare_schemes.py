@@ -6,15 +6,14 @@
 import logging
 log = logging.getLogger(__name__)
 
+import gc
 import sys
 import argparse
 from itertools import chain
-from dsdobjects import clear_memory, DSDDuplicationError
-from dsdobjects.core import DSD_Complex
-from peppercornenumerator import (CondensationError, 
-                                  PolymerizationError)
+from peppercornenumerator import PolymerizationError
 
 from . import __version__
+from .objects import NuskellDomain, NuskellComplex, show_memory
 from .ioutils import get_strands
 from .crnutils import parse_crn_string 
 from .dsdcompiler import translate, get_builtin_schemes, NuskellExit
@@ -64,74 +63,92 @@ def compare_schemes(crns, schemes, args = None):
     """
     plotdata = [['scheme', 'CRN', 'enumerated', '# nuc', '# rxns'
                 ] + args.verify + ['equivalent']]
+
     for ts in schemes:
         for (name, input_crn) in crns:
-            clear_memory()
-            current = [ts, name] # Make named tuple
+            NuskellDomain.ID = 1
+            NuskellComplex.ID = 1
             log.info(f"Compiling CRN {name=} using translation scheme {ts=}.")
-
+            current = [ts, name] # TODO: make named tuple?
             fcrn, fsc = parse_crn_string(input_crn)
 
-            # TRANSLATE
-            try:
+            try: # TRANSLATE
                 solution, modules = translate(input_crn, ts, modular = args.modular)
-                fuels, wastes, intermediates, signals = assign_species(solution)
             except NuskellExit as e:
                 log.error(e)
                 log.error(f"Exiting translation for {name} and {ts}.")
+                # Garbage collection to clear singleton objects.
+                gc.collect()
+                # Return empty results
                 current.extend([None, None, None] + [None] * (len(args.verify)+1))
                 plotdata.append(current)
                 continue
+            
+            fuels, wastes, intermediates, signals = assign_species(solution)
 
-            # ENUMERATE
-            try:
-                backupCM = DSD_Complex.MEMORY
-                semantics = ['d'] if args.enum_detailed else ['c']
+            log.info(f"Enumerating CRN {name=} using translation scheme {ts=}.")
+            assert args.reject_remote is False
+            semantics = ['d'] if args.enum_detailed else ['c']
+            complexes = dict()
+            reactions = set()
+            try: # ENUMERATE
                 complexes, reactions = enumerate_solution(solution, args)
-                interpretation, complexes, reactions = interpret_species(complexes, 
-                                                                reactions,
-                                                                fsc.keys(),
-                                                                prune = True)
-                fuels, wastes, intermediates, signals = assign_species(complexes)
-                if args.modular:
-                    mcomplexes, mreactions = enumerate_modules(modules, 
-                                                               interpretation,
-                                                               complexes,
-                                                               reactions,
-                                                               args)
             except PolymerizationError as e:
-                DSD_Complex.MEMORY = backupCM
+                complexes.clear()
+                reactions.clear()
                 # NOTE: Many PolymerizationErrors are easiest to fix with
                 # --reject-remote enumeration semantics, but that is not a
                 # guarantee it that it will work.
                 log.warning(f"Changing enumeration parameters to reject-remote ({name=}, {ts=}).")
+                args.reject_remote = True
+                semantics.append('rr')
                 try:
-                    args.reject_remote = True
-                    complexes, reactions = enumerate_solution(solution, args, prefix = 'p')
-                    interpretation, complexes, reactions = interpret_species(complexes, 
-                                                                    reactions,
-                                                                    fsc.keys(),
-                                                                    prune = True)
-                    fuels, wastes, intermediates, signals = assign_species(complexes)
-                    if args.modular:
-                        mcomplexes, mreactions = enumerate_modules(modules, 
-                                                                   interpretation,
-                                                                   complexes,
-                                                                   reactions,
-                                                                   args, prefix = 'pm')
-                    semantics.append('rr')
-                    args.reject_remote = False
+                    complexes, reactions = enumerate_solution(solution, args)
                 except PolymerizationError as e:
                     log.error(e)
+                    log.error(f"Exiting enumeration for {name} and {ts}.")
+                    # Garbage collection to clear singleton objects.
+                    complexes.clear()
+                    reactions.clear()
+                    solution.clear()
+                    [m.clear() for m in modules]
+                    del fuels, wastes, intermediates, signals
+                    gc.collect()
+                    assert list(show_memory()) == []
+                    # Append results
+                    args.reject_remote = False
                     current.extend([None, None, None] + [None] * (len(args.verify)+1))
                     plotdata.append(current)
                     continue
 
             if not reactions:
                 log.error("No DSD reactions have been enumerated ({name=}, {ts=}).")
+                # Garbage collection to clear singleton objects.
+                solution.clear()
+                [m.clear() for m in modules]
+                del fuels, wastes, intermediates, signals
+                complexes.clear()
+                gc.collect()
+                assert list(show_memory()) == []
                 current.extend([None, None, None] + [None] * (len(args.verify)+1))
                 plotdata.append(current)
                 continue
+
+            interpretation, complexes, reactions = interpret_species(complexes, 
+                                                                     reactions,
+                                                                     fsc.keys(),
+                                                                     prune = True)
+            fuels, wastes, intermediates, signals = assign_species(complexes)
+
+            if args.modular:
+                mcomplexes, mreactions = enumerate_modules(modules, 
+                                                           interpretation,
+                                                           complexes,
+                                                           reactions,
+                                                           args)
+            # Restore to default, just in case.
+            args.reject_remote = False
+
             current.append(':'.join(semantics))
             cost = sum(sum(map(lambda d: d.length, s)) for s in get_strands(complexes))
             current.append(cost)
@@ -147,9 +164,12 @@ def compare_schemes(crns, schemes, args = None):
             equiv = False
             for meth in args.verify:
                 if 'modular-' in meth and len(fcrns) > 1:
-                    v, i = verify_modules(fcrns, icrns, formals, meth[8:], 
+                    try:
+                        v, i = verify_modules(fcrns, icrns, formals, meth[8:], 
                                           interpretation = interpretation, 
                                           timeout = args.verify_timeout)
+                    except NotImplementedError:
+                        v = i = None
                 else:
                     if 'modular' in meth: meth = meth[8:]
                     v, i = verify(fcrn, icrn, formals, meth, 
@@ -164,6 +184,18 @@ def compare_schemes(crns, schemes, args = None):
                     equiv = 'timeout'
             current.append(equiv)
             plotdata.append(current)
+
+            solution.clear()
+            [m.clear() for m in modules]
+            del fuels, wastes, intermediates, signals
+            complexes.clear()
+            reactions.clear()
+            interpretation.clear()
+            [m.clear() for m in mreactions]
+            [m.clear() for m in mcomplexes]
+            gc.collect()
+            assert list(show_memory()) == []
+            log.info(f"Done with CRN {name=} using translation scheme {ts=}. Moving on ...")
     return plotdata
 
 def get_nuskellCMP_args(parser):

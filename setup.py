@@ -25,7 +25,7 @@ setup(
     install_requires = [
         'pyparsing', 
         'dsdobjects>=0.8',
-        'peppercornenumerator>=1.0',
+        'peppercornenumerator>=1.1',
         'crnverifier>=0.2'],
     packages = ['nuskell', 'nuskell.dsdcompiler'],
     include_package_data = True,
