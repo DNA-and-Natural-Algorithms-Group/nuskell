@@ -93,7 +93,7 @@ def enumerate_solution(complexes, args, named = None, molarity = 'nM', prefix = 
             tmp_pil += "{:s} = {:s} @c 0 nM\n".format(cx.name, cx.kernel_string)
             del cx
         del domains
-    #print(tmp_pil)
+    log.debug(tmp_pil)
 
     kwargs = get_peppercorn_args(args)
     enum_obj, enum_pil = enumerate_pil(tmp_pil,

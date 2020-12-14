@@ -23,6 +23,7 @@ setup(
         ],
     python_requires = '>=3.8',
     install_requires = [
+        'natsort', 
         'pyparsing', 
         'dsdobjects>=0.8',
         'peppercornenumerator>=1.1',

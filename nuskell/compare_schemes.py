@@ -9,8 +9,10 @@ log = logging.getLogger(__name__)
 import gc
 import sys
 import argparse
+from natsort import natsorted
 from itertools import chain
 from peppercornenumerator import PolymerizationError
+from peppercornenumerator.objects import show_memory as pepper_memory
 
 from . import __version__
 from .objects import NuskellDomain, NuskellComplex, show_memory
@@ -66,6 +68,8 @@ def compare_schemes(crns, schemes, args = None):
 
     for ts in schemes:
         for (name, input_crn) in crns:
+            assert list(show_memory()) == []
+            assert list(pepper_memory()) == []
             NuskellDomain.ID = 1
             NuskellComplex.ID = 1
             log.info(f"Compiling CRN {name=} using translation scheme {ts=}.")
@@ -85,6 +89,12 @@ def compare_schemes(crns, schemes, args = None):
                 continue
             
             fuels, wastes, intermediates, signals = assign_species(solution)
+
+            log.debug(f"Formal species: {', '.join(natsorted(fsc))}")
+            log.debug("Signal Complexes:\n" + '\n'.join(
+                [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natsorted(signals, lambda x: x.name)]))
+            log.debug("Fuel Complexes:\n" + '\n'.join(
+                [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natsorted(fuels, lambda x: x.name)]))
 
             log.info(f"Enumerating CRN {name=} using translation scheme {ts=}.")
             assert args.reject_remote is False
@@ -191,8 +201,9 @@ def compare_schemes(crns, schemes, args = None):
             complexes.clear()
             reactions.clear()
             interpretation.clear()
-            [m.clear() for m in mreactions]
-            [m.clear() for m in mcomplexes]
+            if args.modular:
+                [m.clear() for m in mreactions]
+                [m.clear() for m in mcomplexes]
             gc.collect()
             assert list(show_memory()) == []
             log.info(f"Done with CRN {name=} using translation scheme {ts=}. Moving on ...")
