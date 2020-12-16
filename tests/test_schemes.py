@@ -86,7 +86,8 @@ class QuickSnapshotCMP(unittest.TestCase):
         new_file = 'tests/snapshots/small_test.new'
         # Input 
         schemes = ['soloveichik2010.ts', 'qian2011_3D_var1.ts']
-        crns = ['tests/crns/bimol/bimol_07.crn', 'tests/crns/bimol/bimol_08.crn']
+        crns = ['tests/crns/binary/irr/irr_bin_14.crn', 
+                'tests/crns/binary/rev/rev_bin_14.crn']
         # Output
         compare_snapshots(cmp_file, new_file, crns, schemes)
 
@@ -102,7 +103,7 @@ class QuickSnapshotCMP(unittest.TestCase):
         compare_snapshots(cmp_file, new_file, crns, schemes)
 
 @unittest.skipIf(SKIP or SKIP_SLOW, "slow tests are disabled by default")
-class SinlgeSnapshotCMP(unittest.TestCase):
+class SystemSnapshotTests(unittest.TestCase):
     def setUp(self):
         comp.SCHEME_DIRS = ['schemes/literature/'] 
         self.lit = list(chain(*get_builtin_schemes().values()))
@@ -196,7 +197,7 @@ class SinlgeSnapshotCMP(unittest.TestCase):
         compare_snapshots(cmp_file, new_file, crns, schemes)
 
 @unittest.skipIf(SKIP or SKIP_SLOW, "slow tests are disabled by default")
-class MultiSnapshotCMP(unittest.TestCase):
+class IrreversibleRxnSnapshotTest(unittest.TestCase):
     def setUp(self):
         comp.SCHEME_DIRS = ['schemes/literature/'] 
         self.lit = list(chain(*get_builtin_schemes().values()))
@@ -211,10 +212,10 @@ class MultiSnapshotCMP(unittest.TestCase):
 
     def test_basic_lit(self):
         # Exisiting & generated data files.
-        cmp_file = 'tests/snapshots/basic_lit.csv'
-        new_file = 'tests/snapshots/basic_lit.new'
+        cmp_file = 'tests/snapshots/basic_irr_lit.csv'
+        new_file = 'tests/snapshots/basic_irr_lit.new'
         # Input 
-        crndir = 'tests/crns/basic/'
+        crndir = 'tests/crns/basic/irr/'
         schemes = self.lit
         crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
         # Output
@@ -222,32 +223,90 @@ class MultiSnapshotCMP(unittest.TestCase):
 
     def test_basic_var(self):
         # Exisiting & generated data files.
-        cmp_file = 'tests/snapshots/basic_var.csv'
-        new_file = 'tests/snapshots/basic_var.new'
+        cmp_file = 'tests/snapshots/basic_irr_var.csv'
+        new_file = 'tests/snapshots/basic_irr_var.new'
         # Input 
-        crndir = 'tests/crns/basic/'
+        crndir = 'tests/crns/basic/irr/'
         schemes = self.var
         crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
         # Output
         compare_snapshots(cmp_file, new_file, crns, schemes)
 
-    def test_bimolecular_lit(self):
+    def test_binary_lit(self):
         # Exisiting & generated data files.
-        cmp_file = 'tests/snapshots/bimolecular_lit.csv'
-        new_file = 'tests/snapshots/bimolecular_lit.new'
+        cmp_file = 'tests/snapshots/binary_irr_lit.csv'
+        new_file = 'tests/snapshots/binary_irr_lit.new'
         # Input 
-        crndir = 'tests/crns/bimol/'
+        crndir = 'tests/crns/binary/irr/'
         schemes = self.lit
         crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
         # Output
         compare_snapshots(cmp_file, new_file, crns, schemes)
 
-    def test_bimolecular_var(self):
+    def test_binary_var(self):
         # Exisiting & generated data files.
-        cmp_file = 'tests/snapshots/bimolecular_var.csv'
-        new_file = 'tests/snapshots/bimolecular_var.new'
+        cmp_file = 'tests/snapshots/binary_irr_var.csv'
+        new_file = 'tests/snapshots/binary_irr_var.new'
         # Input 
-        crndir = 'tests/crns/bimol/'
+        crndir = 'tests/crns/binary/irr/'
+        schemes = self.var
+        crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
+        # Output
+        compare_snapshots(cmp_file, new_file, crns, schemes)
+
+@unittest.skipIf(SKIP or SKIP_SLOW, "slow tests are disabled by default")
+class ReversibleRxnSnapshotTest(unittest.TestCase):
+    def setUp(self):
+        comp.SCHEME_DIRS = ['schemes/literature/'] 
+        self.lit = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/variants/'] 
+        self.var = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
+
+    def tearDown(self):
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
+        clear_memory()
+        clear_pepper_memory()
+
+    def test_basic_lit(self):
+        # Exisiting & generated data files.
+        cmp_file = 'tests/snapshots/basic_rev_lit.csv'
+        new_file = 'tests/snapshots/basic_rev_lit.new'
+        # Input 
+        crndir = 'tests/crns/basic/rev/'
+        schemes = self.lit
+        crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
+        # Output
+        compare_snapshots(cmp_file, new_file, crns, schemes)
+
+    def test_basic_var(self):
+        # Exisiting & generated data files.
+        cmp_file = 'tests/snapshots/basic_rev_var.csv'
+        new_file = 'tests/snapshots/basic_rev_var.new'
+        # Input 
+        crndir = 'tests/crns/basic/rev/'
+        schemes = self.var
+        crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
+        # Output
+        compare_snapshots(cmp_file, new_file, crns, schemes)
+
+    def test_binary_lit(self):
+        # Exisiting & generated data files.
+        cmp_file = 'tests/snapshots/binary_rev_lit.csv'
+        new_file = 'tests/snapshots/binary_rev_lit.new'
+        # Input 
+        crndir = 'tests/crns/binary/rev/'
+        schemes = self.lit
+        crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
+        # Output
+        compare_snapshots(cmp_file, new_file, crns, schemes)
+
+    def test_binary_var(self):
+        # Exisiting & generated data files.
+        cmp_file = 'tests/snapshots/binary_rev_var.csv'
+        new_file = 'tests/snapshots/binary_rev_var.new'
+        # Input 
+        crndir = 'tests/crns/binary/rev/'
         schemes = self.var
         crns = [crndir + x for x in sorted(os.listdir(crndir)) if x[-4:] == '.crn']
         # Output
