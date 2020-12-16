@@ -179,7 +179,7 @@ def compare_schemes(crns, schemes, args = None):
                                           interpretation = interpretation, 
                                           timeout = args.verify_timeout)
                     except NotImplementedError:
-                        v = i = None
+                        v = i = '-'
                 else:
                     if 'modular' in meth: meth = meth[8:]
                     v, i = verify(fcrn, icrn, formals, meth, 

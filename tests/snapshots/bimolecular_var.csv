@@ -23,13 +23,13 @@
 21,cardelli2011_NM_noGC.ts,tests/crns/bimol/bimol_13.crn,c,275,5,True,True,False,True,True,True
 22,cardelli2011_NM_noGC.ts,tests/crns/bimol/bimol_14.crn,c,240,5,True,True,False,True,True,True
 23,cardelli2011_NM_noGC.ts,tests/crns/bimol/bimol_15.crn,c,275,5,True,True,False,True,True,True
-24,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_02.crn,c:rr,375,13,True,True,True,True,True,True
+24,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_02.crn,c:rr,375,13,True,True,,,,True
 25,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_03.crn,c:rr,375,13,True,True,,,,True
 26,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_06.crn,c:rr,415,13,True,True,True,True,True,True
 27,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_07.crn,c:rr,455,13,True,True,True,True,True,True
 28,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_08.crn,c:rr,415,13,True,True,,,,True
 29,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_09.crn,c:rr,415,13,True,True,True,True,True,True
-30,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_10.crn,c:rr,415,13,True,True,True,True,True,True
+30,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_10.crn,c:rr,415,13,True,True,,,,True
 31,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_11.crn,c:rr,415,13,True,True,True,True,True,True
 32,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_12.crn,c:rr,375,13,True,True,,,,True
 33,cardelli2013_2D_3I_noGC.ts,tests/crns/bimol/bimol_13.crn,c:rr,415,13,True,True,True,True,True,True

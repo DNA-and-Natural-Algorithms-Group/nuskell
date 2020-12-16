@@ -1,9 +1,9 @@
 ,scheme,CRN,enumerated,# nuc,# rxns,crn-bisimulation,modular-crn-bisimulation,pathway-decomposition,compositional-hybrid,integrated-hybrid,equivalent
 0,cardelli2011_FJ_noGC.ts,tests/crns/bin_counter_01.crn,c,2330,182,,,False,False,False,timeout
 1,cardelli2011_NM_noGC.ts,tests/crns/bin_counter_01.crn,c,1440,110,True,True,False,False,True,True
-2,cardelli2013_2D_3I_noGC.ts,tests/crns/bin_counter_01.crn,c:rr,2010,78,,,,,,timeout
+2,cardelli2013_2D_3I_noGC.ts,tests/crns/bin_counter_01.crn,c:rr,2010,78,,True,,,,True
 3,cardelli2013_2D_noGC.ts,tests/crns/bin_counter_01.crn,c,1620,84,,True,False,False,False,True
-4,chen2013_2D_JF_var1.ts,tests/crns/bin_counter_01.crn,c:rr,2340,72,,,False,False,False,timeout
-5,chen2013_2D_JF_var2.ts,tests/crns/bin_counter_01.crn,c:rr,2340,72,,,False,False,False,timeout
+4,chen2013_2D_JF_var1.ts,tests/crns/bin_counter_01.crn,c:rr,2340,72,,-,False,False,False,timeout
+5,chen2013_2D_JF_var2.ts,tests/crns/bin_counter_01.crn,c:rr,2340,72,,-,False,False,False,timeout
 6,lakin2012_3D_var1.ts,tests/crns/bin_counter_01.crn,c,1320,110,True,True,False,False,True,True
 7,qian2011_3D_var1.ts,tests/crns/bin_counter_01.crn,c,665,24,True,True,False,False,False,True

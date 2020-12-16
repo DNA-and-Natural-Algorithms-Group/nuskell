@@ -1,12 +1,12 @@
 ,scheme,CRN,enumerated,# nuc,# rxns,crn-bisimulation,modular-crn-bisimulation,pathway-decomposition,compositional-hybrid,integrated-hybrid,equivalent
-0,cardelli2011_FJ.ts,tests/crns/roessler_01.crn,c,1880.0,179.0,,False,False,,,timeout
+0,cardelli2011_FJ.ts,tests/crns/roessler_01.crn,c,1880.0,179.0,,-,False,,,timeout
 1,cardelli2011_NM.ts,tests/crns/roessler_01.crn,c,2065.0,178.0,,,False,,,timeout
-2,cardelli2013_2D.ts,tests/crns/roessler_01.crn,c,1620.0,82.0,,False,,,,timeout
-3,cardelli2013_2D_2TGC.ts,tests/crns/roessler_01.crn,c,1690.0,83.0,,False,,,,timeout
-4,cardelli2013_2D_3I.ts,tests/crns/roessler_01.crn,c:rr,2075.0,75.0,,,,,,timeout
+2,cardelli2013_2D.ts,tests/crns/roessler_01.crn,c,1620.0,82.0,,False,False,False,False,timeout
+3,cardelli2013_2D_2TGC.ts,tests/crns/roessler_01.crn,c,1690.0,83.0,,-,,,,timeout
+4,cardelli2013_2D_3I.ts,tests/crns/roessler_01.crn,c:rr,2075.0,75.0,,True,,,,True
 5,chen2013_2D_JF.ts,tests/crns/roessler_01.crn,c,1660.0,73.0,,False,False,False,False,timeout
 6,lakin2012_3D.ts,tests/crns/roessler_01.crn,,,,,,,,,
-7,lakin2016_2D_3I.ts,tests/crns/roessler_01.crn,c,2515.0,84.0,,,False,False,False,timeout
+7,lakin2016_2D_3I.ts,tests/crns/roessler_01.crn,c:rr,2515.0,84.0,,-,False,False,False,timeout
 8,qian2011_3D.ts,tests/crns/roessler_01.crn,c,660.0,29.0,,False,False,False,False,timeout
-9,soloveichik2010.ts,tests/crns/roessler_01.crn,c,1190.0,70.0,,True,False,True,True,True
-10,srinivas2015.ts,tests/crns/roessler_01.crn,c,1180.0,76.0,,True,False,True,True,True
+9,soloveichik2010.ts,tests/crns/roessler_01.crn,c:rr,1190.0,70.0,,False,False,True,True,True
+10,srinivas2015.ts,tests/crns/roessler_01.crn,c:rr,1180.0,76.0,,False,False,True,True,True
