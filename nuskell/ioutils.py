@@ -1,7 +1,7 @@
 
+from natsort import natsorted
 from dsdobjects.objectio import set_io_objects, clear_io_objects
 from dsdobjects.objectio import read_pil as dsd_read_pil
-from dsdobjects.utils import natural_sort
 
 from . import __version__
 from .crnutils import genCRN, genCON
@@ -84,7 +84,7 @@ def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc =
     seen = set()
     domains = get_domains(solution.values())
     output_string("\n# Domain Specifications\n")
-    for d in natural_sort(domains):
+    for d in natsorted(domains):
         if d.is_complement:
             dom = ~d
         else :
@@ -93,10 +93,10 @@ def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc =
             output_string("length {:s} = {:d}\n".format(dom.name, dom.length))
             seen.add(dom)
 
-    sc = natural_sort([x for x in solution.values() if x.name[0] not in ('f', 'i', 'w')])
-    fc = natural_sort([x for x in solution.values() if x.name[0] == 'f'])
-    ic = natural_sort([x for x in solution.values() if x.name[0] == 'i'])
-    wc = natural_sort([x for x in solution.values() if x.name[0] == 'w'])
+    sc = natsorted([x for x in solution.values() if x.name[0] not in ('f', 'i', 'w')])
+    fc = natsorted([x for x in solution.values() if x.name[0] == 'f'])
+    ic = natsorted([x for x in solution.values() if x.name[0] == 'i'])
+    wc = natsorted([x for x in solution.values() if x.name[0] == 'w'])
 
     def print_cplxs(cl):
         for cplx in cl:
@@ -121,7 +121,7 @@ def write_pil(solution, reactions, fh = None, molarity = 'nM', crn = None, fsc =
 
     if reactions is not None:
         output_string("\n# Reactions ({})\n".format(len(reactions)))
-        for rxn in natural_sort(reactions):
+        for rxn in natsorted(reactions):
             rxn.rate_constant = rxn.rateformat(f'/{molarity}' * (rxn.arity[0] - 1) + f'/s')
             output_string(f"{rxn.reaction_string}\n")
 
@@ -215,10 +215,10 @@ def write_vdsd(solution, fh = None, molarity = 'nM', crn = None, fsc = None, ts 
     output_string("def Fuel = 20\n")
     output_string("def Signal = 5\n\n")
 
-    sc = natural_sort([x for x in solution.values() if x.name[0] not in ('f', 'i', 'w')])
-    fc = natural_sort([x for x in solution.values() if x.name[0] == 'f'])
-    ic = natural_sort([x for x in solution.values() if x.name[0] == 'i'])
-    wc = natural_sort([x for x in solution.values() if x.name[0] == 'w'])
+    sc = natsorted([x for x in solution.values() if x.name[0] not in ('f', 'i', 'w')])
+    fc = natsorted([x for x in solution.values() if x.name[0] == 'f'])
+    ic = natsorted([x for x in solution.values() if x.name[0] == 'i'])
+    wc = natsorted([x for x in solution.values() if x.name[0] == 'w'])
 
     for e, cplx in enumerate(sc + fc + ic + wc):
         if e == 0:

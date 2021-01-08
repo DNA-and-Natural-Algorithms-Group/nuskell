@@ -6,7 +6,7 @@ import logging
 log = logging.getLogger(__name__)
 
 from itertools import chain
-from dsdobjects.utils import natural_sort
+from natsort import natsorted
 from .dsdcompiler.crn_parser import (Reaction, 
                                      parse_crn_string, 
                                      parse_crn_file,
@@ -22,7 +22,7 @@ def interpret(l, inter):
     return list(chain(*[inter.get(x, [x]) for x in l]))
 
 def genCON(species):
-    for sp, data in natural_sort(species.items()):
+    for sp, data in natsorted(species.items()):
         if None in data: continue
         yield '{} @{} {}'.format(sp, 'initial' if data[0][0] == 'i' else 'constant', data[1])
 
@@ -52,13 +52,13 @@ def genCRN(crn, reversible = True, rates = True, interpretation = None):
         pcrn = remove_duplicate_rxns(remove_trivial_rxns(icrn))
 
     for rxn in pcrn:
-        R = natural_sort(rxn.reactants)
-        P = natural_sort(rxn.products)
+        R = natsorted(rxn.reactants)
+        P = natsorted(rxn.products)
         if rxn.k_rev == 0:
             rate = ' [k = {:g}]'.format(rxn.k_fwd) if rates else ''
             yield '{} -> {}{}'.format(' + '.join(R), ' + '.join(P), rate)
         else:
-            if natural_sort([R, P]) == [R, P]: 
+            if natsorted([R, P]) == [R, P]: 
                 rate = ' [kf = {:g}, kr = {:g}]'.format(rxn.k_fwd, rxn.k_rev) if rates else ''
                 yield '{} <=> {}{}'.format(' + '.join(R), ' + '.join(P), rate)
             else:

@@ -13,13 +13,13 @@ log = logging.getLogger(__name__)
 import os
 import sys
 import argparse
+from natsort import natsorted
 
 from . import __version__
 from .dsdcompiler import translate, get_builtin_schemes
 from .dsdenumerator import enumerate_solution, enumerate_modules, interpret_species
 from .crnverifier import verify, verify_modules
-from .ioutils import (natural_sort, 
-                      write_pil,
+from .ioutils import (write_pil,
                       load_pil,
                       get_strands,
                       write_vdsd)
@@ -226,7 +226,7 @@ def get_verification_crn(reactions, fuels, signals):
                      [x.name for x in rxn.products], 
                      rxn.rate_constant[0], 0) for rxn in reactions]
     log.debug(f"Implementation CRN:\n  " + \
-                '\n  '.join(natural_sort(genCRN(icrn, reversible = True))))
+                '\n  '.join(natsorted(genCRN(icrn, reversible = True))))
 
     # Prepare the verification CRN - Step 2: 
     icrn = remove_species(icrn, fuels)
@@ -356,11 +356,11 @@ def main():
     if signals == []:
         raise SystemExit('EXIT: solution does not contain signals.')
 
-    log.info(f"Formal species: {', '.join(natural_sort(fsc))}")
+    log.info(f"Formal species: {', '.join(natsorted(fsc))}")
     log.info("Signal Complexes:\n" + '\n'.join(
-        [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natural_sort(signals)]))
+        [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natsorted(signals)]))
     log.info("Fuel Complexes:\n" + '\n'.join(
-        [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natural_sort(fuels)]))
+        [f'   {cplx.name} = {cplx.kernel_string}' for cplx in natsorted(fuels, key = str)]))
 
     if dnafile:
         with open(dnafile, 'w') as dna:
@@ -385,8 +385,8 @@ def main():
         print("Compilation successfull. Use --pilfile to inspect or modify.")
 
     print(" - signal species: {}\n - fuel species: {}\n".format(
-            ' '.join(natural_sort(map(str, signals))), 
-            ' '.join(natural_sort(map(str, fuels)))))
+            ' '.join(natsorted(map(str, signals))), 
+            ' '.join(natsorted(map(str, fuels)))))
 
     if args.verify or args.enumerate:
         log.info(header("Enumerating reaction pathways."))
@@ -458,16 +458,16 @@ def main():
                     '\n  '.join(genCRN(fcrn, reversible = True)))
         icrn, fuels, wastes = get_verification_crn(reactions, fuels, signals)
         log.info(f"Implementation CRN (no fuels, no wastes, no rates): \n  " + \
-            '\n  '.join(natural_sort(genCRN(icrn, reversible = True, rates = False))))
+            '\n  '.join(natsorted(genCRN(icrn, reversible = True, rates = False))))
         log.info("Partial interpretation:\n  " + \
                 '\n  '.join(f"{k} => {', '.join(v)}" \
-                    for k, v in natural_sort(interpretation.items())))
+                    for k, v in natsorted(interpretation.items())))
 
         if args.modular:
             fcrns, icrns = get_verification_modules(fcrn, mreactions, fuels, wastes)
             for e, mcrn in enumerate(icrns, 1):
                 log.info(f"Implementation Module {e}:\n  " + \
-                        '\n  '.join(natural_sort(genCRN(mcrn, 
+                        '\n  '.join(natsorted(genCRN(mcrn, 
                             reversible = True, rates = False))))
         for meth in args.verify:
             log.info(header("Verification method: {}".format(meth)))
@@ -484,9 +484,9 @@ def main():
             if v:
                 log.info(f"Returned interpretation for {meth}:\n  " + \
                             '\n  '.join(f"{k} => {', '.join(v)}" \
-                                for k, v in natural_sort(i.items())))
+                                for k, v in natsorted(i.items())))
                 log.info(f"Interpreted CRN: \n  " + \
-                    '\n  '.join(natural_sort(genCRN(icrn, 
+                    '\n  '.join(natsorted(genCRN(icrn, 
                                                     reversible = True, 
                                                     rates = False,
                                                     interpretation = i))))
