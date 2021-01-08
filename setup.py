@@ -27,7 +27,7 @@ setup(
         'pyparsing', 
         'dsdobjects>=0.8',
         'peppercornenumerator>=1.1',
-        'crnverifier>=0.2'],
+        'crnverifier>=0.3'],
     packages = ['nuskell', 'nuskell.dsdcompiler'],
     include_package_data = True,
     package_data = {'nuskell.dsdcompiler': ['schemes/literature/*.ts', 

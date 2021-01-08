@@ -2,4 +2,4 @@ natsort
 pyparsing
 dsdobjects>=0.8
 peppercornenumerator>=1.1
-crnverifier>=0.2
+git+git://github.com/DNA-and-Natural-Algorithms-Group/crnverifier@master#egg=crnverifier

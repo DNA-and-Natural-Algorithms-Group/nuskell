@@ -1,19 +1,25 @@
 # Nuskell: nucleic acid strand displacement compiler
 
+[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/DNA-and-Natural-Algorithms-Group/nuskell)](https://github.com/DNA-and-Natural-Algorithms-Group/nuskell/tags)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/DNA-and-Natural-Algorithms-Group/nuskell?include_prereleases)](https://github.com/DNA-and-Natural-Algorithms-Group/nuskell/releases)
+[![PyPI version](https://badge.fury.io/py/nuskell.svg)](https://badge.fury.io/py/nuskell)
+[![PyPI - License](https://img.shields.io/pypi/l/nuskell)](https://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.com/DNA-and-Natural-Algorithms-Group/nuskell.svg?branch=master)](https://travis-ci.com/github/DNA-and-Natural-Algorithms-Group/nuskell)
+[![Codecov branch](https://img.shields.io/codecov/c/github/DNA-and-Natural-Algorithms-Group/nuskell/master)](https://codecov.io/gh/DNA-and-Natural-Algorithms-Group/nuskell)
+
 ``Nuskell`` is software framework to compile formal chemical reaction networks
 (CRNs) into domain-level strand displacement (DSD) systems.  As there are many
 ways to do such a translation, we provide a library of [translation schemes]
 (i.e. variations of CRN-to-DSD translations) that the user can select from. 
 
 In order to proof/disproof the correctness of a particular translation,
-``Nuskell`` includes 
-the domain-level reaction enumeration package [Peppercorn][] [[Badelt et al. (2020)]] and 
-the CRN verification package [crnverifier][].
-Peppercorn finds intended and potentially unintended reaction
-pathways, the crnverifier then checks if the implementation CRN is a 
-correct implementation of the formal CRN using the
-stochastic trajectory-type CRN correctness notions 
-of bisimulation [[Johnson et al. (2019)]] and pathway decomposition
+``Nuskell`` includes the domain-level reaction enumeration package
+[Peppercorn][] [[Badelt et al. (2020)]] and the CRN verification package
+[crnverifier][].  
+Peppercorn finds intended and potentially unintended reaction pathways, the
+crnverifier then checks if the implementation CRN is a correct implementation
+of the formal CRN using the stochastic trajectory-type CRN correctness notions
+of bisimulation [[Johnson et al. (2019)]] and pathway decomposition 
 [[Shin et al.  (2019)]].
 
 ### Examples
@@ -28,7 +34,8 @@ for options see:
   $ nuskell --help
 ```
 ## Translation Schemes
-Detailed information about translation schemes can be found in the ``schemes`` directory.
+Detailed information about translation schemes can be found in the [translation
+schemes] directory.
  
 ## Installation
 ```
@@ -40,10 +47,10 @@ A preview of the documentation for release v1.0 can be found at: [documentation]
 
 ## Version
 0.8 -- basically a complete rewrite, python>=3.8 only.
-    * nuskell.dsdcompiler is now a subpackage to compile from CRN to DSD.
-    * crnverifier is now an independent package and therefore a dependency.
-    * enumeration interface updated to peppercornenumerator-v1.1.
-    * nuskell now uses the prototype objects provided by the dsdobjects library.
+  * nuskell.dsdcompiler is now a subpackage to compile from CRN to DSD.
+  * crnverifier is now an independent package and therefore a dependency.
+  * enumeration interface updated to peppercornenumerator-v1.1.
+  * nuskell now uses the prototype objects provided by the dsdobjects library.
 
 ### Authors
   - Stefan Badelt
