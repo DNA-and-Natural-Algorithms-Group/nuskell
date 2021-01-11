@@ -1,5 +1,5 @@
 natsort
 pyparsing
 dsdobjects>=0.8
-git+git://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator@master#egg=peppercornenumerator
-git+git://github.com/DNA-and-Natural-Algorithms-Group/crnverifier@master#egg=crnverifier
+crnverifier>=0.3
+peppercornenumerator>=1.1

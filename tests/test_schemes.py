@@ -4,10 +4,9 @@
 #  NuskellCompilerProject
 #
 """
-nuskellCMP is a script used to compare schemes that are distributed with
-nuskell. These tests generate snapshots, comparing enumeration and
-verification of *all* builtin schemes for some selected CRNs in
-"tests/crns/". Outputs are written and compared to "tests/snapshots/".
+These tests generate snapshots, comparing enumeration and verification of *all*
+builtin schemes for some selected CRNs in "tests/crns/". Outputs are written
+and compared to "tests/snapshots/".
 
 This is not a regular unittest, run overnight to check consistency of results
 before every release.
