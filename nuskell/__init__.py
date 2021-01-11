@@ -1,11 +1,9 @@
-##############################################
-# Initiation of the nuskell compiler package #
-##############################################
+#
+#  nuskell/__init__.py
+#  NuskellCompilerProject
+#
+__version__ = "0.8"
 
-__version__ = "0.5.1"
-
-# Import the main interface to the compiler #
-from nuskell.compiler import translate, genCRN
-from nuskell.verifier import verify
-from nuskell.interpreter.environment import NuskellExit
+import logging
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 

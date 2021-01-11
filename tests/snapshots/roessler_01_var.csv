@@ -1,0 +1,9 @@
+,scheme,CRN,enumerated,# nuc,# rxns,crn-bisimulation,modular-crn-bisimulation,pathway-decomposition,compositional-hybrid,integrated-hybrid,equivalent
+0,cardelli2011_FJ_noGC.ts,tests/crns/roessler_01.crn,c,1150,149,True,-,False,False,False,True
+1,cardelli2011_NM_noGC.ts,tests/crns/roessler_01.crn,c,1260,147,True,True,False,False,True,True
+2,cardelli2013_2D_3I_noGC.ts,tests/crns/roessler_01.crn,c:rr,1945,73,,True,,,,True
+3,cardelli2013_2D_noGC.ts,tests/crns/roessler_01.crn,c,1490,80,,False,,,,timeout
+4,chen2013_2D_JF_var1.ts,tests/crns/roessler_01.crn,c:rr,2010,66,,True,False,False,False,True
+5,chen2013_2D_JF_var2.ts,tests/crns/roessler_01.crn,c:rr,2010,66,,True,False,False,False,True
+6,lakin2012_3D_var1.ts,tests/crns/roessler_01.crn,c,1135,147,True,-,False,False,True,True
+7,qian2011_3D_var1.ts,tests/crns/roessler_01.crn,c,870,32,True,True,True,True,True,True

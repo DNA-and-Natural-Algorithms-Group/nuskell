@@ -1,0 +1,5 @@
+natsort
+pyparsing
+dsdobjects>=0.8
+crnverifier>=0.3
+peppercornenumerator>=1.1
