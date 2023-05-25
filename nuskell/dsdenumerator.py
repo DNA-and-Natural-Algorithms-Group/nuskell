@@ -324,9 +324,10 @@ def interpret_species(complexes, reactions, fspecies, prune = True):
 
 def get_peppercorn_args(args):
     """Transfer options to self._enumerator object.
+
     Do NOT change default values here. These are supposed to be the defaults of
     peppercorn!  Defaults for nuskell or any other script using this library are
-    set with the argparse object of your script, e.g. nuskell: scripts/nuskell.
+    set with the argparse object of your script, e.g. nuskell/framework.py.
     """
     kwargs = dict()
 

@@ -1,62 +1,18 @@
 .. Nuskell documentation master file, created by
-   sphinx-quickstart on Mon May  9 21:46:13 2016.
+   sphinx-quickstart on Thu May 25 15:03:21 2023.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Nuskell Documentation (PREVIEW)
-===============================
+Nuskell compiler documentation
+==============================
 
-------------
-Introduction
-------------
-Nuskell compiles formal chemical reaction networks (**CRNs**) into
-domain-level strand displacement (**DSD**) systems, based on rigorous
-proofs establishing the correctness of compilation from a higher
-level to a lower level. 
-To support the wide range of translation schemes that have already been
-proposed in the literature, as well as potential new ones that are yet to be
-proposed, Nuskell provides a **domain-specific programming language for
-translation schemes**.  A notion of correctness is established on a case-by-case
-basis using the rate-independent stochastic-level theories of **pathway
-decomposition equivalence** and/or **CRN bisimulation**.
+.. note::
+    The source for the Nuskell project is available on GitHub: 
 
-Nuskell is a first step to integrate biophysical modeling of nucleic acids
-with rigorous abstraction hierarchies of modern compilers to design and
-characterize DSD systems.  Our independently developed DSD reaction enumeration
-library `peppercornenumerator`_ is used for translation-independent reaction
-enumeration with well-defined semantics and based on empirical
-(sequence-independent) DNA folding parameters. Nuskell also provides an
-interface to translate these enumerated systems into systems of ordinary
-differential equations (**ODEs**), which are printed into stand-alone,
-executable Python scripts using the `crnsimulator`_ library.
+    https://github.com/DNA-and-Natural-Algorithms-Group/nuskell
 
-:ref:`Quickstart` introduces high-level concepts that are supported by library,
-for more details on how to write translation schemes visit :ref:`Nuskell
-programming language`. For advanced development on the Nuskell library, use the
-:ref:`API Reference` section and the :ref:`Developer Guidelines`.
-The section :ref:`Background` provides an intuition about the formalisms
-underlying the Nuskell library. More details can be found in the publications
-cited below.
-
-**Cite:**
- * Nuskell: `Badelt et al. (2017)`_
- * CRN bisimulation: `Johnson et al. (2016)`_
- * Peppercornenumerator: `Grun et al. (2014)`_
- * Pathway decomposition equivalence: `Shin et al. (2014)`_
-
-.. _Quickstart:
-
-Quickstart
-----------
-The following command translates a formal **CRN** into a **DSD** system using the
-built-in translation scheme: ``qian2011_3D.ts``, verifies whether the
-implementation is correct using *CRN bisimulation* and prints the domain-level
-specification in the ``*.pil`` file format.
-
-.. code-block:: bash
-
-  nuskell --ts qian2011_3D.ts --verify bisimulation --pilfile < formal_crn.in 
-
+.. include:: ../README.md
+    :parser: myst_parser.sphinx_
 
 The Nuskell library is meant to help researchers building custom **DSD**
 compilers.  Nuskell provides (i) a number of different **CRN-to-DSD**
@@ -233,10 +189,10 @@ unimolecular reactions complete, and with rate constants systematically derived
 from the detailed reaction network rate constants. 
 
 There are **many** options available to adjust the semantics of reaction
-enumeration, they are described in detail in [`Grun et al. (2014)`_].
+enumeration, they are described in detail in [`Badelt et al. (2020)`_].
 
 **More:**
- * Peppercornenumerator: `Grun et al. (2014)`_
+ * Peppercornenumerator: `Badelt et al. (2020)`_
 
 CRN equivalence 
 ---------------
@@ -276,13 +232,12 @@ bisimulation equivalent, if the translation can be interpreted as an
 implementation of that formal CRN. 
 
 **More:**
- * CRN bisimulation: `Johnson et al. (2016)`_
- * Pathway decomposition equivalence: `Shin et al. (2014)`_
+ * CRN bisimulation: `Johnson et al. (2019)`_
+ * Pathway decomposition equivalence: `Shin et al. (2019)`_
 
 Simulations of DSD systems
 --------------------------
 Translate enumerated CRNs into ODEs
-
 
 .. _API Reference:
 
@@ -291,29 +246,18 @@ Nuskell API
 -----------
 
 .. toctree::
-  :maxdepth: 2
+   :maxdepth: 2
+   :caption: Contents:
 
-  compiler
-  parser
-  interpreter
-  enumeration
-  verifier
-  objects
-
-.. Nuskell Objects
-.. -----------------------
-.. 
-.. Input Parsers
-.. -----------------------
-.. 
-.. CRN-to-DSD Translation
-.. -----------------------
-.. 
-.. CRN Equivalence
-.. -----------------------
-.. 
-.. Output Formats
-.. -----------------------
+   framework
+   ioutils
+   objects
+   crnutils
+   dsdcompiler.objects
+   dsdcompiler.compiler
+   dsdcompiler.interpreter
+   dsdenumerator
+   crnverifier
 
 .. _Developer Guidelines:
 
@@ -325,19 +269,22 @@ are a few rules for developers before submitting a pull request.
 
  * **Use Google docstring format** `[Google Docstring Guidelines] <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_ 
 
+**Cite:**
+ * Nuskell: `Badelt et al. (2017)`_
+ * Peppercornenumerator: `Badelt et al. (2020)`_
+ * Pathway decomposition equivalence: `Shin et al. (2019)`_
+ * CRN bisimulation: `Johnson et al. (2019)`_
 
-The Nuskell `repository`_ can be found on ``GitHub``: 
-
-https://github.com/DNA-and-Natural-Algorithms-Group/nuskell
 
 .. _repository: https://github.com/DNA-and-Natural-Algorithms-Group/nuskell
 .. _peppercornenumerator: https://github.com/DNA-and-Natural-Algorithms-Group/peppercornenumerator
 .. _crnsimulator: https://github.com/bad-ants-fleet/crnsimulator
 
 .. _Badelt et al. (2017): http://dna.caltech.edu/DNAresearch_publications.html#NuskellCompiler
-.. _Grun et al. (2014): http://dna.caltech.edu/DNAresearch_publications.html#Peppercorn
-.. _Shin et al. (2014): http://dna.caltech.edu/DNAresearch_publications.html#PathwayDecomposition
-.. _Johnson et al. (2016): http://dna.caltech.edu/DNAresearch_publications.html#CRN-Bisimulation
+.. _Badelt et al. (2020): http://dna.caltech.edu/DNAresearch_publications.html#Peppercorn
+.. _Shin et al. (2019): http://dna.caltech.edu/DNAresearch_publications.html#PathwayDecomposition
+.. _Johnson et al. (2019): http://dna.caltech.edu/DNAresearch_publications.html#CRN-Bisimulation
+
 
 Indices and tables
 ==================
@@ -345,4 +292,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

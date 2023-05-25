@@ -246,7 +246,7 @@ def get_verification_modules(fcrn, mreactions, fuels, wastes):
     return fcrns, icrns
 
 def main():
-    """ The nuskell compiler framework commandline interface.
+    """The nuskell command line interface.
 
     Translates formal chemical reaction networks (CRNs) into domain-level
     strand displacement (DSD) systems. Enumerates DSD systems using the
@@ -256,7 +256,7 @@ def main():
     "crnverifier". Use nuskell --help for options. 
 
     Nuskell can report every stage of the compilation by printing the
-    corresponding *.pil file. After initial translation, this file only
+    corresponding \*.pil file. After initial translation, this file only
     contains signal and fuel species. After enumeration it contains also
     the (potentially processed) enumerated reaction network.
     """

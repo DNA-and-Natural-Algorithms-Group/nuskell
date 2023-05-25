@@ -46,6 +46,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "codecov",
+    "myst-parser", # documentation
 ]
 
 [project.urls]
