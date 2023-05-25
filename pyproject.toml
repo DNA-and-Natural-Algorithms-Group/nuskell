@@ -1,0 +1,54 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = 'nuskell'
+description = 'Domain-level strand displacement compiler'
+authors = [{name = "Stefan Badelt", email = "bad-ants-fleet@posteo.eu"},
+           {name = "Seung Woo Shin"},
+           {name = "Robert Johnson"},
+           {name = "Qing Dong"},
+           {name = "Erik Winfree", email = "winfree@caltech.edu"}]
+maintainers = [{name = "Stefan Badelt", email = "bad-ants-fleet@posteo.eu"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+]
+requires-python = ">=3.8"
+dependencies = [
+    'natsort', 
+    'pyparsing', 
+    'dsdobjects>=0.8',
+    'peppercornenumerator>=1.1',
+    'crnverifier>=0.3',
+]
+dynamic = ["version"]
+
+[project.setuptools.package-data]
+nuskell.dsdcompiler = ['schemes/literature/*.ts', 
+                       'schemes/variants/*.ts',
+]
+
+[project.scripts]
+nuskell='nuskell.framework:main'
+nuskellCMP='nuskell.compare_schemes:main'
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "codecov",
+]
+
+[project.urls]
+Home = 'http://www.github.com/DNA-and-Natural-Algorithms-Group/nuskell/'
+
+
