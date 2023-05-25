@@ -47,6 +47,8 @@ dev = [
     "pytest-cov",
     "codecov",
     "myst-parser", # documentation
+    "sphinx-copybutton",
+    "sphinx-autobuild",
 ]
 
 [project.urls]
