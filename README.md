@@ -51,7 +51,7 @@ For more options see:
 ```
   $ nuskell --help
 ```
-Tipp, new users may appreciate the `-v` flag to get more detailed information on the individual 
+New users may appreciate the `-v` flag to get more detailed information on the individual 
 compilation steps.
 
 ## Translation Schemes
