@@ -39,7 +39,7 @@ combining CRN-to-DSD compilation, DSD enumeration and CRN verification.  For
 example, to implement the formal CRN
 ```
 A + B <=> X + Y
-X -> Y
+X -> A
 ```
 using the translation-scheme from [Srinivas (2015)], and then verify that
 it is correct with CRN bisimulation, use the command line call:
