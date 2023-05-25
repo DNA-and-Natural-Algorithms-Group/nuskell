@@ -20,7 +20,7 @@ translation schemes**.  A notion of correctness is established on a case-by-case
 basis using the rate-independent stochastic-level theories of **pathway
 decomposition equivalence** and/or **CRN bisimulation**.
 
-Nuskell is a first step to integrate biophysical modelling of nucleic acids
+Nuskell is a first step to integrate biophysical modeling of nucleic acids
 with rigorous abstraction hierarchies of modern compilers to design and
 characterize DSD systems.  Our independently developed DSD reaction enumeration
 library `peppercornenumerator`_ is used for translation-independent reaction
@@ -63,33 +63,6 @@ compilers.  Nuskell provides (i) a number of different **CRN-to-DSD**
 translation schemes, (ii) functions that test different **CRN** equivalence
 notions, as well as (iii) **DSD** reaction enumeration and **CRN-to-ODE**
 simulations based on empirical (sequence-independent) DNA folding parameters.
-
-.. code-block:: python
-
-  from nuskell import translate, verify
-
-  testtube = translate('A+B->C', scheme = 'soloveichik2010.ts')
-
-  # Get the enumerated CRN
-  testtube.enumerate_reactions()
-
-  # Interpret the enumerated CRN, i.e. replace history species
-  interpretation = testtube.interpret_species(['A','B','C'], prune=True)
-
-  # Formulate reversible reactions as two irreversible reactions.
-  fcrn = [[['A','B'],['C']]]
-  vcrn = []
-  for r in testtube.reactions:
-    rxn = [map(str,r.reactants), map(str,r.products)]
-    vcrn.append(rxn)
-
-  v = verify(fcrn, vcrn, fs, method = 'bisimulation')
-  
-  if v :
-    print("Input CRN and TestTube-Species are CRN bisimulation equivalent.")
-  else :
-    print("Input CRN and TestTube-Species are not CRN bisimulation equivalent.")
-
 
 ----------------------
 CRN-to-DSD translation

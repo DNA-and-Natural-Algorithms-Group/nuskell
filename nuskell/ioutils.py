@@ -10,6 +10,9 @@ from .objects import (NuskellDomain,
                       NuskellMacrostate,
                       NuskellReaction) 
 
+class NuskellObjectError(Exception):
+    pass
+
 def get_domains(complexes):
     """ Return a set of domains present in the TestTube. """
     domains = set()
@@ -239,6 +242,7 @@ def write_vdsd(solution, fh = None, molarity = 'nM', crn = None, fsc = None, ts 
 
         dnaexpr = [[]]
         pos = 0
+        flag = None
         for e, d in enumerate(ptab):
             if d == '+':
                 flag = 'top' if flag == 'bound' else flag
