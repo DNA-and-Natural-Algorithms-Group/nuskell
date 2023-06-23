@@ -38,7 +38,7 @@ SKIP_SLOW = True # These here are slow tests, which should be skipped by default
 try: 
     import pandas as pd
 except ImportError as err:
-    print(f'Unittest: {__name__} needs pandas installed.')
+    log.warning(f'Unittest: {__name__} needs pandas installed.')
     SKIP = True
 
 def compare_snapshots(cmp_file, new_file, crns, schemes, args = None):
@@ -104,10 +104,14 @@ class QuickSnapshotCMP(unittest.TestCase):
 @unittest.skipIf(SKIP or SKIP_SLOW, "slow tests are disabled by default")
 class SystemSnapshotTests(unittest.TestCase):
     def setUp(self):
+        comp.SCHEME_DIRS = ['schemes/literature/'] 
         self.lit = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/variants/'] 
         self.var = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
 
     def tearDown(self):
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
         clear_memory()
         clear_pepper_memory()
 
@@ -194,10 +198,14 @@ class SystemSnapshotTests(unittest.TestCase):
 @unittest.skipIf(SKIP or SKIP_SLOW, "slow tests are disabled by default")
 class IrreversibleRxnSnapshotTest(unittest.TestCase):
     def setUp(self):
+        comp.SCHEME_DIRS = ['schemes/literature/'] 
         self.lit = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/variants/'] 
         self.var = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
 
     def tearDown(self):
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
         clear_memory()
         clear_pepper_memory()
 
@@ -248,10 +256,14 @@ class IrreversibleRxnSnapshotTest(unittest.TestCase):
 @unittest.skipIf(SKIP or SKIP_SLOW, "slow tests are disabled by default")
 class ReversibleRxnSnapshotTest(unittest.TestCase):
     def setUp(self):
+        comp.SCHEME_DIRS = ['schemes/literature/'] 
         self.lit = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/variants/'] 
         self.var = list(chain(*get_builtin_schemes().values()))
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
 
     def tearDown(self):
+        comp.SCHEME_DIRS = ['schemes/literature/', 'schemes/variants/'] 
         clear_memory()
         clear_pepper_memory()
 
