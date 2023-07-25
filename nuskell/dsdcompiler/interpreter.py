@@ -477,8 +477,8 @@ class NuskellFunctions:
             # args[0] forces us to introduce additional lists ...
             for i in range(len(x)):
                 x[i] = [x[i]]
-            return list(reversed(map(NuskellFunctions.complement, x)))
-        elif isinstance(x, NuskellDomain):
+            return list(reversed(map(self.complement, x)))
+        elif isinstance(x, Domain):
             log.warning(f'Untested function: {~x}')
             return ~x
         elif x == "(":

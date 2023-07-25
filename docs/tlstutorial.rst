@@ -3,7 +3,6 @@
 The `Nuskell` programming language
 ==================================
 
-
 **Translation schemes** are design algorithms that translate a chemical
 reaction network (CRN) into a domain-level strand displacement (DSD) system.  
 The `Nuskell` programming language is inspired by the functional programming
@@ -11,7 +10,6 @@ language *Haskell* and provides DSD specific classes, functions and macros to
 generalize translations for arbitrary CRNs.  
 This section describes the ``syntax`` of the `Nuskell` programming language in
 order to add new translation schemes to the scheme library.
-A library of existing schemes can be found in the official Nuskell `repository`_.
 
 ------
 Syntax
@@ -315,4 +313,3 @@ Built-in functions written in the `Nuskell` programming language:
 
     function map2(f, y, x) = if len(x) == 0 then [] else [f(y, x[0])] + map2(f, y, tail(x))
 
-.. _repository: https://github.com/DNA-and-Natural-Algorithms-Group/nuskell

@@ -317,8 +317,8 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
     # Parse and process input CRN #
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-    input_crn = "".join(sys.stdin.readlines())
-    fcrn, fsc = parse_crn_string(input_crn)
+    input_crn = "".join(sys.stdin.readlines()).replace("\"", '')
+    fcrn, fsc = parse_crn_string(input_crn.replace('"', ''))
 
     # ~~~~~~~~~~~~~~~~~~ #
     # Do the translation #
